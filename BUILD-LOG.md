@@ -385,3 +385,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Review fanout keeps qualitative gate results in artifacts instead of only in handoff prose.
   - Contract check: Each review artifact validates against `schemas/skeptic-review.schema.json`.
   - Reviewer-eye check: Only dependency-graph review currently emits a substantive challenge. Authority, verification, and synthesis reviews are explicit no-finding artifacts until richer Skeptic logic is implemented.
+
+## 2026-05-01 — Phase B slice: Python call extraction
+
+- Implemented: `ext-python-calls-v1` in the extractor registry with explicit blind spots.
+- Implemented: deterministic Python call-edge extraction for direct calls to local functions and symbols imported with absolute `from ... import ...` statements.
+- Implemented: surface maps and dependency graphs now include factual `call` edges where the extractor can ground them with source citations, while preserving the unknown edge for methods, dynamic dispatch, runtime workflows, relative imports, and dynamic loading.
+- Verification run:
+  - `pytest -q` passed: 19 tests, including assertions for a `tests/test_app.py -> src/app.py::hello` call edge and active status preservation after handoff.
+- Self-critique:
+  - Drift check: This narrows a real dependency unknown without removing the explicit unknown partition.
+  - Contract check: Call edges carry `extractor_id`, `static_relation` evidence, citations, and factual register.
+  - Reviewer-eye check: The extractor is intentionally shallow. It does not resolve method calls, module attribute calls, alias-heavy flows, decorators, monkeypatching, relative imports, or dynamic dispatch.

@@ -215,6 +215,78 @@ def extract_python_import_edges(repo: Path, files: list[dict[str, Any]], sha: st
     return edges
 
 
+def python_imported_symbols(repo: Path, tree: ast.AST) -> dict[str, tuple[str, str]]:
+    symbols: dict[str, tuple[str, str]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom) or node.level != 0 or not node.module:
+            continue
+        target = resolve_python_module(repo, node.module)
+        if not target:
+            continue
+        for alias in node.names:
+            symbols[alias.asname or alias.name] = (target, alias.name)
+    return symbols
+
+
+def python_defined_functions(tree: ast.AST) -> set[str]:
+    return {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+
+def extract_python_call_edges(repo: Path, files: list[dict[str, Any]], sha: str) -> list[dict[str, Any]]:
+    edges: list[dict[str, Any]] = []
+    python_files = [item["path"] for item in files if item["language"] == "python"]
+    for rel in python_files:
+        path = repo / rel
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        imported_symbols = python_imported_symbols(repo, tree)
+        local_functions = python_defined_functions(tree)
+        seen_calls: set[tuple[str, str | None, int]] = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            target_path = None
+            target_symbol = None
+            if isinstance(node.func, ast.Name):
+                if node.func.id in imported_symbols:
+                    target_path, target_symbol = imported_symbols[node.func.id]
+                elif node.func.id in local_functions:
+                    target_path, target_symbol = rel, node.func.id
+            if not target_path:
+                continue
+            lineno = getattr(node, "lineno", 1)
+            dedupe_key = (target_path, target_symbol, lineno)
+            if dedupe_key in seen_calls:
+                continue
+            seen_calls.add(dedupe_key)
+            citation = citation_for(repo, rel, sha, lineno)
+            if not citation:
+                continue
+            edge = {
+                "id": f"edge-call-{len(edges) + 1:03d}",
+                "kind": "call",
+                "from": {"path": rel},
+                "to": {"path": target_path},
+                "citations": [citation],
+                "extractor_id": "ext-python-calls-v1",
+                "claim_register": "factual",
+                "claim_status": "active",
+                "evidence_kinds": ["static_relation"],
+                "corroboration_count": 1,
+                "confidence": "high",
+            }
+            if target_symbol:
+                edge["to"]["symbol"] = target_symbol
+            edges.append(edge)
+    return edges
+
+
 def coverage_block(file_count: int, examined: int = 0) -> dict[str, Any]:
     inspected = file_count
     return {
@@ -607,6 +679,20 @@ def command_init(args: argparse.Namespace) -> int:
                     }
                 ],
             },
+            {
+                "id": "ext-python-calls-v1",
+                "kind": "ast",
+                "version": "1.0",
+                "language_or_format": "python",
+                "deterministic": True,
+                "produces_evidence_kinds": ["static_relation"],
+                "known_blind_spots": [
+                    {
+                        "description": "Resolves only direct calls to local functions or symbols imported with absolute from-import statements; misses methods, dynamic dispatch, decorators, monkeypatching, and aliased module attribute calls.",
+                        "category": "dynamic_dispatch",
+                    }
+                ],
+            },
         ],
     }
     write_json(paths.run_dir / "intake.json", intake)
@@ -765,6 +851,7 @@ def build_surface_map(
         )
     rel_file, _ = first_citable_file(repo, codebase_map, sha)
     edges = extract_python_import_edges(repo, codebase_map["files"], sha)
+    edges.extend(extract_python_call_edges(repo, codebase_map["files"], sha))
     edges.append(
         {
             "id": "edge-unknown-001",
@@ -776,7 +863,7 @@ def build_surface_map(
             "evidence_kinds": ["static_structure"],
             "corroboration_count": 1,
             "confidence": "low",
-            "rationale": "Phase A extracts direct Python imports only; call edges, runtime workflows, relative imports, and dynamic loading remain unknown.",
+            "rationale": "Phase A extracts direct Python imports and simple direct function calls only; runtime workflows, relative imports, methods, dynamic dispatch, and dynamic loading remain unknown.",
         }
     )
     tests = []
@@ -818,7 +905,7 @@ def build_surface_map(
         },
         "unknowns": {
             "edge_unknowns_present": True,
-            "summary": "Phase A preserves unknown dependency edges for call edges, runtime workflows, relative imports, and dynamic loading not covered by the Python import extractor.",
+            "summary": "Phase A preserves unknown dependency edges for runtime workflows, methods, relative imports, dynamic dispatch, and dynamic loading not covered by the Python extractors.",
         },
     }
     if refreshed_from:

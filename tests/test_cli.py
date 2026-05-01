@@ -61,12 +61,18 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert main(["validate", str(goal_binding), "--repo", str(repo)]) == 0
     initial_surface = json.loads(surface_map.read_text(encoding="utf-8"))
     import_edges = [edge for edge in initial_surface["edges"] if edge["kind"] == "import"]
+    call_edges = [edge for edge in initial_surface["edges"] if edge["kind"] == "call"]
     assert import_edges
+    assert call_edges
     assert import_edges[0]["from"]["path"] == expected["surface_import_edge"]["from_path"]
     assert import_edges[0]["to"]["path"] == expected["surface_import_edge"]["to_path"]
     assert import_edges[0]["extractor_id"] == expected["surface_import_edge"]["extractor_id"]
     assert import_edges[0]["claim_register"] == expected["surface_import_edge"]["claim_register"]
     assert import_edges[0]["evidence_kinds"] == expected["surface_import_edge"]["evidence_kinds"]
+    assert call_edges[0]["from"]["path"] == "tests/test_app.py"
+    assert call_edges[0]["to"]["path"] == "src/app.py"
+    assert call_edges[0]["to"]["symbol"] == "hello"
+    assert call_edges[0]["extractor_id"] == "ext-python-calls-v1"
     binding = json.loads(goal_binding.read_text(encoding="utf-8"))
     assert binding["artifact_type"] == "goal_binding"
     assert binding["goal"] == "understand this repo"
@@ -100,8 +106,10 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert any(input_item["path"].endswith("goal-binding.json") for input_item in frontmatter["inputs"])
     reviewed_surface = json.loads(surface_map.read_text(encoding="utf-8"))
     reviewed_import_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "import"]
+    reviewed_call_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "call"]
     reviewed_unknown_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "unknown"]
     assert reviewed_import_edges[0]["claim_status"] == expected["surface_import_edge"]["claim_status"]
+    assert reviewed_call_edges[0]["claim_status"] == "active"
     assert reviewed_unknown_edges[0]["id"] == expected["surface_unknown_edge"]["id"]
     assert reviewed_unknown_edges[0]["claim_status"] == expected["surface_unknown_edge"]["claim_status_after_handoff"]
     assert reviewed_unknown_edges[0]["challenges"][0]["challenges_claim_id"] == "edge-unknown-001"
@@ -277,7 +285,10 @@ def test_corpus_status_writes_manifest(tmp_path: Path) -> None:
     assert status["summary"]["fresh"] >= 1
     assert any(item["artifact_type"] == "goal_binding" for item in status["artifacts"])
 
-    (repo / "tests" / "test_app.py").write_text("from src.app import hello\n\n# changed for corpus status\n", encoding="utf-8")
+    (repo / "tests" / "test_app.py").write_text(
+        "from src.app import hello\n\n# changed for corpus status\n\ndef test_hello():\n    assert hello() == 'hello'\n",
+        encoding="utf-8",
+    )
     git(repo, "add", "tests/test_app.py")
     git(repo, "commit", "-m", "move head for corpus status")
     assert main(["corpus-status", "--repo", str(repo), "--output", str(manifest)]) == 0
