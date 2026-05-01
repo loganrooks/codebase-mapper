@@ -265,6 +265,16 @@ def resolve_citation(repo: Path, citation: str) -> tuple[bool, str]:
     return True, "ok"
 
 
+def citation_for(repo: Path, rel: str, sha: str, line: int = 1) -> str | None:
+    path = repo / rel
+    if not path.exists() or not path.is_file() or not path_exists_at_sha(repo, rel, sha):
+        return None
+    count = line_count(path)
+    if count < line:
+        return None
+    return f"{rel}:{line}@{sha}"
+
+
 def path_exists_at_sha(repo: Path, rel: str, sha: str) -> bool:
     try:
         git(repo, "cat-file", "-e", f"{sha}:./{rel}")
@@ -454,6 +464,145 @@ def command_map(args: argparse.Namespace) -> int:
     return 0
 
 
+def authority_kind_for(path: str) -> tuple[str, str]:
+    if path.startswith(".github/workflows/") or path.endswith(".gitlab-ci.yml"):
+        return "ci_gate", "config"
+    if path.startswith("tests/") or "/test_" in path or path.endswith("_test.py"):
+        return "test_suite", "test"
+    if path.endswith((".toml", ".yaml", ".yml", ".json", ".ini", ".cfg")):
+        return "config", "config"
+    if path.endswith((".md", ".markdown")):
+        return "doc_contract", "doc"
+    return "other", "code"
+
+
+def build_surface_map(repo: Path, paths: RunPaths) -> dict[str, Any]:
+    sha = source_sha(repo)
+    codebase_path = paths.run_dir / "codebase-map.json"
+    codebase_map = read_codebase_map(paths.run_dir)
+    authorities: list[dict[str, Any]] = []
+    candidate_paths = []
+    for build in codebase_map["build_systems"]:
+        candidate_paths.extend(build["config_files"])
+    candidate_paths.extend(codebase_map["ci_files"])
+    candidate_paths.extend(test["path"] for test in codebase_map["tests"])
+    candidate_paths.extend(path for path in codebase_map["config_candidates"] if path not in candidate_paths)
+    seen: set[str] = set()
+    for rel in candidate_paths:
+        if rel in seen:
+            continue
+        seen.add(rel)
+        citation = citation_for(repo, rel, sha)
+        if not citation:
+            continue
+        kind, source = authority_kind_for(rel)
+        claim_register = "factual" if kind in {"config", "ci_gate", "test_suite"} else "interpretive"
+        authorities.append(
+            {
+                "id": f"auth-{len(authorities) + 1:03d}",
+                "kind": kind,
+                "path": rel,
+                "citations": [citation],
+                "authority_source": source,
+                "claim_register": claim_register,
+                "claim_status": "active",
+                "evidence_kinds": ["static_structure"],
+                "corroboration_count": 1,
+                "rationale": f"Phase A identifies {rel} as a {kind} surface from deterministic file and manifest discovery.",
+                "confidence": "medium" if claim_register == "factual" else "low",
+            }
+        )
+    if not authorities:
+        rel, _ = first_citable_file(repo, codebase_map, sha)
+        citation = citation_for(repo, rel, sha)
+        authorities.append(
+            {
+                "id": "auth-001",
+                "kind": "other",
+                "path": rel,
+                "citations": [citation],
+                "authority_source": "code",
+                "claim_register": "interpretive",
+                "claim_status": "active",
+                "evidence_kinds": ["static_structure"],
+                "corroboration_count": 1,
+                "rationale": f"Phase A fallback treats {rel} as the first citable structural surface; this requires qualitative review.",
+                "confidence": "low",
+            }
+        )
+    rel_file, _ = first_citable_file(repo, codebase_map, sha)
+    edges = [
+        {
+            "id": "edge-unknown-001",
+            "kind": "unknown",
+            "from": {"path": authorities[0]["path"]},
+            "to": {"path": rel_file},
+            "claim_register": "inferential",
+            "claim_status": "active",
+            "evidence_kinds": ["static_structure"],
+            "corroboration_count": 1,
+            "confidence": "low",
+            "rationale": "Phase A does not yet extract import/call/runtime edges, so dependency closure remains unknown.",
+        }
+    ]
+    tests = []
+    for test in codebase_map["tests"]:
+        citation = citation_for(repo, test["path"], sha)
+        if citation:
+            tests.append({"path": test["path"], "framework": test["framework_hint"], "exercises": []})
+    ci_gates = []
+    for ci in codebase_map["ci_files"]:
+        citation = citation_for(repo, ci, sha)
+        if citation:
+            ci_gates.append({"name": Path(ci).stem, "path": ci, "kind": "other", "citations": [citation]})
+    rels = [item["path"] for item in codebase_map["files"]]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "surface_map",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "surface-mapper@0.1",
+        "source_sha": sha,
+        "inputs": [{"path": str(codebase_path.relative_to(repo)), "sha256": sha256_file(codebase_path)}],
+        "status": "draft",
+        "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=len(authorities)),
+        "staleness": {
+            "stale_if_input_hash_changes": True,
+            "depends_on_paths": sorted({auth["path"] for auth in authorities}),
+            "scope_signature": scope_signature(rels),
+        },
+        "authorities": authorities,
+        "edges": edges,
+        "verification": {
+            "tests": tests,
+            "ci_gates": ci_gates,
+            "coverage_summary": {
+                "files_with_tests": len(tests),
+                "files_without_tests": max(codebase_map["coverage"]["result"]["files_in_scope"] - len(tests), 0),
+                "coverage_unknown": len(edges),
+            },
+        },
+        "unknowns": {
+            "edge_unknowns_present": True,
+            "summary": "Phase A intentionally preserves unknown dependency edges until import/call/runtime extraction is implemented.",
+        },
+    }
+
+
+def command_surface(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    surface = build_surface_map(repo, paths)
+    errors = validate_data(repo, surface, "surface_map")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    write_json(paths.run_dir / "surface-map.json", surface)
+    print(paths.run_dir / "surface-map.json")
+    return 0
+
+
 def command_validate(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.artifact)
@@ -508,11 +657,25 @@ def command_handoff(args: argparse.Namespace) -> int:
     intake = read_intake(paths.run_dir)
     codebase_map = read_codebase_map(paths.run_dir)
     sha = source_sha(repo)
-    rel_file, _ = first_citable_file(repo, codebase_map, sha)
-    citation = f"{rel_file}:1@{sha}"
+    surface_path = paths.run_dir / "surface-map.json"
+    if not surface_path.exists():
+        surface = build_surface_map(repo, paths)
+        errors = validate_data(repo, surface, "surface_map")
+        if errors:
+            for error in errors:
+                print(error, file=sys.stderr)
+            return 1
+        write_json(surface_path, surface)
+    surface = read_json(surface_path)
+    primary_authority = surface["authorities"][0]
+    rel_file = primary_authority["path"]
+    citation = primary_authority["citations"][0]
     card_dir = paths.run_dir / "findings"
     card_dir.mkdir(parents=True, exist_ok=True)
     card_path = card_dir / "int-0001.md"
+    skeptic_dir = paths.run_dir / "skeptic-review"
+    skeptic_dir.mkdir(parents=True, exist_ok=True)
+    skeptic_path = skeptic_dir / "surface-map.md"
     ledger_path = paths.run_dir / "evidence-ledger.jsonl"
     uncertainty_path = paths.run_dir / "uncertainty-register.jsonl"
     now = utc_now()
@@ -565,6 +728,64 @@ def command_handoff(args: argparse.Namespace) -> int:
             print(error, file=sys.stderr)
         return 1
     append_jsonl(ledger_path, uncertainty_entry)
+    skeptic_entry = {
+        "schema_version": SCHEMA_VERSION,
+        "entry_id": next_ledger_id(ledger_path),
+        "ts": now,
+        "entry_kind": "skeptic_challenge",
+        "agent": "skeptic",
+        "skill_version": "0.1",
+        "run_id": paths.run_id,
+        "source_sha": sha,
+        "artifact_path": str(surface_path.relative_to(repo)),
+        "claim_id": "edge-unknown-001",
+        "challenge": "Surface map is schema-valid but weak: Phase A has no import/call/runtime extraction, so dependency closure cannot support high-confidence planning.",
+    }
+    errors = validate_ledger_entry(repo, skeptic_entry)
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    append_jsonl(ledger_path, skeptic_entry)
+    surface["edges"][0]["claim_status"] = "challenged"
+    surface["edges"][0]["challenges"] = [
+        {
+            "challenge_id": "chl-00001",
+            "challenges_claim_id": "edge-unknown-001",
+            "raised_by": "skeptic@0.1",
+            "raised_at": now,
+            "competing_reading": "The draft surface map should be treated as structurally incomplete until import, call, or runtime workflow extractors replace the unknown dependency edge with grounded relations.",
+            "competing_evidence": [citation],
+            "interpretive_axis": "completeness",
+            "relation_to_original": "scope_dispute",
+            "status": "open",
+            "rationale": "The cited authority exists, but the dependency closure around it has not been extracted.",
+        }
+    ]
+    errors = validate_data(repo, surface, "surface_map")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    write_json(surface_path, surface)
+    skeptic_path.write_text(
+        "---\n"
+        + yaml.safe_dump(
+            {
+                "schema_version": SCHEMA_VERSION,
+                "artifact_type": "skeptic_review",
+                "run_id": paths.run_id,
+                "produced_at": now,
+                "produced_by": "skeptic@0.1",
+                "source_sha": sha,
+                "artifact_reviewed": str(surface_path.relative_to(repo)),
+                "findings_logged": 1,
+            },
+            sort_keys=False,
+        )
+        + "---\n# Skeptic Review\n\nFinding: `edge-unknown-001` keeps dependency closure unknown because Phase A does not extract import, call, or runtime workflow edges. This prevents high-confidence planning from the draft surface map alone.\n",
+        encoding="utf-8",
+    )
     card_frontmatter = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "findings_card",
@@ -572,7 +793,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "produced_at": now,
         "produced_by": "intervention-planner@0.1",
         "source_sha": sha,
-        "inputs": [{"path": str((paths.run_dir / "codebase-map.json").relative_to(repo)), "sha256": sha256_file(paths.run_dir / "codebase-map.json")}],
+        "inputs": [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}],
         "status": "draft",
         "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1),
         "staleness": {"stale_if_input_hash_changes": True, "depends_on_paths": [rel_file]},
@@ -583,12 +804,12 @@ def command_handoff(args: argparse.Namespace) -> int:
         "surface_type": "explicit",
         "surface_kind": "other",
         "surface_classification_register": "interpretive",
-        "primary_files": [{"path": rel_file, "role": "First citable file identified by the deterministic codebase map.", "citations": [citation]}],
-        "related_dependencies": {"certain": [citation], "suspected": [], "advisory": [], "unknown": []},
+        "primary_files": [{"path": rel_file, "role": f"Draft surface authority {primary_authority['id']} identified by Phase A surface mapping.", "citations": [citation]}],
+        "related_dependencies": {"certain": [citation], "suspected": [], "advisory": [], "unknown": [f".research/{paths.run_id}/surface-map.json#/edges/0"]},
         "affected_workflows": [],
         "expected_leverage": {
-            "rating": "low",
-            "rationale": "Phase A can identify structural entry points, but leverage remains low until the Surface Mapper reads the code and assigns interpretive roles.",
+            "rating": "medium" if primary_authority["kind"] in {"config", "test_suite", "ci_gate"} else "low",
+            "rationale": "Phase A can identify structural surfaces, but leverage remains bounded by the Skeptic challenge on unknown dependency closure.",
             "claim_register": "interpretive",
             "claim_status": "active",
             "evidence_kinds": ["static_structure"],
@@ -598,7 +819,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             "certain_count": 1,
             "suspected_count": 0,
             "advisory_count": 0,
-            "unknown_count": 0,
+            "unknown_count": 1,
             "unknown_partition_present": True,
         },
         "verification_strategy": {
@@ -609,10 +830,17 @@ def command_handoff(args: argparse.Namespace) -> int:
         },
         "risks": [{"description": "This Phase A generated card is structural and may not identify the highest-leverage surface.", "severity": "medium", "mitigation": "Run the runtime Surface Mapper and Skeptic before using the card for implementation decisions."}],
         "confidence": "low",
-        "confidence_rationale": "Confidence is low because Phase A has only deterministic file inventory and no qualitative surface-map reading yet.",
+        "confidence_rationale": "Confidence is low because the Skeptic logged an unresolved challenge against the draft surface map's unknown dependency closure.",
         "open_questions": [{"question": "Which code surface actually matters most for the user's goal?", "register_id": "unc-00001"}],
-        "dependent_challenges": [],
-        "recommended_next_slice": "Run the Surface Mapper skill against codebase-map.json and replace this structural card with an evidence-bound findings card.",
+        "dependent_challenges": [
+            {
+                "claim_artifact": f".research/{paths.run_id}/surface-map.json",
+                "claim_id": "edge-unknown-001",
+                "challenge_ids": ["chl-00001"],
+                "impact": "Unknown dependency closure means this card can guide the next reading slice but should not be used as a high-confidence intervention plan.",
+            }
+        ],
+        "recommended_next_slice": "Read the cited authority file and implement import/call extraction for its language before promoting this card beyond draft.",
         "claim_status": "active",
     }
     card_errors = validate_data(repo, card_frontmatter, "findings_card")
@@ -625,7 +853,9 @@ def command_handoff(args: argparse.Namespace) -> int:
     citation_ok, citation_reason = resolve_citation(repo, citation)
     artifacts = [
         {"path": str((paths.run_dir / "codebase-map.json").relative_to(repo)), "artifact_type": "codebase_map", "status": "draft", "summary": "Deterministic structural file inventory."},
+        {"path": str(surface_path.relative_to(repo)), "artifact_type": "surface_map", "status": "draft", "summary": "Draft deterministic surface map with explicit unknown dependency edge."},
         {"path": str(card_path.relative_to(repo)), "artifact_type": "findings_card", "status": "draft", "summary": "Phase A generated structural findings card."},
+        {"path": str(skeptic_path.relative_to(repo)), "artifact_type": "skeptic_review", "status": "draft", "summary": "Lightweight Skeptic finding against unknown dependency closure."},
     ]
     handoff = {
         "schema_version": SCHEMA_VERSION,
@@ -635,8 +865,9 @@ def command_handoff(args: argparse.Namespace) -> int:
         "produced_by": "cbm-handoff@0.1",
         "source_sha": sha,
         "inputs": [
-            {"path": str((paths.run_dir / "codebase-map.json").relative_to(repo)), "sha256": sha256_file(paths.run_dir / "codebase-map.json")},
+            {"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)},
             {"path": str(card_path.relative_to(repo)), "sha256": sha256_file(card_path)},
+            {"path": str(skeptic_path.relative_to(repo)), "sha256": sha256_file(skeptic_path)},
         ],
         "status": "draft",
         "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1),
@@ -645,23 +876,23 @@ def command_handoff(args: argparse.Namespace) -> int:
         "goal_class": intake["goal_class"],
         "research_only": intake["research_only"],
         "gate_summary": {
-            "schema_validation": {"passed": 2, "failed_artifacts": []},
+            "schema_validation": {"passed": 3, "failed_artifacts": []},
             "citation_resolution": {"resolved": 1 if citation_ok else 0, "unresolved_count": 0 if citation_ok else 1, "unresolved_examples": [] if citation_ok else [f"{citation}: {citation_reason}"]},
             "ledger_consistency": {"append_only_verified": True, "entry_count": ledger_count(ledger_path)},
             "staleness_check": {"fresh": 2, "stale_artifacts": []},
-            "skeptic_review": {"artifacts_reviewed": 0, "challenges_logged": 0, "challenges_resolved": 0},
+            "skeptic_review": {"artifacts_reviewed": 1, "challenges_logged": 1, "challenges_resolved": 0},
         },
         "contestation_summary": {
             "claims_by_register": {"factual": 1, "inferential": 0, "interpretive": 1},
-            "claims_by_status": {"active": 2, "challenged": 0, "contested": 0, "contradicted": 0, "superseded": 0, "retired": 0},
-            "open_challenges": 0,
+            "claims_by_status": {"active": 2, "challenged": 1, "contested": 0, "contradicted": 0, "superseded": 0, "retired": 0},
+            "open_challenges": 1,
             "contested_claims": [],
             "contradicted_claims": [],
         },
         "artifacts": artifacts,
         "open_questions_count": 1,
-        "coverage_caveats": ["Phase A has not run qualitative Surface Mapper or Skeptic review."],
-        "recommended_next_action": "Run runtime Surface Mapper and Skeptic to replace structural draft artifacts with reviewed findings.",
+        "coverage_caveats": ["Phase A surface mapping is deterministic and has not performed language-level import/call extraction."],
+        "recommended_next_action": "Implement language-level import/call extraction so the unknown dependency edge can be replaced with grounded relations.",
     }
     errors = validate_data(repo, handoff, "handoff")
     if errors:
@@ -691,6 +922,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_map.add_argument("--repo", default=".")
     p_map.add_argument("--run-id")
     p_map.set_defaults(func=command_map)
+    p_surface = sub.add_parser("surface")
+    p_surface.add_argument("--repo", default=".")
+    p_surface.add_argument("--run-id")
+    p_surface.set_defaults(func=command_surface)
     p_validate = sub.add_parser("validate")
     p_validate.add_argument("artifact")
     p_validate.add_argument("--repo", default=".")
@@ -717,6 +952,10 @@ def init_main() -> int:
 
 def map_main() -> int:
     return main(["map", *sys.argv[1:]])
+
+
+def surface_main() -> int:
+    return main(["surface", *sys.argv[1:]])
 
 
 def validate_main() -> int:

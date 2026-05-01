@@ -46,26 +46,36 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     run_id = "run-test"
     assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
     assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
 
     run_dir = repo / ".research" / run_id
     codebase_map = run_dir / "codebase-map.json"
+    surface_map = run_dir / "surface-map.json"
     assert codebase_map.exists()
+    assert surface_map.exists()
     assert main(["validate", str(codebase_map), "--repo", str(repo)]) == 0
+    assert main(["validate", str(surface_map), "--repo", str(repo)]) == 0
 
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
     card = run_dir / "findings" / "int-0001.md"
     handoff = run_dir / "handoff.md"
+    skeptic_review = run_dir / "skeptic-review" / "surface-map.md"
     assert card.exists()
     assert handoff.exists()
+    assert skeptic_review.exists()
     assert main(["validate", str(card), "--repo", str(repo)]) == 0
+    assert main(["validate", str(surface_map), "--repo", str(repo)]) == 0
     assert main(["verify-citations", str(card), "--repo", str(repo)]) == 0
     assert main(["validate", str(handoff), "--repo", str(repo)]) == 0
 
     frontmatter = yaml.safe_load(handoff.read_text(encoding="utf-8").split("---", 2)[1])
     assert frontmatter["gate_summary"]["citation_resolution"]["unresolved_count"] == 0
     assert frontmatter["gate_summary"]["ledger_consistency"]["append_only_verified"] is True
-    assert frontmatter["gate_summary"]["ledger_consistency"]["entry_count"] >= 2
+    assert frontmatter["gate_summary"]["ledger_consistency"]["entry_count"] >= 3
+    assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 1
     assert frontmatter["contestation_summary"]["claims_by_register"]["interpretive"] >= 1
+    reviewed_surface = json.loads(surface_map.read_text(encoding="utf-8"))
+    assert reviewed_surface["edges"][0]["claim_status"] == "challenged"
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
