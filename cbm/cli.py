@@ -2064,11 +2064,7 @@ def command_verify_citations(args: argparse.Namespace) -> int:
     return 0 if failed == 0 else 1
 
 
-def command_gate_artifact(args: argparse.Namespace) -> int:
-    repo = Path(args.repo).resolve()
-    path = Path(args.artifact)
-    if not path.is_absolute():
-        path = repo / path
+def artifact_gate_failures(repo: Path, path: Path) -> list[str]:
     failures: list[str] = []
     try:
         data, body = load_artifact_frontmatter(path)
@@ -2097,6 +2093,15 @@ def command_gate_artifact(args: argparse.Namespace) -> int:
             failures.append(f"coverage: {item['field']}: {item['reason']}")
     except Exception as exc:
         failures.append(str(exc))
+    return failures
+
+
+def command_gate_artifact(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    path = Path(args.artifact)
+    if not path.is_absolute():
+        path = repo / path
+    failures = artifact_gate_failures(repo, path)
     if failures:
         for failure in failures:
             print(f"gate-fail {failure}")
@@ -3766,6 +3771,12 @@ def command_hook_stop(args: argparse.Namespace) -> int:
         surface_path = run_dir / "surface-map.json"
         if surface_path.exists():
             errors.extend(check_claim_evidence(read_json(surface_path)))
+        for artifact in data.get("artifacts", []):
+            if artifact.get("artifact_type") not in {"findings_card", "intervention_card"}:
+                continue
+            card_path = repo / artifact["path"]
+            for failure in artifact_gate_failures(repo, card_path):
+                errors.append(f"{artifact['path']}: {failure}")
     except Exception as exc:
         errors = [str(exc)]
     if errors:

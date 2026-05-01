@@ -844,3 +844,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Ledger consistency now exposes why the boolean would fail instead of hiding missing citation coverage behind `append_only_verified: false`.
   - Contract check: This is an additive summary field on an object schema that already permits extension.
   - Reviewer-eye check: The handoff still fails after writing when missing ledger citations exist; a separate failed-run artifact would make that failure easier to review.
+
+## 2026-05-01 — Hook slice: card semantic gate
+
+- Implemented: `cbm hook-stop` now re-runs the reusable artifact gate for handoff-listed findings/intervention cards, not only handoff schema, input hashes, and surface evidence.
+- Implemented: `artifact_gate_failures` centralizes the gate logic used by `cbm gate-artifact` and the stop hook.
+- Verification run:
+  - `pytest -q` passed: 37 tests, including a tampered card with refreshed input hash that is still blocked by the stop hook due to a card confidence violation.
+- Self-critique:
+  - Drift check: Final platform gating now checks card semantics even when simple input-hash freshness is satisfied.
+  - Contract check: The hook reuses existing gate logic and does not introduce a new platform contract.
+  - Reviewer-eye check: Hook-stop still validates only handoff-listed card artifacts; broader per-artifact hook orchestration remains future work.

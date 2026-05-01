@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yaml
 
-from cbm.cli import extract_citations, goal_pack, load_goal_packs, load_project_packs, main
+from cbm.cli import extract_citations, goal_pack, load_goal_packs, load_project_packs, main, sha256_file
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -738,6 +738,38 @@ def test_stop_hook_rejects_stale_handoff_inputs(tmp_path: Path, monkeypatch, cap
     output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert output["continue"] is False
     assert "input hash changed" in output["systemMessage"]
+
+
+def test_stop_hook_rejects_card_gate_failure_even_with_fresh_hash(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+    run_id = "run-hook-card-gate"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+
+    run_dir = repo / ".research" / run_id
+    card = run_dir / "findings" / "int-0001.md"
+    text = card.read_text(encoding="utf-8")
+    _, frontmatter, body = text.split("---", 2)
+    card_data = yaml.safe_load(frontmatter)
+    card_data["confidence"] = "high"
+    card.write_text("---\n" + yaml.safe_dump(card_data, sort_keys=False) + "---" + body, encoding="utf-8")
+
+    handoff = run_dir / "handoff.md"
+    handoff_text = handoff.read_text(encoding="utf-8")
+    _, handoff_frontmatter, handoff_body = handoff_text.split("---", 2)
+    handoff_data = yaml.safe_load(handoff_frontmatter)
+    for input_item in handoff_data["inputs"]:
+        if input_item["path"].endswith("findings/int-0001.md"):
+            input_item["sha256"] = sha256_file(card)
+    handoff.write_text("---\n" + yaml.safe_dump(handoff_data, sort_keys=False) + "---" + handoff_body, encoding="utf-8")
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": str(repo)})))
+    assert main(["hook-stop", "--repo", str(repo)]) == 0
+    output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert output["continue"] is False
+    assert "confidence" in output["systemMessage"]
 
 
 def test_ledger_integrity_detects_mutated_existing_line(tmp_path: Path) -> None:
