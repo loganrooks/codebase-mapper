@@ -2090,8 +2090,18 @@ def command_extractor_registry(args: argparse.Namespace) -> int:
             seen_extractor_ids[extractor_id] = index
         if not extractor.get("known_blind_spots"):
             errors.append(f"extractors/{index}/{extractor_id}: known_blind_spots must be non-empty")
+    seen_annotation_keys: dict[tuple[str, str], int] = {}
     for index, annotation in enumerate(data.get("project_pack_annotations", [])):
         project_type = annotation.get("project_type", "<unknown>")
+        pack_id = annotation.get("pack_id", "<unknown>")
+        annotation_key = (project_type, pack_id)
+        if annotation_key in seen_annotation_keys:
+            errors.append(
+                f"project_pack_annotations/{index}/{project_type}/{pack_id}: "
+                f"duplicate annotation first declared at project_pack_annotations/{seen_annotation_keys[annotation_key]}"
+            )
+        else:
+            seen_annotation_keys[annotation_key] = index
         if not annotation.get("extractor_annotations"):
             errors.append(f"project_pack_annotations/{index}/{project_type}: extractor_annotations must be non-empty")
         if not annotation.get("known_blind_spots"):

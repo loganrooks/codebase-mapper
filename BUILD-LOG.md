@@ -1123,3 +1123,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Registry identity is now stable enough for extractor-backed claim validation to remain auditable.
   - Contract check: This is command-level validation over the existing schema shape; no schema edit was needed.
   - Reviewer-eye check: Duplicate project-pack annotations are still permitted; only extractor id identity is hardened in this slice.
+
+## 2026-05-01 — Registry slice: duplicate pack annotations
+
+- Implemented: `cbm extractor-registry validate` now rejects duplicate project-pack annotation entries for the same `(project_type, pack_id)` pair.
+- Verification run:
+  - Focused regression passed: `pytest -q tests/test_cli.py::test_extractor_registry_validate_command_enforces_blind_spots`.
+- Self-critique:
+  - Drift check: Project-pack annotations now stay one-to-one with the pack identity they document.
+  - Contract check: This uses existing `project_type` and `pack_id` fields and does not require a schema edit.
+  - Reviewer-eye check: The command still validates annotation presence and identity only; it does not judge annotation quality.
