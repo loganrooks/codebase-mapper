@@ -834,3 +834,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Handoff citation reporting now reflects the whole artifact bundle, matching the vision's all-promoted-artifacts citation discipline.
   - Contract check: The summary stays within the existing `citation_resolution` schema.
   - Reviewer-eye check: An initial test run caught a stale return path from the old single-citation check; fixed before commit.
+
+## 2026-05-01 — Handoff slice: ledger citation coverage details
+
+- Implemented: `cbm-handoff` now reports `missing_citation_count` and `missing_citation_examples` under `gate_summary.ledger_consistency` for bundle citations absent from the evidence ledger.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including a clean-run assertion that no bundle citations are missing from the ledger.
+- Self-critique:
+  - Drift check: Ledger consistency now exposes why the boolean would fail instead of hiding missing citation coverage behind `append_only_verified: false`.
+  - Contract check: This is an additive summary field on an object schema that already permits extension.
+  - Reviewer-eye check: The handoff still fails after writing when missing ledger citations exist; a separate failed-run artifact would make that failure easier to review.

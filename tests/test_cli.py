@@ -125,6 +125,8 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert frontmatter["gate_summary"]["citation_resolution"]["resolved"] == len(bundle_citations)
     assert frontmatter["gate_summary"]["ledger_consistency"]["append_only_verified"] is True
     assert frontmatter["gate_summary"]["ledger_consistency"]["entry_count"] >= 3
+    assert frontmatter["gate_summary"]["ledger_consistency"]["missing_citation_count"] == 0
+    assert frontmatter["gate_summary"]["ledger_consistency"]["missing_citation_examples"] == []
     assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 1
     assert frontmatter["contestation_summary"]["claims_by_register"]["interpretive"] >= 1
     assert any("were directly examined" in caveat and "remain unread" in caveat for caveat in frontmatter["coverage_caveats"])

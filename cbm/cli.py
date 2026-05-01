@@ -3614,7 +3614,12 @@ def command_handoff(args: argparse.Namespace) -> int:
                 "unresolved_count": citation_resolution["unresolved_count"],
                 "unresolved_examples": citation_resolution["unresolved_examples"],
             },
-            "ledger_consistency": {"append_only_verified": ledger_append_only_ok and not missing_ledger_citations, "entry_count": ledger_count(ledger_path)},
+            "ledger_consistency": {
+                "append_only_verified": ledger_append_only_ok and not missing_ledger_citations,
+                "entry_count": ledger_count(ledger_path),
+                "missing_citation_count": len(missing_ledger_citations),
+                "missing_citation_examples": missing_ledger_citations[:5],
+            },
             "staleness_check": input_staleness(repo, handoff_inputs),
             "skeptic_review": {"artifacts_reviewed": skeptic_artifacts_reviewed, "challenges_logged": challenge_count, "challenges_resolved": 0},
         },
