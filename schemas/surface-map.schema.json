@@ -1,0 +1,408 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/surface-map.schema.json",
+  "title": "Surface Map",
+  "description": "MVP combined map. Every claim carries a register (factual/inferential/interpretive), evidence_kinds, and a status. Challenges and contradictions are first-class.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "inputs",
+    "status",
+    "coverage",
+    "staleness",
+    "authorities",
+    "edges",
+    "verification",
+    "unknowns"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.1" },
+    "artifact_type": { "const": "surface_map" },
+    "run_id": { "type": "string" },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": { "type": "string", "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+    "coverage": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/coverage" },
+    "staleness": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/staleness" },
+
+    "authorities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "path",
+          "citations",
+          "authority_source",
+          "claim_register",
+          "claim_status",
+          "evidence_kinds",
+          "corroboration_count",
+          "rationale"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "description": "Stable id within this artifact, e.g. 'auth-001'." },
+          "kind": {
+            "enum": ["routing", "config", "schema", "policy", "registry", "build", "ci_gate", "test_suite", "doc_contract", "other"]
+          },
+          "path": { "type": "string" },
+          "citations": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/citation" }
+          },
+          "authority_source": {
+            "enum": ["code", "config", "schema", "test", "doc"]
+          },
+          "claim_register": { "$ref": "#/$defs/claim_register" },
+          "claim_status": { "$ref": "#/$defs/claim_status" },
+          "evidence_kinds": { "$ref": "#/$defs/evidence_kinds" },
+          "corroboration_count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of distinct evidence sources supporting this claim. >=2 with diverse evidence_kinds is the minimum for cross-validation."
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Why this is authoritative. References citations. For interpretive claims, must articulate the reading and acknowledge alternative readings."
+          },
+          "confidence": { "$ref": "#/$defs/confidence" },
+          "challenges": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/challenge" }
+          },
+          "contradicted_by": { "$ref": "#/$defs/contradicted_by" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "claim_status": { "const": "contradicted" } } },
+            "then": { "required": ["contradicted_by"] }
+          },
+          {
+            "if": { "properties": { "claim_status": { "enum": ["challenged", "contested"] } } },
+            "then": {
+              "required": ["challenges"],
+              "properties": { "challenges": { "minItems": 1 } }
+            }
+          }
+        ]
+      }
+    },
+
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "from",
+          "to",
+          "claim_register",
+          "claim_status",
+          "evidence_kinds",
+          "corroboration_count",
+          "confidence"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "kind": {
+            "enum": [
+              "import",
+              "call",
+              "public_api",
+              "config_contract",
+              "schema_contract",
+              "generated_from",
+              "test_exercises",
+              "doc_contract",
+              "runtime_workflow",
+              "implicit_social_contract",
+              "unknown"
+            ]
+          },
+          "from": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+              "path": { "type": "string" },
+              "symbol": { "type": "string" }
+            }
+          },
+          "to": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+              "path": { "type": "string" },
+              "symbol": { "type": "string" }
+            }
+          },
+          "citations": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/citation" }
+          },
+          "extractor_id": {
+            "type": "string",
+            "description": "Reference into the extractor registry. Required for kinds extracted by tools (import, call, public_api, generated_from). The Skeptic looks up the extractor's known blind spots."
+          },
+          "claim_register": { "$ref": "#/$defs/claim_register" },
+          "claim_status": { "$ref": "#/$defs/claim_status" },
+          "evidence_kinds": { "$ref": "#/$defs/evidence_kinds" },
+          "corroboration_count": { "type": "integer", "minimum": 1 },
+          "confidence": { "$ref": "#/$defs/confidence" },
+          "rationale": { "type": "string" },
+          "challenges": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/challenge" }
+          },
+          "contradicted_by": { "$ref": "#/$defs/contradicted_by" }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "kind": { "enum": ["import", "call", "public_api", "generated_from"] } }
+            },
+            "then": { "required": ["extractor_id"] }
+          },
+          {
+            "if": {
+              "anyOf": [
+                { "properties": { "confidence": { "const": "medium" } } },
+                { "properties": { "confidence": { "const": "low" } } },
+                { "properties": { "kind": { "enum": ["unknown", "runtime_workflow", "implicit_social_contract", "doc_contract"] } } }
+              ]
+            },
+            "then": { "required": ["rationale"] }
+          },
+          {
+            "if": { "not": { "properties": { "kind": { "const": "unknown" } } } },
+            "then": { "required": ["citations"] }
+          },
+          {
+            "if": { "properties": { "claim_register": { "const": "interpretive" } } },
+            "then": { "required": ["rationale"] }
+          },
+          {
+            "if": { "properties": { "claim_status": { "const": "contradicted" } } },
+            "then": { "required": ["contradicted_by"] }
+          },
+          {
+            "if": { "properties": { "claim_status": { "enum": ["challenged", "contested"] } } },
+            "then": {
+              "required": ["challenges"],
+              "properties": { "challenges": { "minItems": 1 } }
+            }
+          }
+        ]
+      }
+    },
+
+    "verification": {
+      "type": "object",
+      "required": ["tests", "ci_gates", "coverage_summary"],
+      "additionalProperties": false,
+      "properties": {
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "framework", "exercises"],
+            "properties": {
+              "path": { "type": "string" },
+              "framework": { "type": "string" },
+              "exercises": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["target_path", "citations", "claim_register", "evidence_kinds"],
+                  "properties": {
+                    "target_path": { "type": "string" },
+                    "target_symbol": { "type": "string" },
+                    "citations": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": { "$ref": "#/$defs/citation" }
+                    },
+                    "claim_register": { "$ref": "#/$defs/claim_register" },
+                    "evidence_kinds": { "$ref": "#/$defs/evidence_kinds" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ci_gates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "path", "kind", "citations"],
+            "properties": {
+              "name": { "type": "string" },
+              "path": { "type": "string" },
+              "kind": { "enum": ["test", "lint", "typecheck", "build", "deploy", "other"] },
+              "citations": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "#/$defs/citation" }
+              },
+              "command": {
+                "type": "object",
+                "description": "Optional declared command for cbm-run-gate (standard mode).",
+                "required": ["runner", "argv", "cwd", "safety_envelope"],
+                "properties": {
+                  "runner": { "type": "string" },
+                  "argv": { "type": "array", "items": { "type": "string" } },
+                  "cwd": { "type": "string" },
+                  "safety_envelope": {
+                    "type": "object",
+                    "required": ["requires_network", "requires_install", "mutates_filesystem", "max_duration_seconds"],
+                    "properties": {
+                      "requires_network": { "type": "boolean" },
+                      "requires_install": { "type": "boolean" },
+                      "mutates_filesystem": { "type": "boolean" },
+                      "declared_output_paths": { "type": "array", "items": { "type": "string" } },
+                      "max_duration_seconds": { "type": "integer", "minimum": 1 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "coverage_summary": {
+          "type": "object",
+          "required": ["files_with_tests", "files_without_tests", "coverage_unknown"],
+          "properties": {
+            "files_with_tests": { "type": "integer", "minimum": 0 },
+            "files_without_tests": { "type": "integer", "minimum": 0 },
+            "coverage_unknown": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+
+    "unknowns": {
+      "type": "object",
+      "required": ["edge_unknowns_present", "summary"],
+      "properties": {
+        "edge_unknowns_present": { "type": "boolean" },
+        "summary": { "type": "string", "minLength": 10 }
+      }
+    }
+  },
+
+  "$defs": {
+    "citation": {
+      "type": "string",
+      "pattern": "^[^:@\\s]+:\\d+(-\\d+)?@[0-9a-f]{7,40}$"
+    },
+    "confidence": { "enum": ["high", "medium", "low"] },
+    "claim_register": {
+      "enum": ["factual", "inferential", "interpretive"],
+      "description": "factual=settled by direct citation; inferential=derived by reasoning over factual claims; interpretive=depends on a reading and may have defensible alternatives."
+    },
+    "claim_status": {
+      "enum": ["active", "challenged", "contested", "contradicted", "superseded", "retired"],
+      "description": "active=live and uncontested; challenged=alternative reading raised; contested=multiple readings live; contradicted=refuted by evidence; superseded=replaced; retired=removed.",
+      "default": "active"
+    },
+    "evidence_kinds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "static_structure",
+          "static_relation",
+          "command_output",
+          "runtime_trace",
+          "maintainer_statement",
+          "external_doc"
+        ]
+      },
+      "description": "static_structure=file/manifest existence; static_relation=AST/parser-derived edge; command_output=evidence from running a command; runtime_trace=observed runtime behavior; maintainer_statement=human authority; external_doc=non-repo documentation."
+    },
+    "challenge": {
+      "type": "object",
+      "required": [
+        "challenge_id",
+        "challenges_claim_id",
+        "raised_by",
+        "raised_at",
+        "competing_reading",
+        "competing_evidence",
+        "interpretive_axis",
+        "relation_to_original",
+        "status"
+      ],
+      "properties": {
+        "challenge_id": { "type": "string", "pattern": "^chl-[0-9]{5,}$" },
+        "challenges_claim_id": {
+          "type": "string",
+          "description": "Id of the claim under challenge within this artifact."
+        },
+        "raised_by": { "type": "string" },
+        "raised_at": { "type": "string", "format": "date-time" },
+        "competing_reading": {
+          "type": "string",
+          "minLength": 20,
+          "description": "The alternative reading. Must be specific enough that a third party could evaluate it."
+        },
+        "competing_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/citation" },
+          "description": "Citations supporting the alternative reading. A challenge without competing evidence is noise."
+        },
+        "interpretive_axis": {
+          "enum": ["centrality", "scope", "salience", "classification", "framing", "completeness", "other"]
+        },
+        "relation_to_original": {
+          "enum": ["complementary", "competing", "reframing", "scope_dispute"],
+          "description": "complementary=adds a part the original missed; competing=both cannot be primary; reframing=different category entirely; scope_dispute=true within scope X but extended to Y."
+        },
+        "status": {
+          "enum": ["open", "accepted_as_alternative", "accepted_as_replacement", "withdrawn", "resolved_to_contradiction"]
+        },
+        "rationale": { "type": "string" }
+      }
+    },
+    "contradicted_by": {
+      "type": "object",
+      "required": ["evidence_id", "found_by", "found_at", "rationale"],
+      "properties": {
+        "evidence_id": { "type": "string" },
+        "found_by": { "type": "string" },
+        "found_at": { "type": "string", "format": "date-time" },
+        "rationale": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Why the contradicting evidence refutes (not merely complicates) the original claim."
+        }
+      }
+    }
+  }
+}
