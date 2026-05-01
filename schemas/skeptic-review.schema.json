@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/skeptic-review.schema.json",
+  "title": "Skeptic Review",
+  "description": "Frontmatter for a Skeptic review artifact.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "artifact_reviewed",
+    "findings_logged"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "skeptic_review" },
+    "run_id": { "type": "string" },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": { "type": "string", "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "artifact_reviewed": { "type": "string" },
+    "findings_logged": { "type": "integer", "minimum": 0 },
+    "challenge_ids": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^chl-[0-9]{5,}$" }
+    }
+  }
+}

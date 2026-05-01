@@ -363,3 +363,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The index keeps synthesis as an artifact on disk rather than a chat-only summary.
   - Contract check: The schema records inputs and hashes for every indexed artifact, plus challenged claim references.
   - Reviewer-eye check: This is deterministic indexing over existing maps, not full agentic synthesis or uncertainty reconciliation. It creates the validated boundary that a richer Synthesizer can later replace.
+
+## 2026-05-01 — Phase B slice: dependency Skeptic review
+
+- Implemented: `schemas/skeptic-review.schema.json` for validateable Skeptic review frontmatter.
+- Implemented: `cbm-skeptic-review` / `cbm skeptic-review <artifact>`. For `dependency_graph`, it challenges unresolved unknown dependency edges, appends `skeptic_challenge` ledger entries, writes `skeptic-review/dependency-graph.md`, and preserves the challenge in the graph artifact.
+- Implemented: standard and deep `cbm run` now review `dependency-graph.json` before synthesis so `synthesis-index.json` sees the live challenge.
+- Verification run:
+  - `pytest -q` passed: 19 tests, including direct Skeptic review validation, graph mutation to `claim_status: challenged`, ledger challenge recording, and standard-mode synthesis seeing the open challenge.
+- Self-critique:
+  - Drift check: The review reinforces unknown dependency closure as live contestation rather than pretending the graph is complete.
+  - Contract check: Review artifacts are schema-validated and challenge entries are append-only ledger records.
+  - Reviewer-eye check: This is deterministic gate skepticism for dependency unknowns only. It is not yet full per-artifact subagent review across every map or multi-perspective adversarial review.

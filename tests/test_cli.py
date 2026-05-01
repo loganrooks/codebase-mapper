@@ -151,14 +151,17 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     dependency_graph = run_dir / "dependency-graph.json"
     verification_map = run_dir / "verification-map.json"
     synthesis_index = run_dir / "synthesis-index.json"
+    skeptic_review = run_dir / "skeptic-review" / "dependency-graph.md"
     assert authority_map.exists()
     assert dependency_graph.exists()
     assert verification_map.exists()
     assert synthesis_index.exists()
+    assert skeptic_review.exists()
     assert main(["validate", str(authority_map), "--repo", str(repo)]) == 0
     assert main(["validate", str(dependency_graph), "--repo", str(repo)]) == 0
     assert main(["validate", str(verification_map), "--repo", str(repo)]) == 0
     assert main(["validate", str(synthesis_index), "--repo", str(repo)]) == 0
+    assert main(["validate", str(skeptic_review), "--repo", str(repo)]) == 0
     authority_data = json.loads(authority_map.read_text(encoding="utf-8"))
     assert authority_data["authorities"]
     dependency_data = json.loads(dependency_graph.read_text(encoding="utf-8"))
@@ -169,6 +172,7 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     synthesis_data = json.loads(synthesis_index.read_text(encoding="utf-8"))
     assert synthesis_data["claim_counts"]["authorities"] == len(authority_data["authorities"])
     assert synthesis_data["claim_counts"]["dependencies"] == len(dependency_data["edges"])
+    assert synthesis_data["contestation"]["open_challenges"] >= 1
 
 
 def test_stop_hook_validates_latest_handoff(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -536,6 +540,37 @@ def test_dependency_graph_command_splits_surface_edges(tmp_path: Path) -> None:
     assert data["partition_counts"]["certain"] >= 1
     assert data["partition_counts"]["unknown"] >= 1
     assert any(edge["kind"] == "unknown" for edge in data["edges"])
+
+
+def test_skeptic_review_challenges_dependency_unknowns(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-skeptic-review"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["dependency-graph", "--repo", str(repo), "--run-id", run_id]) == 0
+    dependency_graph = repo / ".research" / run_id / "dependency-graph.json"
+
+    assert main(["skeptic-review", str(dependency_graph), "--repo", str(repo), "--run-id", run_id]) == 0
+
+    review = repo / ".research" / run_id / "skeptic-review" / "dependency-graph.md"
+    assert main(["validate", str(review), "--repo", str(repo)]) == 0
+    review_frontmatter = yaml.safe_load(review.read_text(encoding="utf-8").split("---", 2)[1])
+    assert review_frontmatter["findings_logged"] == 1
+    graph = json.loads(dependency_graph.read_text(encoding="utf-8"))
+    unknown = next(edge for edge in graph["edges"] if edge["kind"] == "unknown")
+    assert unknown["claim_status"] == "challenged"
+    assert unknown["challenges"][0]["challenge_id"] == "chl-10001"
+    ledger_entries = [
+        json.loads(line)
+        for line in (repo / ".research" / run_id / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert any(entry["entry_kind"] == "skeptic_challenge" and entry["claim_id"] == unknown["id"] for entry in ledger_entries)
 
 
 def test_synthesis_index_connects_standard_maps(tmp_path: Path) -> None:

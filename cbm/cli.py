@@ -251,6 +251,7 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "synthesis_index": "synthesis-index.schema.json",
         "goal_binding": "goal-binding.schema.json",
         "handoff": "handoff.schema.json",
+        "skeptic_review": "skeptic-review.schema.json",
         "intervention_card": "intervention-card.schema.json",
         "findings_card": "intervention-card.schema.json",
         "evidence_ledger_entry": "evidence-ledger.schema.json",
@@ -885,6 +886,129 @@ def command_authority_map(args: argparse.Namespace) -> int:
     )
     write_json(authority_path, authority_map)
     print(authority_path)
+    return 0
+
+
+def first_artifact_citation(repo: Path, paths: RunPaths, artifact: dict[str, Any]) -> str:
+    codebase_map = read_codebase_map(paths.run_dir)
+    rel, _ = first_citable_file(repo, codebase_map, artifact["source_sha"])
+    citation = citation_for(repo, rel, artifact["source_sha"])
+    if not citation:
+        raise ValueError(f"could not create citation for {rel}")
+    return citation
+
+
+def next_challenge_id(claims: list[dict[str, Any]]) -> str:
+    max_id = 10000
+    for claim in claims:
+        for challenge in claim.get("challenges", []):
+            match = re.fullmatch(r"chl-(\d+)", challenge["challenge_id"])
+            if match:
+                max_id = max(max_id, int(match.group(1)))
+    return f"chl-{max_id + 1:05d}"
+
+
+def review_dependency_graph(repo: Path, paths: RunPaths, graph_path: Path) -> tuple[dict[str, Any], str]:
+    graph = read_json(graph_path)
+    challenge_ids: list[str] = []
+    now = utc_now()
+    for edge in graph["edges"]:
+        if edge["kind"] != "unknown" or edge.get("claim_status") in {"challenged", "contested"}:
+            continue
+        challenge_id = next_challenge_id(graph["edges"])
+        edge["claim_status"] = "challenged"
+        edge["challenges"] = [
+            {
+                "challenge_id": challenge_id,
+                "challenges_claim_id": edge["id"],
+                "raised_by": "skeptic@0.1",
+                "raised_at": now,
+                "competing_reading": "The dependency graph should not be read as complete while unknown dependency edges remain unresolved by static or runtime extraction.",
+                "competing_evidence": edge.get("citations") or [first_artifact_citation(repo, paths, graph)],
+                "interpretive_axis": "completeness",
+                "relation_to_original": "scope_dispute",
+                "status": "open",
+                "rationale": "Unknown edges preserve missing dependency closure and must propagate to downstream planning.",
+            }
+        ]
+        challenge_ids.append(challenge_id)
+        entry = {
+            "schema_version": SCHEMA_VERSION,
+            "entry_id": next_ledger_id(paths.run_dir / "evidence-ledger.jsonl"),
+            "ts": now,
+            "entry_kind": "skeptic_challenge",
+            "agent": "skeptic",
+            "skill_version": "0.1",
+            "run_id": paths.run_id,
+            "source_sha": graph["source_sha"],
+            "artifact_path": str(graph_path.relative_to(repo)),
+            "claim_id": edge["id"],
+            "challenge": "Dependency graph contains an unknown edge, so dependency closure remains incomplete.",
+        }
+        append_ledger_entry(repo, paths.run_dir / "evidence-ledger.jsonl", entry)
+    if challenge_ids:
+        errors = validate_data(repo, graph, "dependency_graph")
+        if errors:
+            raise ValueError("\n".join(errors))
+        write_json(graph_path, graph)
+    body = (
+        "Finding: dependency graph contains unresolved unknown dependency edges; these are challenged as completeness risks.\n"
+        if challenge_ids
+        else "No deterministic Skeptic finding was produced for this artifact.\n"
+    )
+    review = {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "skeptic_review",
+        "run_id": paths.run_id,
+        "produced_at": now,
+        "produced_by": "skeptic@0.1",
+        "source_sha": graph["source_sha"],
+        "artifact_reviewed": str(graph_path.relative_to(repo)),
+        "findings_logged": len(challenge_ids),
+        "challenge_ids": challenge_ids,
+    }
+    return review, body
+
+
+def command_skeptic_review(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    artifact_path = Path(args.artifact)
+    if not artifact_path.is_absolute():
+        artifact_path = repo / artifact_path
+    review_dir = paths.run_dir / "skeptic-review"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        data = read_json(artifact_path)
+        if data.get("artifact_type") == "dependency_graph":
+            review, body = review_dependency_graph(repo, paths, artifact_path)
+        else:
+            review = {
+                "schema_version": SCHEMA_VERSION,
+                "artifact_type": "skeptic_review",
+                "run_id": paths.run_id,
+                "produced_at": utc_now(),
+                "produced_by": "skeptic@0.1",
+                "source_sha": data.get("source_sha", source_sha(repo)),
+                "artifact_reviewed": str(artifact_path.relative_to(repo)),
+                "findings_logged": 0,
+                "challenge_ids": [],
+            }
+            body = "No deterministic Skeptic finding was produced for this artifact.\n"
+        errors = validate_data(repo, review, "skeptic_review")
+        if errors:
+            for error in errors:
+                print(error, file=sys.stderr)
+            return 1
+    except (ValueError, json.JSONDecodeError) as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    review_path = review_dir / f"{artifact_path.stem}.md"
+    review_path.write_text(
+        "---\n" + yaml.safe_dump(review, sort_keys=False) + "---\n# Skeptic Review\n\n" + body,
+        encoding="utf-8",
+    )
+    print(review_path)
     return 0
 
 
@@ -2324,6 +2448,16 @@ def command_run(args: argparse.Namespace) -> int:
     if args.mode in {"standard", "deep"}:
         commands.append((command_authority_map, map_args))
         commands.append((command_dependency_graph, map_args))
+        commands.append(
+            (
+                command_skeptic_review,
+                argparse.Namespace(
+                    repo=str(repo),
+                    run_id=run_id,
+                    artifact=str(repo / ".research" / run_id / "dependency-graph.json"),
+                ),
+            )
+        )
         commands.append((command_verify_map, map_args))
         commands.append((command_synthesis_index, map_args))
     commands.extend(
@@ -2426,6 +2560,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_synthesis_index.add_argument("--repo", default=".")
     p_synthesis_index.add_argument("--run-id")
     p_synthesis_index.set_defaults(func=command_synthesis_index)
+    p_skeptic_review = sub.add_parser("skeptic-review")
+    p_skeptic_review.add_argument("artifact")
+    p_skeptic_review.add_argument("--repo", default=".")
+    p_skeptic_review.add_argument("--run-id")
+    p_skeptic_review.set_defaults(func=command_skeptic_review)
     p_bind = sub.add_parser("bind")
     p_bind.add_argument("--repo", default=".")
     p_bind.add_argument("--run-id")
@@ -2524,6 +2663,10 @@ def verify_map_main() -> int:
 
 def synthesis_index_main() -> int:
     return main(["synthesis-index", *sys.argv[1:]])
+
+
+def skeptic_review_main() -> int:
+    return main(["skeptic-review", *sys.argv[1:]])
 
 
 def bind_main() -> int:
