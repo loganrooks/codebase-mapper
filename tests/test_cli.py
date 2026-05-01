@@ -329,6 +329,14 @@ def test_tracer_skill_is_shipped() -> None:
     assert "Do not mark challenges resolved without new evidence." in text
 
 
+def test_platform_portability_docs_are_shipped() -> None:
+    assert (SOURCE_ROOT / "platform" / "PORTABILITY.md").exists()
+    assert (SOURCE_ROOT / "platform" / "codex" / "hooks.json").exists()
+    claude_readme = (SOURCE_ROOT / "platform" / "claude-code" / "README.md").read_text(encoding="utf-8")
+    assert "python3 -m cbm hook-stop" in claude_readme
+    assert "Artifact schemas, skills, CLI behavior, and citation format are unchanged." in claude_readme
+
+
 def test_deep_run_writes_refinement_report(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

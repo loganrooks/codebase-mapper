@@ -552,3 +552,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Phase E did not invent framework-specific claims without extractors.
   - Contract check: Project-type and extractor-registry artifacts validate.
   - Reviewer-eye check: This is useful scaffolding, not mature Django/Rails/Phoenix/MCP understanding. The gap remains visible for future extractor work.
+
+## 2026-05-01 — Phase F slice: platform portability docs
+
+- Implemented: `platform/PORTABILITY.md` with the kernel-vs-adapter boundary and verification checklist.
+- Implemented: `platform/codex/` with the current Codex hook boundary and mirrored Stop hook command.
+- Implemented: `platform/claude-code/README.md` documenting the Claude Code adapter semantics and explicit portability deltas without claiming unverified hook syntax.
+- Verification run:
+  - `pytest -q` passed: 28 tests, including shipped platform portability docs.
+- Self-critique:
+  - Drift check: Platform work stayed outside schemas, skills, and CLI contracts.
+  - Contract check: The docs require the same CLI, schemas, artifacts, skills, and citation format across platforms.
+  - Reviewer-eye check: This is not a fully verified Claude Code adapter. It records the port boundary and the required verification checklist while leaving exact syntax to a docs-verified adapter pass.
