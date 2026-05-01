@@ -1080,6 +1080,7 @@ def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path
     refused = consultations[-1]
     refused_frontmatter = yaml.safe_load(refused.read_text(encoding="utf-8").split("---", 2)[1])
     assert refused_frontmatter["status"] == "refused"
+    assert refused_frontmatter["refusal_reason"] == "no_grounded_match"
     assert refused_frontmatter["matches"] == []
     uncertainties = [
         json.loads(line)
@@ -1103,6 +1104,23 @@ def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path
         and entry["claim_id"] == refused_uncertainty[0]["entry_id"]
         for entry in ledger_entries
     )
+
+    (repo / "src" / "app.py").write_text("def hello():\n    return 'hello changed'\n", encoding="utf-8")
+    (repo / "tests" / "test_app.py").write_text(
+        "from src.app import hello\n\n\ndef test_hello():\n    assert hello() == 'hello changed'\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", "src/app.py", "tests/test_app.py")
+    git(repo, "commit", "-m", "change consulted source")
+    assert main(["consult", "src/app.py", "--repo", str(repo)]) == 2
+    consultations = sorted((repo / ".research" / "consultations").glob("*.md"))
+    stale_refusal = consultations[-1]
+    stale_text = stale_refusal.read_text(encoding="utf-8")
+    stale_frontmatter = yaml.safe_load(stale_text.split("---", 2)[1])
+    assert stale_frontmatter["status"] == "refused"
+    assert stale_frontmatter["refusal_reason"] == "stale_corpus_match"
+    assert stale_frontmatter["stale_matches"]
+    assert "cbm-refresh" in stale_text
 
 
 def test_run_gate_executes_declared_command_and_refuses_outside_envelope(tmp_path: Path) -> None:

@@ -3003,20 +3003,17 @@ def tokenize_query(question: str) -> list[str]:
     return [token.lower() for token in re.findall(r"[A-Za-z0-9_./-]+", question) if len(token) >= 3]
 
 
-def artifact_is_fresh_for_consult(repo: Path, artifact: Path) -> bool:
+def artifact_consult_freshness(repo: Path, artifact: Path) -> tuple[bool, list[dict[str, Any]]]:
     citations = artifact_citations(artifact)
-    return bool(citations) and all(
-        verify_citation_at_head(repo, citation)["status"] == "still_grounded"
-        for citation in citations
-    )
+    results = [verify_citation_at_head(repo, citation) for citation in citations]
+    return bool(citations) and all(item["status"] == "still_grounded" for item in results), results
 
 
-def consult_matches(repo: Path, question: str) -> list[dict[str, Any]]:
+def consult_scan(repo: Path, question: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     tokens = tokenize_query(question)
     matches: list[dict[str, Any]] = []
+    stale_matches: list[dict[str, Any]] = []
     for artifact in iter_research_artifacts(repo):
-        if not artifact_is_fresh_for_consult(repo, artifact):
-            continue
         try:
             data, body = load_artifact_frontmatter(artifact)
         except Exception:
@@ -3024,15 +3021,28 @@ def consult_matches(repo: Path, question: str) -> list[dict[str, Any]]:
         text = json.dumps(data, sort_keys=True).lower() + "\n" + body.lower()
         if not all(token in text for token in tokens):
             continue
+        fresh, freshness_results = artifact_consult_freshness(repo, artifact)
         citations = artifact_citations(artifact)
-        matches.append(
-            {
-                "artifact": str(artifact.relative_to(repo)),
-                "artifact_type": data.get("artifact_type"),
-                "matched_terms": tokens,
-                "citations": citations[:5],
+        match = {
+            "artifact": str(artifact.relative_to(repo)),
+            "artifact_type": data.get("artifact_type"),
+            "matched_terms": tokens,
+            "citations": citations[:5],
+        }
+        if fresh:
+            matches.append(match)
+        else:
+            match["freshness"] = {
+                "still_grounded": sum(1 for item in freshness_results if item["status"] == "still_grounded"),
+                "needs_review": sum(1 for item in freshness_results if item["status"] == "needs_review"),
+                "broken": sum(1 for item in freshness_results if item["status"] == "broken"),
             }
-        )
+            stale_matches.append(match)
+    return matches, stale_matches
+
+
+def consult_matches(repo: Path, question: str) -> list[dict[str, Any]]:
+    matches, _ = consult_scan(repo, question)
     return matches
 
 
@@ -3123,7 +3133,7 @@ def append_consultation_uncertainty(repo: Path, consult_id: str, question: str) 
 
 def command_consult(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
-    matches = consult_matches(repo, args.question)
+    matches, stale_matches = consult_scan(repo, args.question)
     consultations_dir = repo / ".research" / "consultations"
     consultations_dir.mkdir(parents=True, exist_ok=True)
     consult_id = f"consult-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
@@ -3165,11 +3175,18 @@ def command_consult(args: argparse.Namespace) -> int:
                 "produced_at": utc_now(),
                 "question": args.question,
                 "status": "refused",
+                "refusal_reason": "stale_corpus_match" if stale_matches else "no_grounded_match",
                 "matches": [],
+                "stale_matches": stale_matches,
             },
             sort_keys=False,
         )
-        + "---\n# Consultation\n\nRefusal: no fresh artifact in the corpus contains enough grounded evidence to answer this question.\n",
+        + (
+            "---\n# Consultation\n\n"
+            "Refusal: matching corpus artifacts exist, but their cited source bytes changed at HEAD. Run `cbm-refresh` or re-run before consulting this question.\n"
+            if stale_matches
+            else "---\n# Consultation\n\nRefusal: no fresh artifact in the corpus contains enough grounded evidence to answer this question.\n"
+        ),
         encoding="utf-8",
     )
     append_consultation_uncertainty(repo, consult_id, args.question)

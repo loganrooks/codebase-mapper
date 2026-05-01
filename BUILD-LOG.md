@@ -877,3 +877,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Reader refusal now becomes durable corpus knowledge instead of disappearing into a transient consultation artifact.
   - Contract check: This follows the existing handoff uncertainty JSONL shape because the kit does not currently include a separate uncertainty-register schema.
   - Reviewer-eye check: Refusals are attached to the latest run as a pragmatic per-run store; a project-level uncertainty register would be cleaner for cross-run consultation later.
+
+## 2026-05-01 — Consultation slice: stale-match refusal
+
+- Implemented: `cbm-consult` now distinguishes "no grounded match" from "matching artifacts exist but their cited bytes changed at HEAD."
+- Implemented: stale consultation refusals include `refusal_reason: stale_corpus_match`, list `stale_matches`, and tell the Reader to refresh or re-run before consulting the question.
+- Verification run:
+  - `pytest -q` passed: 37 tests, including a consultation regression where matched artifacts become stale after cited files change and consultation refuses with a refresh recommendation.
+- Self-critique:
+  - Drift check: Reader mode now refuses stale answers explicitly instead of making stale corpus state look like absence of knowledge.
+  - Contract check: The consultation artifact remains markdown with YAML frontmatter; new refusal metadata is additive.
+  - Reviewer-eye check: Freshness is still evaluated at artifact granularity, so one stale citation blocks a matching artifact even when some claims inside it remain fresh.
