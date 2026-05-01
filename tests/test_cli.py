@@ -1260,6 +1260,36 @@ def test_corpus_status_writes_manifest(tmp_path: Path) -> None:
     assert all(item["historical_valid"] for item in stale_items)
 
 
+def test_corpus_status_marks_uncited_answered_artifacts_broken(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-corpus-uncited"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    uncited = repo / ".research" / run_id / "consultation-uncited.md"
+    uncited.write_text(
+        "---\n"
+        "schema_version: '1.2'\n"
+        "artifact_type: consultation\n"
+        "consultation_id: con-corpus-uncited\n"
+        "produced_at: '2026-05-01T00:00:00Z'\n"
+        "question: uncited\n"
+        "status: answered\n"
+        "matches: []\n"
+        "---\n# Uncited\n\nThis answered consultation has no citations.\n",
+        encoding="utf-8",
+    )
+    manifest = repo / ".research" / "corpus-status.json"
+    assert main(["corpus-status", "--repo", str(repo), "--output", str(manifest)]) == 2
+    status = json.loads(manifest.read_text(encoding="utf-8"))
+    uncited_status = next(item for item in status["artifacts"] if item["path"].endswith("consultation-uncited.md"))
+    assert uncited_status["freshness"] == "broken"
+    assert uncited_status["historical_valid"] is False
+    assert uncited_status["citation_summary"]["missing_citations"] == 1
+
+
 def test_structural_refresh_emits_successor_and_delta(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

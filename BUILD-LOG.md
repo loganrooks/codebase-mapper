@@ -1082,3 +1082,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Consultation and compaction-recovery freshness checks no longer treat uncited artifacts as trustworthy by default.
   - Contract check: Cited artifacts keep the same byte-comparison behavior; only empty citation sets fail differently.
   - Reviewer-eye check: Artifact types that are truly citationless need a different freshness/status command rather than passing through this evidence freshness gate.
+
+## 2026-05-01 — Corpus slice: uncited evidence artifacts are broken
+
+- Implemented: `cbm corpus-status` now marks citation-required artifacts as `broken` when they contain no citations, instead of classifying them as fresh or pinned.
+- Implemented: generated Skeptic review bodies now cite the evidence supporting their findings, so normal run reviews remain evidence-bound under corpus status.
+- Verification run:
+  - `pytest -q` passed: 50 tests, including a corpus-status regression for an uncited answered consultation and the existing corpus freshness test.
+- Self-critique:
+  - Drift check: Corpus reuse now refuses uncited answer artifacts and keeps Skeptic review findings tied to cited evidence.
+  - Contract check: Administrative artifacts may remain citationless; the missing-citation broken status applies only to citation-required artifact types.
+  - Reviewer-eye check: The citation-required type list is code-level policy; a future schema or contract field would make this less implicit.

@@ -1233,12 +1233,14 @@ def next_challenge_id(claims: list[dict[str, Any]]) -> str:
 def review_dependency_graph(repo: Path, paths: RunPaths, graph_path: Path) -> tuple[dict[str, Any], str]:
     graph = read_json(graph_path)
     challenge_ids: list[str] = []
+    challenge_evidence: list[str] = []
     now = utc_now()
     for edge in graph["edges"]:
         if edge["kind"] != "unknown" or edge.get("claim_status") in {"challenged", "contested"}:
             continue
         challenge_id = next_challenge_id(graph["edges"])
         edge["claim_status"] = "challenged"
+        evidence = edge.get("citations") or [first_artifact_citation(repo, paths, graph)]
         edge["challenges"] = [
             {
                 "challenge_id": challenge_id,
@@ -1246,7 +1248,7 @@ def review_dependency_graph(repo: Path, paths: RunPaths, graph_path: Path) -> tu
                 "raised_by": "skeptic@0.1",
                 "raised_at": now,
                 "competing_reading": "The dependency graph should not be read as complete while unknown dependency edges remain unresolved by static or runtime extraction.",
-                "competing_evidence": edge.get("citations") or [first_artifact_citation(repo, paths, graph)],
+                "competing_evidence": evidence,
                 "interpretive_axis": "completeness",
                 "relation_to_original": "scope_dispute",
                 "status": "open",
@@ -1254,6 +1256,7 @@ def review_dependency_graph(repo: Path, paths: RunPaths, graph_path: Path) -> tu
             }
         ]
         challenge_ids.append(challenge_id)
+        challenge_evidence.extend(evidence)
         entry = {
             "schema_version": SCHEMA_VERSION,
             "entry_id": next_ledger_id(paths.run_dir / "evidence-ledger.jsonl"),
@@ -1273,8 +1276,10 @@ def review_dependency_graph(repo: Path, paths: RunPaths, graph_path: Path) -> tu
         if errors:
             raise ValueError("\n".join(errors))
         write_json(graph_path, graph)
+    evidence_text = "\n".join(f"- {citation}" for citation in sorted(set(challenge_evidence)))
     body = (
         "Finding: dependency graph contains unresolved unknown dependency edges; these are challenged as completeness risks.\n"
+        f"\nEvidence:\n{evidence_text}\n"
         if challenge_ids
         else "No deterministic Skeptic finding was produced for this artifact.\n"
     )
@@ -2674,6 +2679,28 @@ def iter_research_artifacts(repo: Path) -> Iterable[Path]:
     )
 
 
+def artifact_requires_citations(data: dict[str, Any]) -> bool:
+    artifact_type = data.get("artifact_type")
+    if artifact_type in {
+        "surface_map",
+        "authority_map",
+        "dependency_graph",
+        "verification_map",
+        "workflow_trace",
+        "refinement_report",
+        "goal_binding",
+        "findings_card",
+        "intervention_card",
+        "skeptic_review",
+        "refresh_delta",
+        "project_type_report",
+    }:
+        return True
+    if artifact_type == "consultation":
+        return data.get("status") == "answered"
+    return False
+
+
 def artifact_status_against_head(repo: Path, artifact: Path) -> dict[str, Any] | None:
     try:
         data, body = load_artifact_frontmatter(artifact)
@@ -2687,8 +2714,11 @@ def artifact_status_against_head(repo: Path, artifact: Path) -> dict[str, Any] |
         "still_grounded": sum(1 for item in verify_results if item["status"] == "still_grounded"),
         "needs_review": sum(1 for item in verify_results if item["status"] == "needs_review"),
         "broken": sum(1 for item in verify_results if item["status"] == "broken"),
+        "missing_citations": 1 if not citations and artifact_requires_citations(data) else 0,
     }
-    if not citations:
+    if summary["missing_citations"]:
+        freshness = "broken"
+    elif not citations:
         freshness = "fresh" if data.get("source_sha") == source_sha(repo) else "pinned"
     elif summary["broken"]:
         freshness = "broken"
@@ -2701,7 +2731,7 @@ def artifact_status_against_head(repo: Path, artifact: Path) -> dict[str, Any] |
         "artifact_type": data.get("artifact_type"),
         "source_sha": data.get("source_sha"),
         "freshness": freshness,
-        "historical_valid": all(resolve_citation(repo, citation)[0] for citation in citations),
+        "historical_valid": bool(citations) and all(resolve_citation(repo, citation)[0] for citation in citations),
         "citation_summary": summary,
     }
 
@@ -3698,7 +3728,8 @@ def command_handoff(args: argparse.Namespace) -> int:
             },
             sort_keys=False,
         )
-        + "---\n# Skeptic Review\n\nFinding: `edge-unknown-001` keeps dependency closure unknown because Phase A only extracts direct Python imports. It still misses calls, runtime workflows, relative imports, and dynamic loading. This prevents high-confidence planning from the draft surface map alone.\n",
+        + "---\n# Skeptic Review\n\nFinding: `edge-unknown-001` keeps dependency closure unknown because Phase A only extracts direct Python imports. It still misses calls, runtime workflows, relative imports, and dynamic loading. This prevents high-confidence planning from the draft surface map alone.\n\nEvidence:\n"
+        + f"- {citation}\n",
         encoding="utf-8",
     )
     dependent_challenges = [
