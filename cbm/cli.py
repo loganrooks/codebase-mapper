@@ -246,6 +246,7 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "codebase_map": "codebase-map.schema.json",
         "surface_map": "surface-map.schema.json",
         "extractor_registry": "extractor-registry.schema.json",
+        "authority_map": "authority-map.schema.json",
         "goal_binding": "goal-binding.schema.json",
         "handoff": "handoff.schema.json",
         "intervention_card": "intervention-card.schema.json",
@@ -835,6 +836,53 @@ def command_surface(args: argparse.Namespace) -> int:
     append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, surface["source_sha"], str(surface_path.relative_to(repo)), surface, "surface-mapper")
     write_json(surface_path, surface)
     print(surface_path)
+    return 0
+
+
+def build_authority_map(repo: Path, paths: RunPaths) -> dict[str, Any]:
+    surface_path = paths.run_dir / "surface-map.json"
+    surface = read_json(surface_path)
+    authorities = surface["authorities"]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "authority_map",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "authority-mapper@0.1",
+        "source_sha": surface["source_sha"],
+        "inputs": [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}],
+        "status": "draft",
+        "coverage": surface["coverage"],
+        "staleness": {
+            "stale_if_input_hash_changes": True,
+            "depends_on_paths": sorted({authority["path"] for authority in authorities}),
+            "scope_signature": surface["staleness"]["scope_signature"],
+        },
+        "authorities": authorities,
+    }
+
+
+def command_authority_map(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    authority_map = build_authority_map(repo, paths)
+    errors = validate_data(repo, authority_map, "authority_map")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    authority_path = paths.run_dir / "authority-map.json"
+    append_citation_entries(
+        repo,
+        paths.run_dir / "evidence-ledger.jsonl",
+        paths.run_id,
+        authority_map["source_sha"],
+        str(authority_path.relative_to(repo)),
+        authority_map,
+        "authority-mapper",
+    )
+    write_json(authority_path, authority_map)
+    print(authority_path)
     return 0
 
 
@@ -2113,6 +2161,7 @@ def command_run(args: argparse.Namespace) -> int:
         (command_surface, map_args),
     ]
     if args.mode in {"standard", "deep"}:
+        commands.append((command_authority_map, map_args))
         commands.append((command_verify_map, map_args))
     commands.extend(
         [
@@ -2198,6 +2247,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_surface.add_argument("--repo", default=".")
     p_surface.add_argument("--run-id")
     p_surface.set_defaults(func=command_surface)
+    p_authority_map = sub.add_parser("authority-map")
+    p_authority_map.add_argument("--repo", default=".")
+    p_authority_map.add_argument("--run-id")
+    p_authority_map.set_defaults(func=command_authority_map)
     p_verify_map = sub.add_parser("verify-map")
     p_verify_map.add_argument("--repo", default=".")
     p_verify_map.add_argument("--run-id")
@@ -2284,6 +2337,10 @@ def map_main() -> int:
 
 def surface_main() -> int:
     return main(["surface", *sys.argv[1:]])
+
+
+def authority_map_main() -> int:
+    return main(["authority-map", *sys.argv[1:]])
 
 
 def verify_map_main() -> int:

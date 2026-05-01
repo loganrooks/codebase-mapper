@@ -327,3 +327,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This adds a deterministic verification surface without turning CBM into a source-mutating executor.
   - Contract check: Generated verification maps validate against the v1.2 schema and command execution is recorded through the existing run-gate ledger path.
   - Reviewer-eye check: This maps discovered test files only. It does not infer lint, typecheck, build, or framework-specific verification gates beyond the deterministic test inventory.
+
+## 2026-05-01 — Phase B slice: authority-map split
+
+- Implemented: `schemas/authority-map.schema.json` for standard-mode authority surfaces.
+- Implemented: `cbm-authority-map` / `cbm authority-map`, deriving `authority-map.json` from the combined surface map's authorities with citations, registers, statuses, and staleness metadata preserved.
+- Implemented: standard and deep `cbm run` now generate `authority-map.json`.
+- Verification run:
+  - `pytest -q` passed: 16 tests, including direct authority-map generation, schema validation, and standard-mode run artifact creation.
+- Self-critique:
+  - Drift check: The split artifact preserves the existing surface-map authorities rather than changing the reading discipline.
+  - Contract check: The new schema validates the universal artifact envelope and authority claim fields with challenge/contradiction lifecycle constraints.
+  - Reviewer-eye check: This is a mechanical split, not yet three independent Surface Mapper subagents. It gives standard-mode consumers the artifact boundary before adding true parallel mapper production.

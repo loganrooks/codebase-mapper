@@ -147,9 +147,14 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--mode", "standard", "--run-id", "run-standard"]) == 0
 
     run_dir = repo / ".research" / "run-standard"
+    authority_map = run_dir / "authority-map.json"
     verification_map = run_dir / "verification-map.json"
+    assert authority_map.exists()
     assert verification_map.exists()
+    assert main(["validate", str(authority_map), "--repo", str(repo)]) == 0
     assert main(["validate", str(verification_map), "--repo", str(repo)]) == 0
+    authority_data = json.loads(authority_map.read_text(encoding="utf-8"))
+    assert authority_data["authorities"]
     data = json.loads(verification_map.read_text(encoding="utf-8"))
     assert data["ci_gates"]
     assert data["ci_gates"][0]["command"]["safety_envelope"]["requires_network"] is False
@@ -480,6 +485,25 @@ def test_verify_map_command_generates_declared_test_gate(tmp_path: Path) -> None
     assert main(["run-gate", "test-001", "--repo", str(repo), "--run-id", run_id, "--max-duration", "120"]) == 0
     output = next((repo / ".research" / run_id / "command-outputs").glob("test-001-*.txt"))
     assert "1 passed" in output.read_text(encoding="utf-8")
+
+
+def test_authority_map_command_splits_surface_authorities(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-authority-map"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["authority-map", "--repo", str(repo), "--run-id", run_id]) == 0
+    authority_map = repo / ".research" / run_id / "authority-map.json"
+    assert main(["validate", str(authority_map), "--repo", str(repo)]) == 0
+    data = json.loads(authority_map.read_text(encoding="utf-8"))
+    assert data["artifact_type"] == "authority_map"
+    assert data["inputs"][0]["path"].endswith("surface-map.json")
+    assert data["authorities"][0]["claim_register"] in {"factual", "interpretive"}
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
