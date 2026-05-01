@@ -116,7 +116,9 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     for artifact in frontmatter["artifacts"]:
         artifact_path = repo / artifact["path"]
         if artifact_path.suffix == ".md":
-            artifact_data = yaml.safe_load(artifact_path.read_text(encoding="utf-8").split("---", 2)[1])
+            _, artifact_frontmatter, artifact_body = artifact_path.read_text(encoding="utf-8").split("---", 2)
+            artifact_data = yaml.safe_load(artifact_frontmatter)
+            bundle_citations.update(extract_citations(artifact_body))
         else:
             artifact_data = json.loads(artifact_path.read_text(encoding="utf-8"))
         bundle_citations.update(extract_citations(artifact_data))
