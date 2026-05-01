@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cbm"
+version = "0.1.0"
+description = "Codebase Mapping and Intervention Planning MVP kernel"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "jsonschema>=4.18",
+  "PyYAML>=6.0",
+]
+
+[project.scripts]
+cbm = "cbm.cli:main"
+cbm-init = "cbm.cli:init_main"
+cbm-map = "cbm.cli:map_main"
+cbm-validate = "cbm.cli:validate_main"
+cbm-verify-citations = "cbm.cli:verify_citations_main"
+cbm-handoff = "cbm.cli:handoff_main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
