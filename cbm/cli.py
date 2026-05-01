@@ -990,7 +990,7 @@ def build_project_type_report(repo: Path, paths: RunPaths, sha: str) -> dict[str
         "artifact_type": "project_type_report",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "project-type-detector@0.1",
+        "produced_by": "cbm-baseline-project-type@0.1",
         "source_sha": sha,
         "inputs": [],
         "status": "draft",
@@ -1027,7 +1027,7 @@ def build_codebase_map(repo: Path, paths: RunPaths, refreshed_from: dict[str, An
         "artifact_type": "codebase_map",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "cbm-map@0.1",
+        "produced_by": "cbm-baseline-map@0.1",
         "source_sha": sha,
         "inputs": [{"path": str(registry_path.relative_to(repo)), "sha256": sha256_file(registry_path)}],
         "status": "draft",
@@ -1177,11 +1177,11 @@ def build_surface_map(
         "artifact_type": "surface_map",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "surface-mapper@0.1",
+        "produced_by": "cbm-baseline-surface@0.1",
         "source_sha": sha,
         "inputs": [{"path": str(codebase_path.relative_to(repo)), "sha256": sha256_file(codebase_path)}],
         "status": "draft",
-        "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=len(authorities)),
+        "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"]),
         "staleness": {
             "stale_if_input_hash_changes": True,
             "depends_on_paths": sorted({auth["path"] for auth in authorities}),
@@ -1218,7 +1218,7 @@ def command_surface(args: argparse.Namespace) -> int:
             print(error, file=sys.stderr)
         return 1
     surface_path = paths.run_dir / "surface-map.json"
-    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, surface["source_sha"], str(surface_path.relative_to(repo)), surface, "surface-mapper")
+    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, surface["source_sha"], str(surface_path.relative_to(repo)), surface, "cbm-baseline-surface")
     write_json(surface_path, surface)
     print(surface_path)
     return 0
@@ -1233,7 +1233,7 @@ def build_authority_map(repo: Path, paths: RunPaths) -> dict[str, Any]:
         "artifact_type": "authority_map",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "authority-mapper@0.1",
+        "produced_by": "cbm-baseline-authority@0.1",
         "source_sha": surface["source_sha"],
         "inputs": [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}],
         "status": "draft",
@@ -1264,7 +1264,7 @@ def command_authority_map(args: argparse.Namespace) -> int:
         authority_map["source_sha"],
         str(authority_path.relative_to(repo)),
         authority_map,
-        "authority-mapper",
+        "cbm-baseline-authority",
     )
     write_json(authority_path, authority_map)
     print(authority_path)
@@ -1292,67 +1292,23 @@ def next_challenge_id(claims: list[dict[str, Any]]) -> str:
 
 def review_dependency_graph(repo: Path, paths: RunPaths, graph_path: Path) -> tuple[dict[str, Any], str]:
     graph = read_json(graph_path)
-    challenge_ids: list[str] = []
-    challenge_evidence: list[str] = []
     now = utc_now()
-    for edge in graph["edges"]:
-        if edge["kind"] != "unknown" or edge.get("claim_status") in {"challenged", "contested"}:
-            continue
-        challenge_id = next_challenge_id(graph["edges"])
-        edge["claim_status"] = "challenged"
-        evidence = edge.get("citations") or [first_artifact_citation(repo, paths, graph)]
-        edge["challenges"] = [
-            {
-                "challenge_id": challenge_id,
-                "challenges_claim_id": edge["id"],
-                "raised_by": "skeptic@0.1",
-                "raised_at": now,
-                "competing_reading": "The dependency graph should not be read as complete while unknown dependency edges remain unresolved by static or runtime extraction.",
-                "competing_evidence": evidence,
-                "interpretive_axis": "completeness",
-                "relation_to_original": "scope_dispute",
-                "status": "open",
-                "rationale": "Unknown edges preserve missing dependency closure and must propagate to downstream planning.",
-            }
-        ]
-        challenge_ids.append(challenge_id)
-        challenge_evidence.extend(evidence)
-        entry = {
-            "schema_version": SCHEMA_VERSION,
-            "entry_id": next_ledger_id(paths.run_dir / "evidence-ledger.jsonl"),
-            "ts": now,
-            "entry_kind": "skeptic_challenge",
-            "agent": "skeptic",
-            "skill_version": "0.1",
-            "run_id": paths.run_id,
-            "source_sha": graph["source_sha"],
-            "artifact_path": str(graph_path.relative_to(repo)),
-            "claim_id": edge["id"],
-            "challenge": "Dependency graph contains an unknown edge, so dependency closure remains incomplete.",
-        }
-        append_ledger_entry(repo, paths.run_dir / "evidence-ledger.jsonl", entry)
-    if challenge_ids:
-        errors = validate_data(repo, graph, "dependency_graph")
-        if errors:
-            raise ValueError("\n".join(errors))
-        write_json(graph_path, graph)
-    evidence_text = "\n".join(f"- {citation}" for citation in sorted(set(challenge_evidence)))
+    citation = first_artifact_citation(repo, paths, graph)
     body = (
-        "Finding: dependency graph contains unresolved unknown dependency edges; these are challenged as completeness risks.\n"
-        f"\nEvidence:\n{evidence_text}\n"
-        if challenge_ids
-        else "No deterministic Skeptic finding was produced for this artifact.\n"
+        "No runtime Skeptic finding was produced for this artifact. "
+        "Deterministic review leaves unknown edges active for a real isolated Skeptic.\n\n"
+        f"Reviewed artifact evidence: {citation}\n"
     )
     review = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "skeptic_review",
         "run_id": paths.run_id,
         "produced_at": now,
-        "produced_by": "skeptic@0.1",
+        "produced_by": "dev-fixture-skeptic@0.1",
         "source_sha": graph["source_sha"],
         "artifact_reviewed": str(graph_path.relative_to(repo)),
-        "findings_logged": len(challenge_ids),
-        "challenge_ids": challenge_ids,
+        "findings_logged": 0,
+        "challenge_ids": [],
     }
     return review, body
 
@@ -1375,13 +1331,14 @@ def command_skeptic_review(args: argparse.Namespace) -> int:
                 "artifact_type": "skeptic_review",
                 "run_id": paths.run_id,
                 "produced_at": utc_now(),
-                "produced_by": "skeptic@0.1",
+                "produced_by": "dev-fixture-skeptic@0.1",
                 "source_sha": data.get("source_sha", source_sha(repo)),
                 "artifact_reviewed": str(artifact_path.relative_to(repo)),
                 "findings_logged": 0,
                 "challenge_ids": [],
             }
-            body = "No deterministic Skeptic finding was produced for this artifact.\n"
+            citation = first_artifact_citation(repo, paths, data)
+            body = f"No runtime Skeptic finding was produced for this artifact.\n\nReviewed artifact evidence: {citation}\n"
         errors = validate_data(repo, review, "skeptic_review")
         if errors:
             for error in errors:
@@ -1429,7 +1386,7 @@ def build_dependency_graph(repo: Path, paths: RunPaths) -> dict[str, Any]:
         "artifact_type": "dependency_graph",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "dependency-mapper@0.1",
+        "produced_by": "cbm-baseline-dependency@0.1",
         "source_sha": surface["source_sha"],
         "inputs": [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}],
         "status": "draft",
@@ -1461,7 +1418,7 @@ def command_dependency_graph(args: argparse.Namespace) -> int:
         dependency_graph["source_sha"],
         str(graph_path.relative_to(repo)),
         dependency_graph,
-        "dependency-mapper",
+        "cbm-baseline-dependency",
     )
     write_json(graph_path, dependency_graph)
     print(graph_path)
@@ -1504,11 +1461,11 @@ def build_verification_map(repo: Path, paths: RunPaths) -> dict[str, Any]:
         "artifact_type": "verification_map",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "verification-mapper@0.1",
+        "produced_by": "cbm-baseline-verification@0.1",
         "source_sha": sha,
         "inputs": [{"path": str(codebase_path.relative_to(repo)), "sha256": sha256_file(codebase_path)}],
         "status": "draft",
-        "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=len(ci_gates)),
+        "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"]),
         "staleness": {
             "stale_if_input_hash_changes": True,
             "depends_on_paths": sorted({gate["path"] for gate in ci_gates}),
@@ -1535,7 +1492,7 @@ def command_verify_map(args: argparse.Namespace) -> int:
         verification_map["source_sha"],
         str(verification_path.relative_to(repo)),
         verification_map,
-        "verification-mapper",
+        "cbm-baseline-verification",
     )
     write_json(verification_path, verification_map)
     print(verification_path)
@@ -1587,7 +1544,7 @@ def build_synthesis_index(repo: Path, paths: RunPaths) -> dict[str, Any]:
         "artifact_type": "synthesis_index",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "synthesizer@0.1",
+        "produced_by": "cbm-baseline-synthesis@0.1",
         "source_sha": surface["source_sha"],
         "inputs": inputs,
         "status": "draft",
@@ -1794,7 +1751,7 @@ def command_bind(args: argparse.Namespace) -> int:
         "artifact_type": "goal_binding",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "cbm-bind@0.1",
+        "produced_by": "cbm-baseline-bind@0.1",
         "source_sha": surface["source_sha"],
         "inputs": [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}],
         "status": "draft",
@@ -1808,7 +1765,7 @@ def command_bind(args: argparse.Namespace) -> int:
         for error in errors:
             print(error, file=sys.stderr)
         return 1
-    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, surface["source_sha"], str(binding_path.relative_to(repo)), binding, "cbm-bind")
+    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, surface["source_sha"], str(binding_path.relative_to(repo)), binding, "cbm-baseline-bind")
     write_json(binding_path, binding)
     print(binding_path)
     return 0
@@ -1854,11 +1811,11 @@ def command_trace_workflows(args: argparse.Namespace) -> int:
         "artifact_type": "workflow_trace",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "tracer@0.1",
+        "produced_by": "dev-fixture-tracer@0.1",
         "source_sha": sha,
         "inputs": inputs,
         "status": "draft",
-        "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1),
+        "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"]),
         "staleness": {"stale_if_input_hash_changes": True, "depends_on_paths": [selected_edge["from"]["path"], selected_edge["to"]["path"]]},
         "goal": goal,
         "goal_class": goal_class,
@@ -1910,7 +1867,7 @@ def command_trace_workflows(args: argparse.Namespace) -> int:
         for error in errors:
             print(error, file=sys.stderr)
         return 1
-    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, sha, str(trace_path.relative_to(repo)), trace, "tracer")
+    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, sha, str(trace_path.relative_to(repo)), trace, "dev-fixture-tracer")
     write_json(trace_path, trace)
     print(trace_path)
     return 0
@@ -1985,7 +1942,7 @@ def command_refine(args: argparse.Namespace) -> int:
         "artifact_type": "refinement_report",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "refinement-orchestrator@0.1",
+        "produced_by": "dev-fixture-refinement@0.1",
         "source_sha": dependency_graph["source_sha"],
         "inputs": inputs,
         "status": "draft",
@@ -2000,7 +1957,7 @@ def command_refine(args: argparse.Namespace) -> int:
         for error in errors:
             print(error, file=sys.stderr)
         return 1
-    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, dependency_graph["source_sha"], str(report_path.relative_to(repo)), report, "refinement-orchestrator")
+    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, dependency_graph["source_sha"], str(report_path.relative_to(repo)), report, "dev-fixture-refinement")
     write_json(report_path, report)
     print(report_path)
     return 0
@@ -2098,7 +2055,7 @@ def command_approval_plan(args: argparse.Namespace) -> int:
         "artifact_type": "approval_plan",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "approval-planner@0.1",
+        "produced_by": "dev-fixture-approval@0.1",
         "source_sha": source,
         "inputs": inputs,
         "status": "draft",
@@ -2609,6 +2566,15 @@ def verify_card_confidence(data: dict[str, Any]) -> dict[str, Any]:
             {
                 "field": "confidence",
                 "reason": "high confidence requires zero dependent_challenges",
+            }
+        )
+    coverage = data.get("coverage")
+    coverage_result = coverage.get("result", {}) if isinstance(coverage, dict) else {}
+    if data.get("confidence") == "high" and coverage_result.get("files_unread_in_scope", 0) != 0:
+        violations.append(
+            {
+                "field": "confidence",
+                "reason": "high confidence requires zero unread files in scope",
             }
         )
     return {"checked": True, "violations": violations}
@@ -3619,7 +3585,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             for error in errors:
                 print(error, file=sys.stderr)
             return 1
-        append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, surface["source_sha"], str(surface_path.relative_to(repo)), surface, "surface-mapper")
+        append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, surface["source_sha"], str(surface_path.relative_to(repo)), surface, "cbm-baseline-surface")
         write_json(surface_path, surface)
     surface = read_json(surface_path)
     binding_path = paths.run_dir / "goal-binding.json"
@@ -3687,7 +3653,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "entry_id": next_ledger_id(ledger_path),
         "ts": now,
         "entry_kind": "citation_introduced",
-        "agent": "cbm-handoff",
+        "agent": "cbm-baseline-handoff",
         "skill_version": "0.1",
         "run_id": paths.run_id,
         "source_sha": sha,
@@ -3709,7 +3675,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "source_sha": sha,
         "question": "Which code surface actually matters most for the user's goal?",
         "status": "open",
-        "registered_by": "cbm-handoff@0.1",
+        "registered_by": "cbm-baseline-handoff@0.1",
     }
     try:
         append_uncertainty_entry(uncertainty_path, uncertainty)
@@ -3721,7 +3687,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "entry_id": next_ledger_id(ledger_path),
         "ts": now,
         "entry_kind": "uncertainty_logged",
-        "agent": "cbm-handoff",
+        "agent": "cbm-baseline-handoff",
         "skill_version": "0.1",
         "run_id": paths.run_id,
         "source_sha": sha,
@@ -3733,43 +3699,10 @@ def command_handoff(args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
-    skeptic_entry = {
-        "schema_version": SCHEMA_VERSION,
-        "entry_id": next_ledger_id(ledger_path),
-        "ts": now,
-        "entry_kind": "skeptic_challenge",
-        "agent": "skeptic",
-        "skill_version": "0.1",
-        "run_id": paths.run_id,
-        "source_sha": sha,
-        "artifact_path": str(surface_path.relative_to(repo)),
-        "claim_id": "edge-unknown-001",
-        "challenge": "Surface map is schema-valid but weak: Phase A only extracts direct Python imports, so calls, runtime workflows, relative imports, and dynamic loading cannot support high-confidence planning.",
-    }
-    try:
-        append_ledger_entry(repo, ledger_path, skeptic_entry)
-    except ValueError as exc:
-        print(exc, file=sys.stderr)
-        return 1
     unknown_edge = next((edge for edge in surface["edges"] if edge["id"] == "edge-unknown-001"), None)
     if unknown_edge is None:
         print("surface map is missing edge-unknown-001", file=sys.stderr)
         return 1
-    unknown_edge["claim_status"] = "challenged"
-    unknown_edge["challenges"] = [
-        {
-            "challenge_id": "chl-00001",
-            "challenges_claim_id": "edge-unknown-001",
-            "raised_by": "skeptic@0.1",
-            "raised_at": now,
-            "competing_reading": "The draft surface map should be treated as structurally incomplete until call, runtime workflow, relative import, and dynamic loading extraction replace the unknown dependency edge with grounded relations.",
-            "competing_evidence": [citation],
-            "interpretive_axis": "completeness",
-            "relation_to_original": "scope_dispute",
-            "status": "open",
-            "rationale": "The cited authority exists, but the dependency closure around it has not been extracted.",
-        }
-    ]
     errors = validate_data(repo, surface, "surface_map")
     if errors:
         for error in errors:
@@ -3790,25 +3723,19 @@ def command_handoff(args: argparse.Namespace) -> int:
                 "artifact_type": "skeptic_review",
                 "run_id": paths.run_id,
                 "produced_at": now,
-                "produced_by": "skeptic@0.1",
+                "produced_by": "dev-fixture-skeptic@0.1",
                 "source_sha": sha,
                 "artifact_reviewed": str(surface_path.relative_to(repo)),
-                "findings_logged": 1,
+                "findings_logged": 0,
+                "challenge_ids": [],
             },
             sort_keys=False,
         )
-        + "---\n# Skeptic Review\n\nFinding: `edge-unknown-001` keeps dependency closure unknown because Phase A only extracts direct Python imports. It still misses calls, runtime workflows, relative imports, and dynamic loading. This prevents high-confidence planning from the draft surface map alone.\n\nEvidence:\n"
-        + f"- {citation}\n",
+        + "---\n# Skeptic Review\n\nNo runtime Skeptic ran for this deterministic baseline handoff. The unknown dependency edge remains active for a real isolated Skeptic.\n\n"
+        + f"Reviewed artifact evidence: {citation}\n",
         encoding="utf-8",
     )
-    dependent_challenges = [
-        {
-            "claim_artifact": f".research/{paths.run_id}/surface-map.json",
-            "claim_id": "edge-unknown-001",
-            "challenge_ids": ["chl-00001"],
-            "impact": "Unknown dependency closure means this card can guide the next reading slice but should not be used as a high-confidence intervention plan.",
-        }
-    ]
+    dependent_challenges = []
     selected_claim = relation_edge if relation_edge else primary_authority
     selected_challenges = live_challenges(selected_claim)
     if selected_claim.get("id") != "edge-unknown-001" and selected_challenges:
@@ -3825,10 +3752,10 @@ def command_handoff(args: argparse.Namespace) -> int:
         selected_ids = ", ".join(challenge["challenge_id"] for challenge in selected_challenges)
         confidence_rationale = (
             "Confidence is low because the selected goal-bound surface has live challenge(s) "
-            f"{selected_ids}, and dependency closure remains challenged by edge-unknown-001."
+            f"{selected_ids}, and dependency closure remains unknown at edge-unknown-001."
         )
     else:
-        confidence_rationale = "Confidence is low because dependency closure remains challenged by edge-unknown-001."
+        confidence_rationale = "Confidence is low because dependency closure remains unknown at edge-unknown-001."
     card_inputs = [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}]
     if binding_path.exists():
         card_inputs.append({"path": str(binding_path.relative_to(repo)), "sha256": sha256_file(binding_path)})
@@ -3837,7 +3764,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "artifact_type": card_type,
         "run_id": paths.run_id,
         "produced_at": now,
-        "produced_by": "intervention-planner@0.1",
+        "produced_by": "dev-fixture-planner@0.1",
         "source_sha": sha,
         "inputs": card_inputs,
         "status": "draft",
@@ -3915,7 +3842,7 @@ def command_handoff(args: argparse.Namespace) -> int:
     else:
         card_body = "\n# Phase A Structural Finding\n\nThis generated card proves the mechanical gates are wired: schema validation and citation resolution operate on an evidence-bound artifact.\n"
     card_path.write_text("---\n" + yaml.safe_dump(card_frontmatter, sort_keys=False) + "---\n" + card_body, encoding="utf-8")
-    append_citation_entries(repo, ledger_path, paths.run_id, sha, str(card_path.relative_to(repo)), card_frontmatter, "intervention-planner")
+    append_citation_entries(repo, ledger_path, paths.run_id, sha, str(card_path.relative_to(repo)), card_frontmatter, "dev-fixture-planner")
     artifacts = [
         {"path": str((paths.run_dir / "codebase-map.json").relative_to(repo)), "artifact_type": "codebase_map", "status": "draft", "summary": "Deterministic structural file inventory."},
         {"path": str(surface_path.relative_to(repo)), "artifact_type": "surface_map", "status": "draft", "summary": "Draft deterministic surface map with explicit unknown dependency edge."},
@@ -3973,7 +3900,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "artifact_type": "handoff",
         "run_id": paths.run_id,
         "produced_at": utc_now(),
-        "produced_by": "cbm-handoff@0.1",
+        "produced_by": "cbm-baseline-handoff@0.1",
         "source_sha": sha,
         "inputs": handoff_inputs,
         "status": "draft",

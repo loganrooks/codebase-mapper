@@ -100,13 +100,15 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert main(["verify-citations", str(card), "--repo", str(repo)]) == 0
     assert main(["validate", str(handoff), "--repo", str(repo)]) == 0
     card_frontmatter = yaml.safe_load(card.read_text(encoding="utf-8").split("---", 2)[1])
+    assert card_frontmatter["produced_by"] == "dev-fixture-planner@0.1"
     assert expected["findings_card"]["role_contains"] in card_frontmatter["primary_files"][0]["role"]
     assert card_frontmatter["confidence"] == expected["findings_card"]["confidence"]
-    assert card_frontmatter["dependent_challenges"][0]["challenge_ids"] == [expected["findings_card"]["dependent_challenge_id"]]
+    assert card_frontmatter["dependent_challenges"] == []
     assert card_frontmatter["related_dependencies"]["certain"][0].endswith("/edges/0")
     assert card_frontmatter["verification_strategy"]["hard_gates"][0]["implementation"].startswith("Run cbm-gate-artifact")
 
     frontmatter = yaml.safe_load(handoff.read_text(encoding="utf-8").split("---", 2)[1])
+    assert frontmatter["produced_by"] == "cbm-baseline-handoff@0.1"
     assert frontmatter["gate_summary"]["schema_validation"]["passed"] == len(frontmatter["artifacts"])
     assert frontmatter["gate_summary"]["schema_validation"]["failed_artifacts"] == []
     assert frontmatter["gate_summary"]["staleness_check"]["fresh"] == len(frontmatter["inputs"])
@@ -127,7 +129,7 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert frontmatter["gate_summary"]["ledger_consistency"]["entry_count"] >= 3
     assert frontmatter["gate_summary"]["ledger_consistency"]["missing_citation_count"] == 0
     assert frontmatter["gate_summary"]["ledger_consistency"]["missing_citation_examples"] == []
-    assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 1
+    assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 0
     assert frontmatter["contestation_summary"]["claims_by_register"]["interpretive"] >= 1
     assert any("were directly examined" in caveat and "remain unread" in caveat for caveat in frontmatter["coverage_caveats"])
     assert any("deterministic extractors only" in caveat for caveat in frontmatter["coverage_caveats"])
@@ -136,6 +138,8 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert any(input_item["path"].endswith("goal-binding.json") for input_item in frontmatter["inputs"])
     assert any(input_item["path"].endswith("project-type.json") for input_item in frontmatter["inputs"])
     reviewed_surface = json.loads(surface_map.read_text(encoding="utf-8"))
+    assert reviewed_surface["produced_by"] == "cbm-baseline-surface@0.1"
+    assert reviewed_surface["coverage"]["result"]["files_examined_directly"] == 0
     reviewed_import_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "import"]
     reviewed_call_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "call"]
     reviewed_unknown_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "unknown"]
@@ -143,7 +147,12 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert reviewed_call_edges[0]["claim_status"] == "active"
     assert reviewed_unknown_edges[0]["id"] == expected["surface_unknown_edge"]["id"]
     assert reviewed_unknown_edges[0]["claim_status"] == expected["surface_unknown_edge"]["claim_status_after_handoff"]
-    assert reviewed_unknown_edges[0]["challenges"][0]["challenges_claim_id"] == "edge-unknown-001"
+    assert reviewed_unknown_edges[0].get("challenges", []) == []
+    assert "competing_reading" not in "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in run_dir.rglob("*")
+        if path.is_file() and path.suffix in {".json", ".jsonl", ".md"}
+    )
     ledger_entries = [
         json.loads(line)
         for line in (run_dir / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
@@ -357,16 +366,18 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     dependency_data = json.loads(dependency_graph.read_text(encoding="utf-8"))
     assert dependency_data["partition_counts"]["unknown"] >= 1
     data = json.loads(verification_map.read_text(encoding="utf-8"))
+    assert data["produced_by"] == "cbm-baseline-verification@0.1"
+    assert data["coverage"]["result"]["files_examined_directly"] == 0
     assert data["ci_gates"]
     assert data["ci_gates"][0]["command"]["safety_envelope"]["requires_network"] is False
     synthesis_data = json.loads(synthesis_index.read_text(encoding="utf-8"))
     assert synthesis_data["claim_counts"]["authorities"] == len(authority_data["authorities"])
     assert synthesis_data["claim_counts"]["dependencies"] == len(dependency_data["edges"])
-    assert synthesis_data["contestation"]["open_challenges"] >= 1
+    assert synthesis_data["contestation"]["open_challenges"] == 0
     handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
-    assert handoff_frontmatter["contestation_summary"]["open_challenges"] >= 2
-    assert handoff_frontmatter["contestation_summary"]["claims_by_status"]["challenged"] >= 2
-    assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] >= 2
+    assert handoff_frontmatter["contestation_summary"]["open_challenges"] == 0
+    assert handoff_frontmatter["contestation_summary"]["claims_by_status"]["challenged"] == 0
+    assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 0
     assert handoff_frontmatter["gate_summary"]["skeptic_review"]["artifacts_reviewed"] == len(
         [artifact for artifact in handoff_frontmatter["artifacts"] if artifact["artifact_type"] == "skeptic_review"]
     )
@@ -625,8 +636,8 @@ def test_challenge_adds_human_challenge_to_claim(tmp_path: Path) -> None:
     )
     dependent_claim_ids = {item["claim_id"] for item in card_frontmatter["dependent_challenges"]}
     assert import_edge["id"] not in dependent_claim_ids
-    assert dependent_claim_ids == {"edge-unknown-001"}
-    assert card_frontmatter["confidence_rationale"] == "Confidence is low because dependency closure remains challenged by edge-unknown-001."
+    assert dependent_claim_ids == set()
+    assert card_frontmatter["confidence_rationale"] == "Confidence is low because dependency closure remains unknown at edge-unknown-001."
 
 
 def test_handoff_rejects_evidence_invalid_surface(tmp_path: Path) -> None:
@@ -708,13 +719,13 @@ def test_handoff_summarizes_human_challenges(tmp_path: Path) -> None:
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
     run_dir = repo / ".research" / run_id
     frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
-    assert frontmatter["contestation_summary"]["open_challenges"] == 2
-    assert frontmatter["contestation_summary"]["claims_by_status"]["challenged"] == 2
-    assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 2
+    assert frontmatter["contestation_summary"]["open_challenges"] == 1
+    assert frontmatter["contestation_summary"]["claims_by_status"]["challenged"] == 1
+    assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 1
     card_frontmatter = yaml.safe_load((run_dir / "findings" / "int-0001.md").read_text(encoding="utf-8").split("---", 2)[1])
     dependent_claim_ids = {item["claim_id"] for item in card_frontmatter["dependent_challenges"]}
     assert import_edge["id"] in dependent_claim_ids
-    assert "edge-unknown-001" in dependent_claim_ids
+    assert "edge-unknown-001" not in dependent_claim_ids
     assert card_frontmatter["confidence"] == "low"
     assert "selected goal-bound surface has live challenge(s)" in card_frontmatter["confidence_rationale"]
 
@@ -798,7 +809,7 @@ def test_deep_run_writes_refinement_report(tmp_path: Path) -> None:
     data = json.loads(report.read_text(encoding="utf-8"))
     assert data["artifact_type"] == "refinement_report"
     assert data["next_round_required"] is True
-    assert any(item["source_kind"] == "skeptic_challenge" and item["challenge_id"] == "chl-10001" for item in data["refinements"])
+    assert not any(item["source_kind"] == "skeptic_challenge" for item in data["refinements"])
     assert any(item["source_kind"] == "trace_unknown" and item["disposition"] == "needs_runtime_trace" for item in data["refinements"])
     assert any("tracer" in item["reentry_targets"] for item in data["refinements"])
 
@@ -1270,7 +1281,7 @@ def test_verify_reports_missing_card_contestation(tmp_path: Path) -> None:
     assert main(["gate-artifact", str(card), "--repo", str(repo)]) == 2
     assert main(["verify", str(card), "--repo", str(repo), "--output", str(report)]) == 2
     verify_report = json.loads(report.read_text(encoding="utf-8"))
-    assert verify_report["summary"]["confidence_violations"] == 1
+    assert verify_report["summary"]["confidence_violations"] == 2
     card_data["confidence"] = "low"
     card_data["dependent_challenges"] = [
         item for item in card_data["dependent_challenges"] if item["claim_id"] != import_edge["id"]
@@ -1379,6 +1390,30 @@ def test_interpretive_refresh_emits_successor_surface_and_delta(tmp_path: Path) 
     run_id = "run-interpretive-refresh"
     assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
     old_surface = repo / ".research" / run_id / "surface-map.json"
+    old_surface_data = json.loads(old_surface.read_text(encoding="utf-8"))
+    unknown_edge = next(edge for edge in old_surface_data["edges"] if edge["kind"] == "unknown")
+    import_edge = next(edge for edge in old_surface_data["edges"] if edge["kind"] == "import")
+    assert (
+        main(
+            [
+                "challenge",
+                str(old_surface),
+                "--repo",
+                str(repo),
+                "--claim-id",
+                unknown_edge["id"],
+                "--competing-reading",
+                "The unknown dependency edge should remain explicit across refresh until a later mapper resolves it.",
+                "--evidence",
+                import_edge["citations"][0],
+                "--rationale",
+                "Refresh should carry forward unresolved human challenges instead of fabricating Skeptic output.",
+            ]
+        )
+        == 0
+    )
+    challenged_surface = json.loads(old_surface.read_text(encoding="utf-8"))
+    challenge_id = next(edge for edge in challenged_surface["edges"] if edge["id"] == unknown_edge["id"])["challenges"][0]["challenge_id"]
 
     (repo / "src" / "util.py").write_text("VALUE = 'hello'\n", encoding="utf-8")
     (repo / "src" / "app.py").write_text("from src.util import VALUE\n\n\ndef hello():\n    return VALUE\n", encoding="utf-8")
@@ -1401,7 +1436,7 @@ def test_interpretive_refresh_emits_successor_surface_and_delta(tmp_path: Path) 
     assert delta_data["refresh_mode"] == "interpretive"
     assert any(item["claim_id"] == "edge-import-001" for item in delta_data["updated"])
     assert any(item["successor_claim_id"].startswith("edge-import-") for item in delta_data["newly_added"])
-    assert any(item["challenge_id"] == "chl-00001" and item["post_refresh_status"] == "still_active" for item in delta_data["challenges_carried_forward"])
+    assert any(item["challenge_id"] == challenge_id and item["post_refresh_status"] == "still_active" for item in delta_data["challenges_carried_forward"])
     assert any(item["register_id"] == "unc-00001" and item["post_refresh_status"] == "still_open" for item in delta_data["open_questions_reconciled"])
 
 
@@ -1495,6 +1530,29 @@ def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path
     integrity = json.loads((repo / ".research" / "run-consult" / "evidence-ledger.jsonl.integrity.json").read_text(encoding="utf-8"))
     assert integrity["line_count"] == len(ledger_entries)
 
+    surface = repo / ".research" / "run-consult" / "surface-map.json"
+    surface_data = json.loads(surface.read_text(encoding="utf-8"))
+    unknown_edge = next(edge for edge in surface_data["edges"] if edge["id"] == "edge-unknown-001")
+    import_edge = next(edge for edge in surface_data["edges"] if edge["kind"] == "import")
+    assert (
+        main(
+            [
+                "challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--claim-id",
+                unknown_edge["id"],
+                "--competing-reading",
+                "The unknown dependency edge should remain visible to consultation users.",
+                "--evidence",
+                import_edge["citations"][0],
+                "--rationale",
+                "Consult should surface live human challenges from the corpus.",
+            ]
+        )
+        == 0
+    )
     assert main(["consult", "edge-unknown-001", "--repo", str(repo)]) == 0
     consultations = sorted((repo / ".research" / "consultations").glob("*.md"))
     challenged_answer = consultations[-1]
@@ -1634,7 +1692,7 @@ def test_verification_map_schema_can_drive_run_gate(tmp_path: Path) -> None:
         "artifact_type": "verification_map",
         "run_id": run_id,
         "produced_at": "2026-05-01T00:00:00Z",
-        "produced_by": "verification-mapper@0.1",
+        "produced_by": "cbm-baseline-verification@0.1",
         "source_sha": surface_data["source_sha"],
         "inputs": [{"path": str(surface.relative_to(repo)), "sha256": "0" * 64}],
         "status": "draft",
@@ -1747,17 +1805,19 @@ def test_skeptic_review_challenges_dependency_unknowns(tmp_path: Path) -> None:
     review = repo / ".research" / run_id / "skeptic-review" / "dependency-graph.md"
     assert main(["validate", str(review), "--repo", str(repo)]) == 0
     review_frontmatter = yaml.safe_load(review.read_text(encoding="utf-8").split("---", 2)[1])
-    assert review_frontmatter["findings_logged"] == 1
+    assert review_frontmatter["produced_by"] == "dev-fixture-skeptic@0.1"
+    assert review_frontmatter["findings_logged"] == 0
+    assert review_frontmatter["challenge_ids"] == []
     graph = json.loads(dependency_graph.read_text(encoding="utf-8"))
     unknown = next(edge for edge in graph["edges"] if edge["kind"] == "unknown")
-    assert unknown["claim_status"] == "challenged"
-    assert unknown["challenges"][0]["challenge_id"] == "chl-10001"
+    assert unknown["claim_status"] == "active"
+    assert unknown.get("challenges", []) == []
     ledger_entries = [
         json.loads(line)
         for line in (repo / ".research" / run_id / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert any(entry["entry_kind"] == "skeptic_challenge" and entry["claim_id"] == unknown["id"] for entry in ledger_entries)
+    assert not any(entry["entry_kind"] == "skeptic_challenge" and entry["claim_id"] == unknown["id"] for entry in ledger_entries)
 
 
 def test_synthesis_index_connects_standard_maps(tmp_path: Path) -> None:
@@ -1785,10 +1845,10 @@ def test_synthesis_index_connects_standard_maps(tmp_path: Path) -> None:
         "dependency_graph",
         "verification_map",
     }
-    assert data["contestation"]["open_challenges"] == 2
+    assert data["contestation"]["open_challenges"] == 0
     challenged_refs = {(item["artifact_path"], item["claim_id"]) for item in data["contestation"]["challenged_claims"]}
-    assert any(path.endswith("surface-map.json") and claim_id == "edge-unknown-001" for path, claim_id in challenged_refs)
-    assert any(path.endswith("dependency-graph.json") and claim_id == "edge-unknown-001" for path, claim_id in challenged_refs)
+    assert not any(path.endswith("surface-map.json") and claim_id == "edge-unknown-001" for path, claim_id in challenged_refs)
+    assert not any(path.endswith("dependency-graph.json") and claim_id == "edge-unknown-001" for path, claim_id in challenged_refs)
 
 
 def write_loop_status_scaffold(repo: Path, *, checkpoint_satisfies: bool) -> None:

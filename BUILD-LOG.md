@@ -1203,3 +1203,21 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Focused regressions passed: `pytest -q tests/test_cli.py::test_loop_status_blocks_broad_goal_until_checkpoint_satisfies_resume tests/test_cli.py::test_loop_status_blocks_dirty_authority_docs_and_disallowed_work`.
   - `git diff --check -- cbm/cli.py tests/test_cli.py pyproject.toml docs/contracts.md BUILD-LOG.md` passed.
   - `pytest -q` passed: 53 tests, 2 existing `jsonschema.RefResolver` deprecation warnings.
+
+## 2026-05-01 — Recovery slice: false provenance and coverage honesty
+
+- Implemented: deterministic baseline artifacts now use explicit `cbm-baseline-*` producer labels instead of role-like runtime agent names.
+- Implemented: dev fixture artifacts now use explicit `dev-fixture-*` labels instead of implying real Skeptic, Planner, Tracer, Approval, or Refinement agent execution.
+- Implemented: deterministic Skeptic review no longer fabricates `skeptic_challenge` ledger entries or mutates unknown edges to challenged status. Unknown dependency edges stay active until a real isolated Skeptic or human challenge contests them.
+- Implemented: deterministic surface, verification, and trace artifacts no longer report direct file examination from static extraction counts.
+- Implemented: no-finding Skeptic review stubs cite the reviewed artifact so corpus freshness/citation checks remain honest.
+- Implemented: high-confidence cards now fail gates if they still have unread in-scope files, in addition to failing when dependent challenges exist.
+- Updated tests so human challenge, refresh, consult, handoff, corpus-status, hook-stop, synthesis, and deep-mode refinement behavior are asserted without relying on the removed synthetic Skeptic challenge.
+- Rationale: Cross-vendor dispositions identified counterfeit agent provenance and overclaimed coverage as immediate blockers for trustworthy `/goal` recovery.
+- Verification run:
+  - Focused regressions passed: `pytest -q tests/test_cli.py::test_init_map_handoff_and_citation_resolution tests/test_cli.py::test_standard_run_writes_verification_map tests/test_cli.py::test_skeptic_review_challenges_dependency_unknowns tests/test_cli.py::test_synthesis_index_connects_standard_maps tests/test_cli.py::test_verification_map_schema_can_drive_run_gate`.
+  - Full suite passed: `pytest -q` reported 53 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Self-critique:
+  - Drift check: This removes the most misleading deterministic substitutes while preserving explicit unknowns for later runtime-agent work.
+  - Contract check: Existing schema producer patterns are preserved; schema enum values for reentry targets remain domain roles such as `tracer`, not producer labels.
+  - Reviewer-eye check: Producer labels are still hard-coded, not registry-backed. The next architectural step remains producer-registry and run-manifest work rather than more validators.

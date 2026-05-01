@@ -22,14 +22,14 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 ## Active Recovery Sequence
 
 1. Preserve pre-reset dirty work as a scoped checkpoint. Status: completed in `692e9ef`.
-2. Synthesize and disposition review outputs. Status: in progress.
-3. Update live planning/state/governance docs. Status: in progress.
-4. Install surgical `VISION.md` corrections. Status: pending.
-5. Update architecture/roadmap docs so they no longer overclaim runtime orchestration. Status: pending.
-6. Add recovery checkpoint artifact. Status: pending.
-7. Commit the planning/governance reset. Status: pending.
-8. Add minimal `cbm-loop-status` preflight. Status: completed in pending commit.
-9. Fix false provenance and coverage honesty in code. Status: pending.
+2. Synthesize and disposition review outputs. Status: completed in `f98605d`.
+3. Update live planning/state/governance docs. Status: completed in `f98605d`.
+4. Install surgical `VISION.md` corrections. Status: completed in `f98605d`.
+5. Update architecture/roadmap docs so they no longer overclaim runtime orchestration. Status: completed in `f98605d`.
+6. Add recovery checkpoint artifact. Status: completed in `f98605d`; checkpoint remains pending.
+7. Commit the planning/governance reset. Status: completed in `f98605d`.
+8. Add minimal `cbm-loop-status` preflight. Status: completed in `5d47a7a`.
+9. Fix false provenance and coverage honesty in code. Status: completed in pending commit.
 10. Add `cbm run --backend deterministic|external` and `run-manifest.json`. Status: pending.
 11. Spike Codex CLI isolation and document the result. Status: pending.
 12. Pin and run the first external benchmark baseline. Status: pending.

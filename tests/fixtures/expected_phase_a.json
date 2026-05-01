@@ -12,12 +12,10 @@
     "id": "edge-unknown-001",
     "kind": "unknown",
     "claim_register": "inferential",
-    "claim_status_after_handoff": "challenged"
+    "claim_status_after_handoff": "active"
   },
   "findings_card": {
     "role_contains": "Imports src/app.py",
-    "confidence": "low",
-    "dependent_challenge_id": "chl-00001"
+    "confidence": "low"
   }
 }
-
