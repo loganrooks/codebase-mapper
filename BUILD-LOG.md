@@ -793,3 +793,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: File-role claims now need direct path-specific evidence instead of any resolving citation.
   - Contract check: The gate uses existing `primary_files.path` and `primary_files.citations` fields, so no schema change was required.
   - Reviewer-eye check: This proves citation path support, not that an agent deeply read the cited file; path-aware direct-examination logs remain future work.
+
+## 2026-05-01 — Handoff slice: dynamic schema validation summary
+
+- Implemented: `cbm-handoff` now derives `gate_summary.schema_validation.passed` from the actual artifact list and validates each listed artifact instead of using a hardcoded count.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including an assertion that handoff schema-validation passed count equals the number of listed artifacts.
+- Self-critique:
+  - Drift check: Handoff gate summaries now track the real bundle shape as modes add project-type, trace, refinement, and approval artifacts.
+  - Contract check: `failed_artifacts` stays compatible with the existing string-array schema.
+  - Reviewer-eye check: This records validation failures in the summary but does not yet promote them into a separate failed-run handoff artifact.

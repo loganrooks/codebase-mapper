@@ -3547,6 +3547,16 @@ def command_handoff(args: argparse.Namespace) -> int:
             claim_refs.extend((str(split_path.relative_to(repo)), claim) for claim in all_artifact_claims(split_data))
     contestation_summary = contestation_summary_for_claim_refs(claim_refs)
     challenge_count = sum(len(live_challenges(claim)) for _, claim in claim_refs)
+    failed_artifacts = []
+    for artifact in artifacts:
+        artifact_path = repo / artifact["path"]
+        try:
+            artifact_data, _ = load_artifact_frontmatter(artifact_path)
+            artifact_errors = validate_data(repo, artifact_data, artifact["artifact_type"])
+        except Exception as exc:
+            artifact_errors = [str(exc)]
+        if artifact_errors:
+            failed_artifacts.append(f"{artifact['path']}: {'; '.join(artifact_errors)}")
     handoff_coverage = coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1)
     handoff = {
         "schema_version": SCHEMA_VERSION,
@@ -3563,7 +3573,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "goal_class": handoff_goal_class,
         "research_only": handoff_research_only,
         "gate_summary": {
-            "schema_validation": {"passed": 4 if binding else 3, "failed_artifacts": []},
+            "schema_validation": {"passed": len(artifacts) - len(failed_artifacts), "failed_artifacts": failed_artifacts},
             "citation_resolution": {"resolved": 1 if citation_ok else 0, "unresolved_count": 0 if citation_ok else 1, "unresolved_examples": [] if citation_ok else [f"{citation}: {citation_reason}"]},
             "ledger_consistency": {"append_only_verified": ledger_append_only_ok and not missing_ledger_citations, "entry_count": ledger_count(ledger_path)},
             "staleness_check": {"fresh": 3 if binding else 2, "stale_artifacts": []},
