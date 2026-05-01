@@ -159,6 +159,14 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     integrity_manifest = json.loads((run_dir / "evidence-ledger.jsonl.integrity.json").read_text(encoding="utf-8"))
     assert integrity_manifest["line_count"] == len(ledger_entries)
     assert len(integrity_manifest["line_hashes"]) == len(ledger_entries)
+    uncertainty_entries = [
+        json.loads(line)
+        for line in (run_dir / "uncertainty-register.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    uncertainty_integrity = json.loads((run_dir / "uncertainty-register.jsonl.integrity.json").read_text(encoding="utf-8"))
+    assert uncertainty_integrity["line_count"] == len(uncertainty_entries)
+    assert len(uncertainty_integrity["line_hashes"]) == len(uncertainty_entries)
 
 
 def test_run_orchestrates_phase_a_flow(tmp_path: Path) -> None:
@@ -886,6 +894,28 @@ def test_ledger_integrity_detects_mutated_existing_line(tmp_path: Path) -> None:
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 1
 
 
+def test_stop_hook_rejects_mutated_uncertainty_register(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+    run_id = "run-uncertainty-tamper"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+
+    register = repo / ".research" / run_id / "uncertainty-register.jsonl"
+    lines = register.read_text(encoding="utf-8").splitlines()
+    first = json.loads(lines[0])
+    first["status"] = "closed"
+    lines[0] = json.dumps(first)
+    register.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": str(repo)})))
+    assert main(["hook-stop", "--repo", str(repo)]) == 0
+    output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert output["continue"] is False
+    assert "uncertainty register append-only verification failed" in output["systemMessage"]
+
+
 def test_stale_detects_changed_input_and_dependent_path(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
@@ -1250,6 +1280,8 @@ def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path
         if item.get("registered_by") == "cbm-consult@0.1" and item.get("consultation_id") == refused_frontmatter["consultation_id"]
     ]
     assert refused_uncertainty
+    uncertainty_integrity = json.loads((repo / ".research" / "run-consult" / "uncertainty-register.jsonl.integrity.json").read_text(encoding="utf-8"))
+    assert uncertainty_integrity["line_count"] == len(uncertainties)
     ledger_entries = [
         json.loads(line)
         for line in (repo / ".research" / "run-consult" / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()

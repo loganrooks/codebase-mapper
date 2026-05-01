@@ -987,3 +987,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Project-type context now remains available to Skeptic/mapping consumers instead of being silently stripped from a schema-valid registry.
   - Contract check: This strengthens the dedicated registry command without changing the registry schema.
   - Reviewer-eye check: The command checks presence, not the quality or specificity of the annotation prose.
+
+## 2026-05-01 — Guardrail slice: uncertainty register append-only integrity
+
+- Implemented: `cbm-init` now creates an integrity manifest for `uncertainty-register.jsonl`, and all runtime uncertainty writes update it through an append-only helper.
+- Implemented: handoff and consult refusal paths now fail cleanly if the uncertainty register's prior lines no longer match the manifest.
+- Implemented: the stop hook now rejects a handoff when `uncertainty-register.jsonl` has been mutated after its integrity manifest was recorded.
+- Verification run:
+  - `pytest -q` passed: 42 tests, including regressions for uncertainty integrity sidecar updates and stop-hook rejection of a tampered uncertainty register.
+- Self-critique:
+  - Drift check: This aligns the uncertainty register with the same append-only review posture already used for the evidence ledger.
+  - Contract check: The change preserves the existing JSONL shape and adds only a sidecar manifest; no schema change was needed.
+  - Reviewer-eye check: The manifest detects mutation and truncation of existing lines, but it is not a cryptographic signature against deletion of the sidecar itself.

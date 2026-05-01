@@ -667,6 +667,14 @@ def append_ledger_entry(repo: Path, ledger_path: Path, entry: dict[str, Any]) ->
     write_ledger_integrity_manifest(ledger_path)
 
 
+def append_uncertainty_entry(uncertainty_path: Path, entry: dict[str, Any]) -> None:
+    ok, reason = verify_ledger_append_only(uncertainty_path)
+    if not ok:
+        raise ValueError(f"uncertainty register append-only verification failed: {reason}")
+    append_jsonl(uncertainty_path, entry)
+    write_ledger_integrity_manifest(uncertainty_path)
+
+
 def ledger_citations(path: Path) -> set[str]:
     return {
         entry["citation"]
@@ -845,6 +853,7 @@ def command_init(args: argparse.Namespace) -> int:
     (paths.run_dir / "evidence-ledger.jsonl").touch()
     write_ledger_integrity_manifest(paths.run_dir / "evidence-ledger.jsonl")
     (paths.run_dir / "uncertainty-register.jsonl").touch()
+    write_ledger_integrity_manifest(paths.run_dir / "uncertainty-register.jsonl")
     print(paths.run_dir)
     return 0
 
@@ -3243,7 +3252,7 @@ def append_consultation_uncertainty(repo: Path, consult_id: str, question: str) 
         "registered_by": "cbm-consult@0.1",
         "consultation_id": consult_id,
     }
-    append_jsonl(uncertainty_path, uncertainty)
+    append_uncertainty_entry(uncertainty_path, uncertainty)
     entry = {
         "schema_version": SCHEMA_VERSION,
         "entry_id": next_ledger_id(ledger_path),
@@ -3325,7 +3334,11 @@ def command_consult(args: argparse.Namespace) -> int:
         ),
         encoding="utf-8",
     )
-    append_consultation_uncertainty(repo, consult_id, args.question)
+    try:
+        append_consultation_uncertainty(repo, consult_id, args.question)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
     print(output_path)
     return 2
 
@@ -3557,6 +3570,10 @@ def command_handoff(args: argparse.Namespace) -> int:
     skeptic_path = skeptic_dir / "surface-map.md"
     ledger_path = paths.run_dir / "evidence-ledger.jsonl"
     uncertainty_path = paths.run_dir / "uncertainty-register.jsonl"
+    uncertainty_append_only_ok, uncertainty_append_only_reason = verify_ledger_append_only(uncertainty_path)
+    if not uncertainty_append_only_ok:
+        print(f"uncertainty register append-only verification failed: {uncertainty_append_only_reason}", file=sys.stderr)
+        return 1
     now = utc_now()
     citation_entry = {
         "schema_version": SCHEMA_VERSION,
@@ -3587,7 +3604,11 @@ def command_handoff(args: argparse.Namespace) -> int:
         "status": "open",
         "registered_by": "cbm-handoff@0.1",
     }
-    append_jsonl(uncertainty_path, uncertainty)
+    try:
+        append_uncertainty_entry(uncertainty_path, uncertainty)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
     uncertainty_entry = {
         "schema_version": SCHEMA_VERSION,
         "entry_id": next_ledger_id(ledger_path),
@@ -4012,6 +4033,10 @@ def command_hook_stop(args: argparse.Namespace) -> int:
         if surface_path.exists():
             surface = read_json(surface_path)
             errors.extend(check_claim_evidence(surface, extractors_for_artifact(repo, surface)))
+        uncertainty_path = run_dir / "uncertainty-register.jsonl"
+        uncertainty_append_only_ok, uncertainty_append_only_reason = verify_ledger_append_only(uncertainty_path)
+        if not uncertainty_append_only_ok:
+            errors.append(f"uncertainty register append-only verification failed: {uncertainty_append_only_reason}")
         for artifact in data.get("artifacts", []):
             if artifact.get("artifact_type") not in {"findings_card", "intervention_card"}:
                 continue
