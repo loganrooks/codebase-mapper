@@ -268,3 +268,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This preserves factual claims from interpretive/coverage challenge pollution.
   - Contract check: The ledger challenge entry already named `edge-unknown-001`; the surface map now matches that ledger claim target.
   - Reviewer-eye check: The smoke run on the dirty repo still falls back to a structural card because uncommitted source files are intentionally not cited at `source_sha`. Re-run after this commit to audit current committed behavior.
+
+## 2026-05-01 — Phase B slice: consultation mode
+
+- Implemented: `cbm-consult` / `cbm consult <question>`, which searches fresh cited artifacts in `.research/` and writes a consultation artifact under `.research/consultations/`.
+- Implemented: consultation answers require at least one citation whose recorded source still matches current `HEAD`; uncited artifacts are not used as answer sources.
+- Implemented: unanswered questions are recorded as explicit refusal artifacts instead of producing unsupported advice.
+- Verification run:
+  - `pytest -q` passed: 10 tests, including a consultation test that answers from a fresh run for `src/app.py` and refuses a missing query.
+- Self-critique:
+  - Drift check: Consultation mode reuses existing research artifacts and does not introduce a new interpretive runtime agent.
+  - Contract check: Answers are gated on citations that are still grounded at `HEAD`, matching the reuse-and-refresh direction.
+  - Reviewer-eye check: Matching is token-based and intentionally narrow. It can miss semantically related questions until a richer index exists, but refusal is safer than synthesizing from an insufficient corpus.

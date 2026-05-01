@@ -270,6 +270,31 @@ def test_structural_refresh_emits_successor_and_delta(tmp_path: Path) -> None:
     assert successor_data["refreshed_from"]["refresh_delta_path"].endswith(delta.name)
 
 
+def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", "run-consult"]) == 0
+
+    assert main(["consult", "src/app.py", "--repo", str(repo)]) == 0
+    consultations = sorted((repo / ".research" / "consultations").glob("*.md"))
+    answered = consultations[-1]
+    answered_frontmatter = yaml.safe_load(answered.read_text(encoding="utf-8").split("---", 2)[1])
+    assert answered_frontmatter["status"] == "answered"
+    assert answered_frontmatter["matches"]
+    assert all(match["citations"] for match in answered_frontmatter["matches"])
+    assert any("src/app.py" in json.dumps(match) for match in answered_frontmatter["matches"])
+
+    assert main(["consult", "nonexistent_surface_zzz", "--repo", str(repo)]) == 2
+    consultations = sorted((repo / ".research" / "consultations").glob("*.md"))
+    refused = consultations[-1]
+    refused_frontmatter = yaml.safe_load(refused.read_text(encoding="utf-8").split("---", 2)[1])
+    assert refused_frontmatter["status"] == "refused"
+    assert refused_frontmatter["matches"] == []
+
+
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

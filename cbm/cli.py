@@ -1256,6 +1256,97 @@ def command_refresh(args: argparse.Namespace) -> int:
     return 0
 
 
+def tokenize_query(question: str) -> list[str]:
+    return [token.lower() for token in re.findall(r"[A-Za-z0-9_./-]+", question) if len(token) >= 3]
+
+
+def artifact_is_fresh_for_consult(repo: Path, artifact: Path) -> bool:
+    citations = artifact_citations(artifact)
+    return bool(citations) and all(
+        verify_citation_at_head(repo, citation)["status"] == "still_grounded"
+        for citation in citations
+    )
+
+
+def consult_matches(repo: Path, question: str) -> list[dict[str, Any]]:
+    tokens = tokenize_query(question)
+    matches: list[dict[str, Any]] = []
+    for artifact in iter_research_artifacts(repo):
+        if not artifact_is_fresh_for_consult(repo, artifact):
+            continue
+        try:
+            data, body = load_artifact_frontmatter(artifact)
+        except Exception:
+            continue
+        text = json.dumps(data, sort_keys=True).lower() + "\n" + body.lower()
+        if not all(token in text for token in tokens):
+            continue
+        citations = artifact_citations(artifact)
+        matches.append(
+            {
+                "artifact": str(artifact.relative_to(repo)),
+                "artifact_type": data.get("artifact_type"),
+                "matched_terms": tokens,
+                "citations": citations[:5],
+            }
+        )
+    return matches
+
+
+def command_consult(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    matches = consult_matches(repo, args.question)
+    consultations_dir = repo / ".research" / "consultations"
+    consultations_dir.mkdir(parents=True, exist_ok=True)
+    consult_id = f"consult-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
+    output_path = consultations_dir / f"{consult_id}.md"
+    if matches:
+        lines = [
+            "---",
+            yaml.safe_dump(
+                {
+                    "schema_version": SCHEMA_VERSION,
+                    "artifact_type": "consultation",
+                    "consultation_id": consult_id,
+                    "produced_at": utc_now(),
+                    "question": args.question,
+                    "status": "answered",
+                    "matches": matches,
+                },
+                sort_keys=False,
+            ).strip(),
+            "---",
+            "# Consultation",
+            "",
+            "Grounded matches from fresh artifacts:",
+        ]
+        for match in matches:
+            citation_text = ", ".join(match["citations"]) if match["citations"] else "no citations in artifact"
+            lines.append(f"- `{match['artifact']}` ({match['artifact_type']}): {citation_text}")
+        output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print(output_path)
+        return 0
+    output_path.write_text(
+        "---\n"
+        + yaml.safe_dump(
+            {
+                "schema_version": SCHEMA_VERSION,
+                "artifact_type": "consultation",
+                "consultation_id": consult_id,
+                "produced_at": utc_now(),
+                "question": args.question,
+                "status": "refused",
+                "matches": [],
+            },
+            sort_keys=False,
+        )
+        + "---\n# Consultation\n\nRefusal: no fresh artifact in the corpus contains enough grounded evidence to answer this question.\n",
+        encoding="utf-8",
+    )
+    print(output_path)
+    return 2
+
+
 def read_intake(run_dir: Path) -> dict[str, Any]:
     return read_json(run_dir / "intake.json")
 
@@ -1701,6 +1792,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_refresh.add_argument("--repo", default=".")
     p_refresh.add_argument("--mode", required=True, choices=["structural", "interpretive"])
     p_refresh.set_defaults(func=command_refresh)
+    p_consult = sub.add_parser("consult")
+    p_consult.add_argument("question")
+    p_consult.add_argument("--repo", default=".")
+    p_consult.set_defaults(func=command_consult)
     p_handoff = sub.add_parser("handoff")
     p_handoff.add_argument("--repo", default=".")
     p_handoff.add_argument("--run-id")
@@ -1765,6 +1860,10 @@ def corpus_status_main() -> int:
 
 def refresh_main() -> int:
     return main(["refresh", *sys.argv[1:]])
+
+
+def consult_main() -> int:
+    return main(["consult", *sys.argv[1:]])
 
 
 def handoff_main() -> int:
