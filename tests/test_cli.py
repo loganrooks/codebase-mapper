@@ -244,6 +244,32 @@ def test_corpus_status_writes_manifest(tmp_path: Path) -> None:
     assert all(item["historical_valid"] for item in stale_items)
 
 
+def test_structural_refresh_emits_successor_and_delta(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-refresh"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    old_map = repo / ".research" / run_id / "codebase-map.json"
+
+    (repo / "src" / "new_module.py").write_text("VALUE = 1\n", encoding="utf-8")
+    git(repo, "add", "src/new_module.py")
+    git(repo, "commit", "-m", "add new module")
+    assert main(["refresh", str(old_map), "--repo", str(repo), "--mode", "structural"]) == 0
+
+    refresh_dir = repo / ".research" / run_id / "refreshes"
+    successor = next(refresh_dir.glob("codebase-map-*.json"))
+    delta = next(refresh_dir.glob("refresh-delta-structural-*.json"))
+    assert main(["validate", str(successor), "--repo", str(repo)]) == 0
+    assert main(["validate", str(delta), "--repo", str(repo)]) == 0
+    delta_data = json.loads(delta.read_text(encoding="utf-8"))
+    assert any(item["successor_claim_id"] == "file:src/new_module.py" for item in delta_data["newly_added"])
+    successor_data = json.loads(successor.read_text(encoding="utf-8"))
+    assert successor_data["refreshed_from"]["refresh_delta_path"].endswith(delta.name)
+
+
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

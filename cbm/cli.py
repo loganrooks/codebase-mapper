@@ -250,6 +250,7 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "intervention_card": "intervention-card.schema.json",
         "findings_card": "intervention-card.schema.json",
         "evidence_ledger_entry": "evidence-ledger.schema.json",
+        "refresh_delta": "refresh-delta.schema.json",
     }
     name = mapping.get(artifact_type)
     if not name:
@@ -612,9 +613,7 @@ def command_init(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_map(args: argparse.Namespace) -> int:
-    repo = Path(args.repo).resolve()
-    paths = run_paths(repo, args.run_id)
+def build_codebase_map(repo: Path, paths: RunPaths, refreshed_from: dict[str, Any] | None = None) -> dict[str, Any]:
     sha = source_sha(repo)
     files = []
     for path in iter_repo_files(repo):
@@ -667,6 +666,15 @@ def command_map(args: argparse.Namespace) -> int:
             }
         ],
     }
+    if refreshed_from:
+        artifact["refreshed_from"] = refreshed_from
+    return artifact
+
+
+def command_map(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    artifact = build_codebase_map(repo, paths)
     errors = validate_data(repo, artifact, "codebase_map")
     if errors:
         for error in errors:
@@ -1124,6 +1132,130 @@ def command_corpus_status(args: argparse.Namespace) -> int:
     return 0 if summary["broken"] == 0 else 2
 
 
+def file_map_by_path(codebase_map: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {item["path"]: item for item in codebase_map.get("files", [])}
+
+
+def structural_refresh_delta(
+    repo: Path,
+    paths: RunPaths,
+    prior_path: Path,
+    prior: dict[str, Any],
+    successor_path: Path,
+    successor: dict[str, Any],
+) -> dict[str, Any]:
+    prior_files = file_map_by_path(prior)
+    successor_files = file_map_by_path(successor)
+    prior_paths = set(prior_files)
+    successor_paths = set(successor_files)
+    common_paths = prior_paths & successor_paths
+    changed = sorted(path for path in common_paths if prior_files[path]["sha256"] != successor_files[path]["sha256"])
+    carried = sorted(common_paths - set(changed))
+    removed = sorted(prior_paths - successor_paths)
+    added = sorted(successor_paths - prior_paths)
+    downstream = []
+    for candidate in ["surface-map.json", "goal-binding.json", "handoff.md"]:
+        candidate_path = paths.run_dir / candidate
+        if candidate_path.exists():
+            downstream.append(
+                {
+                    "artifact_path": str(candidate_path.relative_to(repo)),
+                    "reason": "Structural baseline refreshed; downstream interpretive or goal-bound artifact needs review.",
+                }
+            )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "refresh_delta",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "cbm-refresh@0.1",
+        "source_sha": successor["source_sha"],
+        "status": "draft",
+        "refresh_mode": "structural",
+        "prior_artifact": {
+            "path": str(prior_path.relative_to(repo)),
+            "sha256": sha256_file(prior_path),
+            "source_sha": prior["source_sha"],
+        },
+        "successor_artifact": {
+            "path": str(successor_path.relative_to(repo)),
+            "sha256": sha256_file(successor_path),
+        },
+        "summary": f"Structural refresh compared {len(prior_files)} prior files with {len(successor_files)} current files: {len(carried)} carried, {len(changed)} updated, {len(removed)} removed, {len(added)} added.",
+        "carried_forward": [
+            {"claim_id": f"file:{path}", "claim_register": "factual", "claim_status": "active", "successor_claim_id": f"file:{path}"}
+            for path in carried
+        ],
+        "updated": [
+            {
+                "claim_id": f"file:{path}",
+                "successor_claim_id": f"file:{path}",
+                "what_changed": "File bytes changed between prior source SHA and refreshed HEAD.",
+                "claim_register": "factual",
+            }
+            for path in changed
+        ],
+        "retracted": [
+            {"claim_id": f"file:{path}", "rationale": "File is absent from the refreshed HEAD."}
+            for path in removed
+        ],
+        "newly_added": [
+            {"successor_claim_id": f"file:{path}", "rationale": "File is present in refreshed HEAD but absent from the prior codebase map."}
+            for path in added
+        ],
+        "newly_contested": [],
+        "challenges_carried_forward": [],
+        "open_questions_reconciled": [],
+        "downstream_invalidation": downstream,
+    }
+
+
+def command_refresh(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    prior_path = Path(args.artifact)
+    if not prior_path.is_absolute():
+        prior_path = repo / prior_path
+    prior = read_json(prior_path)
+    if args.mode != "structural":
+        print("only --mode structural is implemented", file=sys.stderr)
+        return 1
+    if prior.get("artifact_type") != "codebase_map":
+        print("structural refresh requires a codebase-map artifact", file=sys.stderr)
+        return 1
+    paths = run_paths(repo, prior["run_id"])
+    refresh_dir = paths.run_dir / "refreshes"
+    refresh_dir.mkdir(parents=True, exist_ok=True)
+    head = source_sha(repo)
+    successor_path = refresh_dir / f"codebase-map-{head}.json"
+    delta_path = refresh_dir / f"refresh-delta-structural-{head}.json"
+    successor = build_codebase_map(
+        repo,
+        paths,
+        refreshed_from={
+            "artifact_path": str(prior_path.relative_to(repo)),
+            "source_sha": prior["source_sha"],
+            "refresh_mode": "structural",
+            "refresh_delta_path": str(delta_path.relative_to(repo)),
+        },
+    )
+    errors = validate_data(repo, successor, "codebase_map")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    write_json(successor_path, successor)
+    delta = structural_refresh_delta(repo, paths, prior_path, prior, successor_path, successor)
+    errors = validate_data(repo, delta, "refresh_delta")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    write_json(delta_path, delta)
+    print(successor_path)
+    print(delta_path)
+    return 0
+
+
 def read_intake(run_dir: Path) -> dict[str, Any]:
     return read_json(run_dir / "intake.json")
 
@@ -1564,6 +1696,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_corpus_status.add_argument("--repo", default=".")
     p_corpus_status.add_argument("--output")
     p_corpus_status.set_defaults(func=command_corpus_status)
+    p_refresh = sub.add_parser("refresh")
+    p_refresh.add_argument("artifact")
+    p_refresh.add_argument("--repo", default=".")
+    p_refresh.add_argument("--mode", required=True, choices=["structural", "interpretive"])
+    p_refresh.set_defaults(func=command_refresh)
     p_handoff = sub.add_parser("handoff")
     p_handoff.add_argument("--repo", default=".")
     p_handoff.add_argument("--run-id")
@@ -1624,6 +1761,10 @@ def verify_main() -> int:
 
 def corpus_status_main() -> int:
     return main(["corpus-status", *sys.argv[1:]])
+
+
+def refresh_main() -> int:
+    return main(["refresh", *sys.argv[1:]])
 
 
 def handoff_main() -> int:

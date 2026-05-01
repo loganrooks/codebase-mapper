@@ -242,6 +242,21 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Contract check: It distinguishes current freshness from historical validity by retaining `historical_valid` per artifact.
   - Reviewer-eye check: This walks the current flattened `.research/<run_id>/` layout, not the recommended future `.research/runs/<run_id>/` layout. It uses recursive discovery, so it should tolerate either layout later.
 
+## 2026-05-01 — Phase B slice: structural refresh
+
+- Implemented: `cbm-refresh <codebase-map> --mode structural`. It re-runs the deterministic codebase-map kernel at current `HEAD`, writes a refreshed successor map under `refreshes/`, and emits a schema-valid refresh delta.
+- Implemented: refreshed codebase maps include `refreshed_from` lineage pointing back to the prior artifact and the refresh delta.
+- Implemented: structural refresh delta records carried-forward, updated, retracted, and newly-added file claims, plus downstream invalidation entries for surface map, goal binding, and handoff when present.
+- Verification run:
+  - `pytest -q` passed: 9 tests, including a structural refresh test that commits a new file and verifies the delta records `file:src/new_module.py` in `newly_added`.
+  - Smoke run `run-phase-b-refresh-smoke`: `python3 -m cbm refresh .research/run-phase-b-refresh-smoke/codebase-map.json --repo . --mode structural` produced a successor codebase map and `refresh-delta-structural-913a55fbed6b.json`.
+  - `python3 -m cbm validate .research/run-phase-b-refresh-smoke/refreshes/codebase-map-913a55fbed6b.json --repo .` passed.
+  - `python3 -m cbm validate .research/run-phase-b-refresh-smoke/refreshes/refresh-delta-structural-913a55fbed6b.json --repo .` passed.
+- Self-critique:
+  - Drift check: Structural refresh updates deterministic baseline only and marks downstream interpretive artifacts for review instead of silently carrying them forward.
+  - Contract check: Refresh delta uses the existing v1.2 schema and the successor map uses the existing optional `refreshed_from` block.
+  - Reviewer-eye check: This writes successor artifacts under the same run's `refreshes/` directory and does not replace `codebase-map.json`; callers must choose the successor explicitly.
+
 ## 2026-05-01 — Skeptic challenge target fix
 
 - Audit finding: once Python import extraction exists, `cbm-handoff` must not assume the unknown edge is `surface.edges[0]`. A current-head smoke showed the Skeptic challenge was attached to the first edge by index, which could incorrectly challenge a factual import edge.
