@@ -838,6 +838,80 @@ def command_surface(args: argparse.Namespace) -> int:
     return 0
 
 
+def build_verification_map(repo: Path, paths: RunPaths) -> dict[str, Any]:
+    sha = source_sha(repo)
+    codebase_path = paths.run_dir / "codebase-map.json"
+    codebase_map = read_codebase_map(paths.run_dir)
+    rels = [item["path"] for item in codebase_map["files"]]
+    ci_gates = []
+    for test in codebase_map["tests"]:
+        citation = citation_for(repo, test["path"], sha)
+        if not citation:
+            continue
+        gate_id = f"test-{len(ci_gates) + 1:03d}"
+        ci_gates.append(
+            {
+                "id": gate_id,
+                "name": f"Run {test['path']}",
+                "path": test["path"],
+                "kind": "test",
+                "citations": [citation],
+                "command": {
+                    "runner": sys.executable,
+                    "argv": ["-m", "pytest", test["path"]],
+                    "cwd": ".",
+                    "safety_envelope": {
+                        "requires_network": False,
+                        "requires_install": False,
+                        "mutates_filesystem": False,
+                        "max_duration_seconds": 120,
+                    },
+                },
+            }
+        )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "verification_map",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "verification-mapper@0.1",
+        "source_sha": sha,
+        "inputs": [{"path": str(codebase_path.relative_to(repo)), "sha256": sha256_file(codebase_path)}],
+        "status": "draft",
+        "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=len(ci_gates)),
+        "staleness": {
+            "stale_if_input_hash_changes": True,
+            "depends_on_paths": sorted({gate["path"] for gate in ci_gates}),
+            "scope_signature": scope_signature(rels),
+        },
+        "ci_gates": ci_gates,
+    }
+
+
+def command_verify_map(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    verification_map = build_verification_map(repo, paths)
+    errors = validate_data(repo, verification_map, "verification_map")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    verification_path = paths.run_dir / "verification-map.json"
+    append_citation_entries(
+        repo,
+        paths.run_dir / "evidence-ledger.jsonl",
+        paths.run_id,
+        verification_map["source_sha"],
+        str(verification_path.relative_to(repo)),
+        verification_map,
+        "verification-mapper",
+    )
+    write_json(verification_path, verification_map)
+    print(verification_path)
+    return 0
+
+
 def command_bind(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     paths = run_paths(repo, args.run_id)
@@ -2033,13 +2107,20 @@ def command_run(args: argparse.Namespace) -> int:
     run_id = args.run_id or f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{source_sha(repo)}"
     init_args = argparse.Namespace(repo=str(repo), goal=args.goal, goal_class=args.goal_class, mode=args.mode, run_id=run_id)
     map_args = argparse.Namespace(repo=str(repo), run_id=run_id)
-    for command, ns in (
+    commands = [
         (command_init, init_args),
         (command_map, map_args),
         (command_surface, map_args),
-        (command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)),
-        (command_handoff, map_args),
-    ):
+    ]
+    if args.mode in {"standard", "deep"}:
+        commands.append((command_verify_map, map_args))
+    commands.extend(
+        [
+            (command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)),
+            (command_handoff, map_args),
+        ]
+    )
+    for command, ns in commands:
         rc = command(ns)
         if rc != 0:
             return rc
@@ -2117,6 +2198,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_surface.add_argument("--repo", default=".")
     p_surface.add_argument("--run-id")
     p_surface.set_defaults(func=command_surface)
+    p_verify_map = sub.add_parser("verify-map")
+    p_verify_map.add_argument("--repo", default=".")
+    p_verify_map.add_argument("--run-id")
+    p_verify_map.set_defaults(func=command_verify_map)
     p_bind = sub.add_parser("bind")
     p_bind.add_argument("--repo", default=".")
     p_bind.add_argument("--run-id")
@@ -2199,6 +2284,10 @@ def map_main() -> int:
 
 def surface_main() -> int:
     return main(["surface", *sys.argv[1:]])
+
+
+def verify_map_main() -> int:
+    return main(["verify-map", *sys.argv[1:]])
 
 
 def bind_main() -> int:

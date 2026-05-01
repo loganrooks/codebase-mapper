@@ -315,3 +315,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This moves run-gate toward the standard-mode artifact contract instead of leaving it coupled to the MVP surface map.
   - Contract check: The schema covers the universal artifact envelope, `ci_gates`, citations, command argv, cwd, and safety envelope.
   - Reviewer-eye check: This is only the verification-map schema and execution integration. It does not yet add a Verification Mapper that produces this artifact automatically.
+
+## 2026-05-01 — Phase B slice: deterministic verification mapper
+
+- Implemented: `cbm-verify-map` / `cbm verify-map`, producing `verification-map.json` from the deterministic codebase map's discovered tests.
+- Implemented: standard and deep `cbm run` now include verification-map generation before goal binding and handoff.
+- Implemented: generated test gates declare repo-local pytest commands with no network, no install, no filesystem mutation, and bounded duration.
+- Verification run:
+  - `pytest -q` passed: 15 tests, including direct `cbm verify-map`, standard-mode run artifact generation, schema validation, and executing a generated `test-001` gate through `cbm-run-gate`.
+- Self-critique:
+  - Drift check: This adds a deterministic verification surface without turning CBM into a source-mutating executor.
+  - Contract check: Generated verification maps validate against the v1.2 schema and command execution is recorded through the existing run-gate ledger path.
+  - Reviewer-eye check: This maps discovered test files only. It does not infer lint, typecheck, build, or framework-specific verification gates beyond the deterministic test inventory.

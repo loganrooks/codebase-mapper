@@ -138,6 +138,23 @@ def test_run_orchestrates_phase_a_flow(tmp_path: Path) -> None:
     assert (run_dir / "handoff.md").exists()
 
 
+def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--mode", "standard", "--run-id", "run-standard"]) == 0
+
+    run_dir = repo / ".research" / "run-standard"
+    verification_map = run_dir / "verification-map.json"
+    assert verification_map.exists()
+    assert main(["validate", str(verification_map), "--repo", str(repo)]) == 0
+    data = json.loads(verification_map.read_text(encoding="utf-8"))
+    assert data["ci_gates"]
+    assert data["ci_gates"][0]["command"]["safety_envelope"]["requires_network"] is False
+
+
 def test_stop_hook_validates_latest_handoff(tmp_path: Path, monkeypatch, capsys) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
@@ -443,6 +460,26 @@ def test_verification_map_schema_can_drive_run_gate(tmp_path: Path) -> None:
     assert main(["run-gate", "vm-unit", "--repo", str(repo), "--run-id", run_id]) == 0
     output = next((run_dir / "command-outputs").glob("vm-unit-*.txt"))
     assert "verification-map-ok" in output.read_text(encoding="utf-8")
+
+
+def test_verify_map_command_generates_declared_test_gate(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-verify-map"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["verify-map", "--repo", str(repo), "--run-id", run_id]) == 0
+    verification_map = repo / ".research" / run_id / "verification-map.json"
+    assert main(["validate", str(verification_map), "--repo", str(repo)]) == 0
+    data = json.loads(verification_map.read_text(encoding="utf-8"))
+    assert data["ci_gates"][0]["id"] == "test-001"
+    assert data["ci_gates"][0]["command"]["argv"][-1] == "tests/test_app.py"
+    assert main(["run-gate", "test-001", "--repo", str(repo), "--run-id", run_id, "--max-duration", "120"]) == 0
+    output = next((repo / ".research" / run_id / "command-outputs").glob("test-001-*.txt"))
+    assert "1 passed" in output.read_text(encoding="utf-8")
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
