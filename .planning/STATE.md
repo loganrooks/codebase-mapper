@@ -19,7 +19,7 @@ The current product should be described as:
 
 ## Document Authority
 
-- `VISION.md`: still authoritative for destination and maturity criteria.
+- `VISION.md`: currently authoritative for destination and maturity criteria, but now an explicit audit target. It may be revised if review finds that ambiguity or framing issues are harming implementation quality.
 - `RUNTIME-CONSTITUTION.md`: authoritative for runtime CBM agent discipline once real runtime agents exist.
 - `.planning/STATE.md`: authoritative for current factual status.
 - `.planning/CURRENT-PLAN.md`: authoritative for next work and open decisions.
@@ -80,11 +80,11 @@ Expected verification checks for future substantive work:
 - update `BUILD-LOG.md` and `.planning/STATE.md` or `.planning/CURRENT-PLAN.md` when status or plan changes;
 - for architecture/planning changes, run at least `git diff --check` and create/update review artifacts.
 
-## Current Architectural Correction
+## Current Architectural Question
 
-The current live Codex hooks are dogfooding/platform adapter glue. They should not be treated as the core CBM deployment or correctness mechanism.
+The current live Codex hooks are dogfooding/platform adapter glue, but their final role is unsettled. They should not be assumed to be the core CBM deployment or correctness mechanism without review.
 
-Corrected direction:
+Candidate direction under review:
 
 - `cbm run` should own run setup, output location, producer execution, and explicit validation.
 - Deterministic commands produce baseline artifacts.
@@ -104,12 +104,18 @@ Corrected direction:
 
 ## Next Review
 
-Prepare and run a cross-vendor architecture audit under `.planning/reviews/2026-05-01-opus-architecture-audit/`.
+The first Opus architecture audit packet at `.planning/reviews/2026-05-01-opus-architecture-audit/` was aborted because its prompt overdetermined the diagnosis.
 
-The auditor should review:
+Replacement review packet:
 
-- whether the hook work was overbuilt or misplaced;
-- whether the deterministic kernel work is still useful;
-- whether the corrected Codex CLI backend plan is coherent;
-- whether roadmap/plan/state tracking is adequate;
-- what should be changed before further implementation.
+`.planning/reviews/2026-05-01-strategy-workflow-vision-audit/`
+
+It separates three independent tracks:
+
+- architecture and product shape;
+- development workflow and governance;
+- vision quality.
+
+The goal is to diagnose the project state and review multiple possible explanations, not to confirm the current agent's framing.
+
+The workflow track should explicitly evaluate how a long-running automated `/goal` loop detects drift, handles failed assumptions, recovers from mistakes, updates stale plans, and escalates gracefully without burying the issue in more implementation.

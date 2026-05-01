@@ -1,5 +1,14 @@
 # Prompt: Opus Architecture Audit
 
+Status: aborted - biased framing
+Superseded by: `.planning/reviews/2026-05-01-strategy-workflow-vision-audit/`
+
+Do not run this prompt. It over-specifies the current agent's suspected diagnosis and is preserved only as an audit trace of the aborted review attempt.
+
+Original prompt follows.
+
+---
+
 You are reviewing the CBM repository as an external architecture auditor.
 
 Be adversarial and specific. Do not assume the current implementation is on track just because it has tests or a long build log. Identify design drift, bad planning decisions, misleading documentation, and weak verification.

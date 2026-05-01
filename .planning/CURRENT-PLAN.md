@@ -27,7 +27,9 @@ The main correction:
 - The core product guarantee should come from explicit CLI validation and run-level validation.
 - Hooks may be useful only as optional Codex adapter glue, especially for CBM-launched Codex agent subprocesses.
 
-## Proposed Architecture Direction
+## Candidate Architecture Direction
+
+This is a candidate direction, not an accepted conclusion. It must be reviewed before further implementation.
 
 1. Keep the deterministic kernel.
    - It provides file inventory, static edges, schemas, citations, ledgers, gates, freshness, reuse, and baseline artifacts.
@@ -53,12 +55,14 @@ The main correction:
 
 ## Next Concrete Actions
 
-1. Create this `.planning/` state/plan surface. Status: in progress.
-2. Create an Opus architecture audit packet. Status: in progress.
-3. Run the external audit if the local Claude CLI accepts the requested model/effort. Status: pending.
-4. Disposition the audit into `.planning/reviews/.../DISPOSITION.md`. Status: pending.
-5. Update `docs/roadmap.md`, `docs/architecture.md`, and `docs/contracts.md` only after the audit or explicit user direction. Status: pending.
-6. Implement the next code slice only after the architecture correction is accepted or revised. Status: pending.
+1. Create `.planning/` state/plan surface. Status: completed in `5a2ceb5`.
+2. Mark the first Opus review packet as aborted because its prompt overdetermined the diagnosis. Status: in progress.
+3. Create a neutral multi-track review packet for architecture, workflow/governance, and vision quality. Status: in progress.
+4. Launch Track A and Track B as independent reviews. Status: pending.
+5. Launch Track C either immediately after A/B or after A/B if they identify vision ambiguity as a significant cause. Status: pending.
+6. Synthesize and disposition review outputs. Status: pending.
+7. Update `docs/roadmap.md`, `docs/architecture.md`, and `docs/contracts.md` only after review disposition or explicit user direction. Status: pending.
+8. Implement the next code slice only after the architecture/workflow correction is accepted or revised. Status: pending.
 
 ## Expected Verification
 
@@ -82,6 +86,10 @@ For the next code slice:
 - Is `docs/roadmap.md` salvageable as a phase roadmap, or should it be rewritten after the architecture correction?
 - Which artifact should be the source of truth for deployment shape: `docs/architecture.md`, `docs/contracts.md`, or a new deployment document?
 - What minimum benchmark repo proves CBM is more than a schema/gate demo?
+- What protocol governs `CURRENT-PLAN.md` completion, stale-state detection, supersession, and archival?
+- Should phase/slice completion require independent reviewer/checkpoint agents?
+- Is `VISION.md` itself clear and operational enough, or should it be revised to better guide implementation and verification?
+- What should the automated `/goal` loop do when it drifts, hits repeated failures, discovers the plan is wrong, or encounters ambiguous architecture choices?
 
 ## Non-Goals Right Now
 

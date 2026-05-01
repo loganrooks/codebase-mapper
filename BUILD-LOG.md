@@ -1167,3 +1167,16 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This pauses feature work to correct planning and architecture visibility.
   - Contract check: No runtime artifact schema changed.
   - Reviewer-eye check: Committing `AGENTS.md` may include a pre-existing uncommitted rewrite of that file; this should be called out because the working tree was already dirty.
+
+## 2026-05-01 — Review reset: neutral multi-track audit
+
+- Decision: Abort the first Opus review packet because its prompt overdetermined the diagnosis by foregrounding the current agent's hook and architecture framing.
+- Decision: Create `.planning/reviews/2026-05-01-strategy-workflow-vision-audit/` with separate prompts for architecture/product shape, development workflow/governance, and `VISION.md` quality.
+- Decision: Treat `VISION.md` as currently authoritative but reviewable. The vision itself may need improvements if it is unclear, too aspirational, or insufficiently operational.
+- Decision: Make automated `/goal` governance a first-class review target, including drift detection, stale-plan handling, repeated-failure recovery, and escalation thresholds.
+- Rationale: An independent review should diagnose the problem space and compare candidate explanations, not ratify the agent's latest theory.
+- Verification plan: Run `git diff --check -- .planning BUILD-LOG.md`; do not launch reviewers until the neutral packet is inspected.
+- Self-critique:
+  - Drift check: This directly addresses the user's concern that the review framing was biased.
+  - Contract check: This changes planning/review artifacts only.
+  - Reviewer-eye check: The project now has two review directories; the aborted one is retained as audit evidence and explicitly superseded.

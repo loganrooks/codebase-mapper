@@ -1,9 +1,17 @@
 # Review Spec: Opus Architecture Audit
 
-Status: ready
+Status: aborted - biased framing
 Last updated: 2026-05-01
 Supersedes: none
-Superseded by: none
+Superseded by: `.planning/reviews/2026-05-01-strategy-workflow-vision-audit/`
+
+## Abort Note
+
+This review packet should not be used as independent audit evidence. Its prompt over-specified a suspected diagnosis around hooks, deterministic pipeline framing, and a "corrected architecture." That risks anchoring the reviewer to the current agent's interpretation instead of eliciting an independent diagnosis.
+
+No `OUTPUT.md` was accepted from this packet. A replacement neutral review packet lives at:
+
+`.planning/reviews/2026-05-01-strategy-workflow-vision-audit/`
 
 ## Purpose
 
