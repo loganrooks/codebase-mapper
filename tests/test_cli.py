@@ -85,7 +85,11 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 1
     assert frontmatter["contestation_summary"]["claims_by_register"]["interpretive"] >= 1
     reviewed_surface = json.loads(surface_map.read_text(encoding="utf-8"))
-    assert reviewed_surface["edges"][0]["claim_status"] == "challenged"
+    reviewed_import_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "import"]
+    reviewed_unknown_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "unknown"]
+    assert reviewed_import_edges[0]["claim_status"] == "active"
+    assert reviewed_unknown_edges[0]["claim_status"] == "challenged"
+    assert reviewed_unknown_edges[0]["challenges"][0]["challenges_claim_id"] == "edge-unknown-001"
     ledger_entries = [
         json.loads(line)
         for line in (run_dir / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()

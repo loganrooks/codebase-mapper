@@ -951,8 +951,12 @@ def command_handoff(args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
-    surface["edges"][0]["claim_status"] = "challenged"
-    surface["edges"][0]["challenges"] = [
+    unknown_edge = next((edge for edge in surface["edges"] if edge["id"] == "edge-unknown-001"), None)
+    if unknown_edge is None:
+        print("surface map is missing edge-unknown-001", file=sys.stderr)
+        return 1
+    unknown_edge["claim_status"] = "challenged"
+    unknown_edge["challenges"] = [
         {
             "challenge_id": "chl-00001",
             "challenges_claim_id": "edge-unknown-001",
