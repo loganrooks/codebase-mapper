@@ -304,3 +304,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The command adds controlled verification execution without allowing source mutation by default.
   - Contract check: Output path, exit code, duration, and command id are recorded in the append-only ledger.
   - Reviewer-eye check: The implementation enforces declared envelope metadata but does not provide OS-level sandboxing for filesystem mutation or network isolation. It refuses declared risky gates unless approved; it cannot detect a dishonest command declaration.
+
+## 2026-05-01 — Phase B slice: verification-map schema
+
+- Implemented: `schemas/verification-map.schema.json` for standard-mode verification gates and command declarations.
+- Implemented: `cbm-validate` support for `artifact_type: verification_map`; `cbm-run-gate` can now execute gates from `verification-map.json` as described in the contracts.
+- Verification run:
+  - `pytest -q` passed: 13 tests, including a verification-map validation test that drives `cbm-run-gate` from `verification-map.json`.
+- Self-critique:
+  - Drift check: This moves run-gate toward the standard-mode artifact contract instead of leaving it coupled to the MVP surface map.
+  - Contract check: The schema covers the universal artifact envelope, `ci_gates`, citations, command argv, cwd, and safety envelope.
+  - Reviewer-eye check: This is only the verification-map schema and execution integration. It does not yet add a Verification Mapper that produces this artifact automatically.

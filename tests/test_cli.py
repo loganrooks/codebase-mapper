@@ -394,6 +394,57 @@ def test_run_gate_executes_declared_command_and_refuses_outside_envelope(tmp_pat
     assert main(["run-gate", "networked", "--repo", str(repo), "--run-id", run_id, "--max-duration", "10"]) == 2
 
 
+def test_verification_map_schema_can_drive_run_gate(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-verification-map"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    run_dir = repo / ".research" / run_id
+    surface = run_dir / "surface-map.json"
+    surface_data = json.loads(surface.read_text(encoding="utf-8"))
+    verification_map = {
+        "schema_version": "1.2",
+        "artifact_type": "verification_map",
+        "run_id": run_id,
+        "produced_at": "2026-05-01T00:00:00Z",
+        "produced_by": "verification-mapper@0.1",
+        "source_sha": surface_data["source_sha"],
+        "inputs": [{"path": str(surface.relative_to(repo)), "sha256": "0" * 64}],
+        "status": "draft",
+        "coverage": surface_data["coverage"],
+        "staleness": surface_data["staleness"],
+        "ci_gates": [
+            {
+                "id": "vm-unit",
+                "name": "Fixture unit gate",
+                "path": "tests/test_app.py",
+                "kind": "test",
+                "citations": [surface_data["edges"][0]["citations"][0]],
+                "command": {
+                    "runner": sys.executable,
+                    "argv": ["-c", "print('verification-map-ok')"],
+                    "cwd": ".",
+                    "safety_envelope": {
+                        "requires_network": False,
+                        "requires_install": False,
+                        "mutates_filesystem": False,
+                        "max_duration_seconds": 5,
+                    },
+                },
+            }
+        ],
+    }
+    verification_path = run_dir / "verification-map.json"
+    verification_path.write_text(json.dumps(verification_map, indent=2) + "\n", encoding="utf-8")
+    assert main(["validate", str(verification_path), "--repo", str(repo)]) == 0
+    assert main(["run-gate", "vm-unit", "--repo", str(repo), "--run-id", run_id]) == 0
+    output = next((run_dir / "command-outputs").glob("vm-unit-*.txt"))
+    assert "verification-map-ok" in output.read_text(encoding="utf-8")
+
+
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

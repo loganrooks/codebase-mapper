@@ -252,6 +252,7 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "findings_card": "intervention-card.schema.json",
         "evidence_ledger_entry": "evidence-ledger.schema.json",
         "refresh_delta": "refresh-delta.schema.json",
+        "verification_map": "verification-map.schema.json",
     }
     name = mapping.get(artifact_type)
     if not name:
