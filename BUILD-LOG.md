@@ -999,3 +999,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This aligns the uncertainty register with the same append-only review posture already used for the evidence ledger.
   - Contract check: The change preserves the existing JSONL shape and adds only a sidecar manifest; no schema change was needed.
   - Reviewer-eye check: The manifest detects mutation and truncation of existing lines, but it is not a cryptographic signature against deletion of the sidecar itself.
+
+## 2026-05-01 — Hook slice: evidence ledger append-only stop gate
+
+- Implemented: `cbm hook-stop` now verifies the evidence ledger append-only integrity manifest, matching the existing handoff-time ledger check and the uncertainty-register stop-hook check.
+- Verification run:
+  - `pytest -q` passed: 43 tests, including a stop-hook regression that mutates an already-handoffed `evidence-ledger.jsonl` line and confirms the hook blocks.
+- Self-critique:
+  - Drift check: The stop hook now enforces both append-only audit logs instead of only validating handoff/card surfaces.
+  - Contract check: This implements the existing hook rejection contract without changing artifact formats.
+  - Reviewer-eye check: As with the uncertainty register, this detects changed prior lines when the sidecar exists; separate sidecar deletion hardening remains a future guardrail.

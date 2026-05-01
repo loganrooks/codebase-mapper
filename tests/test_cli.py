@@ -845,6 +845,28 @@ def test_stop_hook_rejects_card_gate_failure_even_with_fresh_hash(tmp_path: Path
     assert "confidence" in output["systemMessage"]
 
 
+def test_stop_hook_rejects_mutated_evidence_ledger(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+    run_id = "run-hook-ledger-tamper"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+
+    ledger = repo / ".research" / run_id / "evidence-ledger.jsonl"
+    lines = ledger.read_text(encoding="utf-8").splitlines()
+    first = json.loads(lines[0])
+    first["claim_id"] = "tampered-after-handoff"
+    lines[0] = json.dumps(first)
+    ledger.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": str(repo)})))
+    assert main(["hook-stop", "--repo", str(repo)]) == 0
+    output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert output["continue"] is False
+    assert "ledger append-only verification failed" in output["systemMessage"]
+
+
 def test_start_hook_rejects_stale_input_citations(tmp_path: Path, monkeypatch, capsys) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

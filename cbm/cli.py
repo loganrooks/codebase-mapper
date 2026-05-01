@@ -4033,6 +4033,10 @@ def command_hook_stop(args: argparse.Namespace) -> int:
         if surface_path.exists():
             surface = read_json(surface_path)
             errors.extend(check_claim_evidence(surface, extractors_for_artifact(repo, surface)))
+        ledger_path = run_dir / "evidence-ledger.jsonl"
+        ledger_append_only_ok, ledger_append_only_reason = verify_ledger_append_only(ledger_path)
+        if not ledger_append_only_ok:
+            errors.append(f"ledger append-only verification failed: {ledger_append_only_reason}")
         uncertainty_path = run_dir / "uncertainty-register.jsonl"
         uncertainty_append_only_ok, uncertainty_append_only_reason = verify_ledger_append_only(uncertainty_path)
         if not uncertainty_append_only_ok:
