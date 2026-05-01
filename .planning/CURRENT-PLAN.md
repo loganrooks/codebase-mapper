@@ -26,7 +26,7 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 3. Update live planning/state/governance docs. Status: completed in `f98605d`.
 4. Install surgical `VISION.md` corrections. Status: completed in `f98605d`.
 5. Update architecture/roadmap docs so they no longer overclaim runtime orchestration. Status: completed in `f98605d`.
-6. Add recovery checkpoint artifact. Status: completed in `f98605d`; checkpoint remains pending.
+6. Add recovery checkpoint artifact. Status: completed in `f98605d`; accepted in pending readiness commit.
 7. Commit the planning/governance reset. Status: completed in `f98605d`.
 8. Add minimal `cbm-loop-status` preflight. Status: completed in `5d47a7a`.
 9. Fix false provenance and coverage honesty in code. Status: completed in `ebf43d7`.
@@ -34,11 +34,11 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 11. Spike Codex CLI isolation and document the result. Status: completed in `20af433`.
 12. Pin and run the first external benchmark baseline. Status: completed in `9f618b2`.
 
-Recovery implementation is complete. Broad unattended `/goal` remains blocked only on the checkpoint gate and final `cbm-loop-status` success.
+Recovery implementation is complete. Broad unattended `/goal` is allowed only for the next runtime-producer evidence slice after final `cbm-loop-status` success.
 
 ## Next `/goal` Track
 
-After checkpoint acceptance, the next broad `/goal` track should produce the first real agent-produced benchmark artifact. The first implementation target is a narrow live Codex CLI smoke or equivalent external producer backend that writes one schema-valid artifact, records its subprocess invocation in `run-manifest.json`, and passes parent-side validation.
+The next broad `/goal` track should produce the first real agent-produced benchmark artifact. The first implementation target is a narrow live Codex CLI smoke or equivalent external producer backend that writes one schema-valid artifact, records its subprocess invocation in `run-manifest.json`, and passes parent-side validation.
 
 This is not a Phase B+ pass claim. It is the first runtime-producer evidence slice.
 
@@ -66,6 +66,8 @@ Before unattended `/goal` resumes, a checkpoint review must exist at:
 
 `.planning/reviews/2026-05-01-strategy-workflow-vision-audit/CHECKPOINT.md`
 
+Status: accepted. Resume gate satisfied for the narrow runtime-producer evidence track.
+
 The checkpoint must review:
 
 - this plan;
@@ -76,7 +78,7 @@ The checkpoint must review:
 
 The checkpoint can be produced by an external model or a bounded reviewer agent. Its disposition must be accepted, revised, parked, or rejected before broad `/goal` resumes. User override is allowed but must be recorded in `BUILD-LOG.md`.
 
-Broad unattended `/goal` also requires `cbm-loop-status` to return success. During recovery, success means the command can see this active plan, confirm the next work is in the allowed categories, detect uncommitted authority-doc changes, and report that the checkpoint gate is still pending until the checkpoint is accepted or waived.
+Broad unattended `/goal` also requires `cbm-loop-status` to return success. Success means the command can see this active plan, confirm the next work is in the allowed categories, detect uncommitted authority-doc changes, and confirm the checkpoint gate is accepted.
 
 ## Benchmark Default
 

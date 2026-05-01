@@ -1273,3 +1273,17 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This is still deterministic baseline evidence, not a Phase B+ or runtime-agent pass.
   - Contract check: Handoff caught the missing project-type ledger citations before the fix; the gate behaved correctly.
   - Reviewer-eye check: The benchmark required copying CBM schemas into the target checkout, polluting file scope. This is now a recorded benchmark-harness gap and should be fixed before comparing quality.
+
+## 2026-05-01 — Recovery closure: checkpoint accepted
+
+- Implemented: normalized `.planning/reviews/2026-05-01-strategy-workflow-vision-audit/CHECKPOINT.md` after the bounded reviewer accepted the recovery gate.
+- Decision: Treat the same-model checkpoint as sufficient for `/goal` readiness because it has an adversarial mandate, records limitations, and accepts only the narrow runtime-producer evidence track.
+- Decision: Broad unattended `/goal` may resume only for the first real agent-produced benchmark artifact. It may not claim Phase B+, use Codex CLI for Skeptic before isolation is proven, treat deterministic artifacts as runtime-agent output, or add unrelated kernel-only hardening.
+- Nonblocking findings carried forward:
+  - benchmark harness scope pollution from copied schemas;
+  - Codex CLI isolation controls are plausible but not proven by live subprocess;
+  - `cbm-loop-status` category names require operator care.
+- Verification plan:
+  - Run `git diff --check -- .planning BUILD-LOG.md`.
+  - Run `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category benchmark` after committing planning changes, because dirty authority docs should fail before commit.
+  - Run `pytest -q`.

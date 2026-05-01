@@ -55,6 +55,7 @@ Important examples:
 - `5368a33` `feat: add run producer manifest`
 - `20af433` `docs: record codex cli isolation spike`
 - `9f618b2` `test: add external deterministic benchmark baseline`
+- pending readiness closure: accepted recovery checkpoint and final `/goal` readiness verification
 
 ## Active Architecture Decision
 
@@ -93,9 +94,9 @@ First deterministic external baseline:
 
 ## `/goal` Readiness
 
-Recovery implementation is complete enough for checkpoint review. Broad unattended `/goal` is not yet restored because `.planning/reviews/2026-05-01-strategy-workflow-vision-audit/CHECKPOINT.md` still says `Satisfies resume gate: no`.
+Recovery implementation is complete and the checkpoint gate is accepted.
 
-The only known readiness blocker is checkpoint disposition plus final broad `cbm-loop-status` success. If the checkpoint accepts the recovery state, the next `/goal` track is the first real agent-produced benchmark artifact, not additional deterministic hardening.
+Broad unattended `/goal` is restored only for the next narrow runtime-producer evidence track: the first real agent-produced benchmark artifact. It is not restored for Phase B+ pass claims, unrelated kernel hardening, or treating deterministic baseline artifacts as runtime-agent output.
 
 ## Verification Status
 
