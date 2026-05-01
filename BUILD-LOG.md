@@ -823,3 +823,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Standard/deep handoffs no longer underreport reviewed artifacts as one when multiple review artifacts exist.
   - Contract check: This stays within the existing handoff gate summary schema.
   - Reviewer-eye check: The count proves review artifact presence, not the qualitative adequacy of each Skeptic finding.
+
+## 2026-05-01 — Handoff slice: bundle citation summary
+
+- Implemented: `cbm-handoff` now derives `gate_summary.citation_resolution` from citations extracted across every listed handoff artifact, not just the selected card citation.
+- Implemented: ledger citation coverage now uses the same bundle-wide citation set.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including an independent extraction of citations from handoff-listed artifacts and comparison to the handoff resolved count.
+- Self-critique:
+  - Drift check: Handoff citation reporting now reflects the whole artifact bundle, matching the vision's all-promoted-artifacts citation discipline.
+  - Contract check: The summary stays within the existing `citation_resolution` schema.
+  - Reviewer-eye check: An initial test run caught a stale return path from the old single-citation check; fixed before commit.

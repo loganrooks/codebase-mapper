@@ -326,6 +326,32 @@ def input_staleness(repo: Path, inputs: list[dict[str, str]]) -> dict[str, Any]:
     return {"fresh": len(inputs) - len(stale_artifacts), "stale_artifacts": stale_artifacts}
 
 
+def artifact_bundle_citation_resolution(repo: Path, artifacts: list[dict[str, Any]]) -> dict[str, Any]:
+    citations: set[str] = set()
+    unresolved = []
+    for artifact in artifacts:
+        artifact_path = repo / artifact["path"]
+        try:
+            data, body = load_artifact_frontmatter(artifact_path)
+            citations.update(extract_citations(data))
+            citations.update(extract_citations(body))
+        except Exception as exc:
+            unresolved.append(f"{artifact['path']}: {exc}")
+    resolved = 0
+    for citation in sorted(citations):
+        ok, reason = resolve_citation(repo, citation)
+        if not ok:
+            unresolved.append(f"{citation}: {reason}")
+        else:
+            resolved += 1
+    return {
+        "resolved": resolved,
+        "unresolved_count": len(unresolved),
+        "unresolved_examples": unresolved[:5],
+        "citations": citations,
+    }
+
+
 def scope_signature(paths: list[str]) -> str:
     return sha256_text("\n".join(sorted(paths)))
 
@@ -3515,12 +3541,6 @@ def command_handoff(args: argparse.Namespace) -> int:
         card_body = "\n# Phase A Structural Finding\n\nThis generated card proves the mechanical gates are wired: schema validation and citation resolution operate on an evidence-bound artifact.\n"
     card_path.write_text("---\n" + yaml.safe_dump(card_frontmatter, sort_keys=False) + "---\n" + card_body, encoding="utf-8")
     append_citation_entries(repo, ledger_path, paths.run_id, sha, str(card_path.relative_to(repo)), card_frontmatter, "intervention-planner")
-    citation_ok, citation_reason = resolve_citation(repo, citation)
-    required_citations = set(extract_citations(surface) + extract_citations(card_frontmatter))
-    if binding:
-        required_citations.update(extract_citations(binding))
-    missing_ledger_citations = sorted(required_citations - ledger_citations(ledger_path))
-    ledger_append_only_ok, ledger_append_only_reason = verify_ledger_append_only(ledger_path)
     artifacts = [
         {"path": str((paths.run_dir / "codebase-map.json").relative_to(repo)), "artifact_type": "codebase_map", "status": "draft", "summary": "Deterministic structural file inventory."},
         {"path": str(surface_path.relative_to(repo)), "artifact_type": "surface_map", "status": "draft", "summary": "Draft deterministic surface map with explicit unknown dependency edge."},
@@ -3551,6 +3571,9 @@ def command_handoff(args: argparse.Namespace) -> int:
     if approval_path.exists():
         artifacts.insert(-1, {"path": str(approval_path.relative_to(repo)), "artifact_type": "approval_plan", "status": "draft", "summary": "Deep-mode manual approval plan."})
         handoff_inputs.insert(-1, {"path": str(approval_path.relative_to(repo)), "sha256": sha256_file(approval_path)})
+    citation_resolution = artifact_bundle_citation_resolution(repo, artifacts)
+    missing_ledger_citations = sorted(citation_resolution["citations"] - ledger_citations(ledger_path))
+    ledger_append_only_ok, ledger_append_only_reason = verify_ledger_append_only(ledger_path)
     claim_refs = [(str(surface_path.relative_to(repo)), claim) for claim in all_artifact_claims(surface)]
     for split_path in [paths.run_dir / "authority-map.json", paths.run_dir / "dependency-graph.json"]:
         if split_path.exists():
@@ -3586,7 +3609,11 @@ def command_handoff(args: argparse.Namespace) -> int:
         "research_only": handoff_research_only,
         "gate_summary": {
             "schema_validation": {"passed": len(artifacts) - len(failed_artifacts), "failed_artifacts": failed_artifacts},
-            "citation_resolution": {"resolved": 1 if citation_ok else 0, "unresolved_count": 0 if citation_ok else 1, "unresolved_examples": [] if citation_ok else [f"{citation}: {citation_reason}"]},
+            "citation_resolution": {
+                "resolved": citation_resolution["resolved"],
+                "unresolved_count": citation_resolution["unresolved_count"],
+                "unresolved_examples": citation_resolution["unresolved_examples"],
+            },
             "ledger_consistency": {"append_only_verified": ledger_append_only_ok and not missing_ledger_citations, "entry_count": ledger_count(ledger_path)},
             "staleness_check": input_staleness(repo, handoff_inputs),
             "skeptic_review": {"artifacts_reviewed": skeptic_artifacts_reviewed, "challenges_logged": challenge_count, "challenges_resolved": 0},
@@ -3615,7 +3642,7 @@ def command_handoff(args: argparse.Namespace) -> int:
     if missing_ledger_citations:
         print("missing ledger citations: " + ", ".join(missing_ledger_citations), file=sys.stderr)
         return 1
-    return 0 if citation_ok else 1
+    return 0 if citation_resolution["unresolved_count"] == 0 else 1
 
 
 def command_run(args: argparse.Namespace) -> int:

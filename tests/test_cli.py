@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yaml
 
-from cbm.cli import goal_pack, load_goal_packs, load_project_packs, main
+from cbm.cli import extract_citations, goal_pack, load_goal_packs, load_project_packs, main
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -112,6 +112,15 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert frontmatter["gate_summary"]["staleness_check"]["fresh"] == len(frontmatter["inputs"])
     assert frontmatter["gate_summary"]["staleness_check"]["stale_artifacts"] == []
     assert frontmatter["gate_summary"]["citation_resolution"]["unresolved_count"] == 0
+    bundle_citations = set()
+    for artifact in frontmatter["artifacts"]:
+        artifact_path = repo / artifact["path"]
+        if artifact_path.suffix == ".md":
+            artifact_data = yaml.safe_load(artifact_path.read_text(encoding="utf-8").split("---", 2)[1])
+        else:
+            artifact_data = json.loads(artifact_path.read_text(encoding="utf-8"))
+        bundle_citations.update(extract_citations(artifact_data))
+    assert frontmatter["gate_summary"]["citation_resolution"]["resolved"] == len(bundle_citations)
     assert frontmatter["gate_summary"]["ledger_consistency"]["append_only_verified"] is True
     assert frontmatter["gate_summary"]["ledger_consistency"]["entry_count"] >= 3
     assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 1
