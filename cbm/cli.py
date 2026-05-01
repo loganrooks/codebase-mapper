@@ -67,6 +67,8 @@ DETERMINISTIC_PRODUCERS = {
 }
 CODEX_CLI_SMOKE_PRODUCER = "codex-cli-smoke@0.1"
 BACKEND_CHOICES = ["deterministic", "external", "codex-cli"]
+DEFAULT_CODEX_CLI_MODEL = "gpt-5.4-mini"
+DEFAULT_CODEX_CLI_REASONING_EFFORT = "medium"
 
 
 @dataclass(frozen=True)
@@ -3763,7 +3765,11 @@ def validate_json_with_schema(data: Any, schema: dict[str, Any]) -> list[str]:
     return [f"{'/'.join(str(p) for p in error.absolute_path) or '<root>'}: {error.message}" for error in validator.iter_errors(data)]
 
 
-def codex_cli_smoke_command_display(codex_command: str, repo: Path, run_id: str) -> str:
+def codex_cli_reasoning_config(reasoning_effort: str) -> str:
+    return f'model_reasoning_effort="{reasoning_effort}"'
+
+
+def codex_cli_smoke_command_display(codex_command: str, repo: Path, run_id: str, model: str, reasoning_effort: str) -> str:
     run_dir = repo / ".research" / run_id
     output_path = run_dir / "codex-cli-smoke-output.json"
     output_schema_path = run_dir / "codex-cli-smoke-output.schema.json"
@@ -3771,6 +3777,10 @@ def codex_cli_smoke_command_display(codex_command: str, repo: Path, run_id: str)
         [
             codex_command,
             "exec",
+            "-m",
+            model,
+            "-c",
+            codex_cli_reasoning_config(reasoning_effort),
             "--ephemeral",
             "--ignore-user-config",
             "--ignore-rules",
@@ -3817,6 +3827,10 @@ def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
     command = [
         args.codex_command,
         "exec",
+        "-m",
+        args.codex_model,
+        "-c",
+        codex_cli_reasoning_config(args.codex_reasoning_effort),
         "--ephemeral",
         "--ignore-user-config",
         "--ignore-rules",
@@ -4304,13 +4318,19 @@ def command_run(args: argparse.Namespace) -> int:
             (
                 run_manifest_step(
                     "codex-cli-smoke-skeptic-review",
-                    codex_cli_smoke_command_display(args.codex_command, repo, run_id),
+                    codex_cli_smoke_command_display(args.codex_command, repo, run_id, args.codex_model, args.codex_reasoning_effort),
                     "skeptic_review",
                     CODEX_CLI_SMOKE_PRODUCER,
                     backend="codex-cli",
                 ),
                 command_codex_cli_smoke_review,
-                argparse.Namespace(repo=str(repo), run_id=run_id, codex_command=args.codex_command),
+                argparse.Namespace(
+                    repo=str(repo),
+                    run_id=run_id,
+                    codex_command=args.codex_command,
+                    codex_model=args.codex_model,
+                    codex_reasoning_effort=args.codex_reasoning_effort,
+                ),
             )
         )
     if args.mode in {"standard", "deep"}:
@@ -4796,6 +4816,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--backend", default="deterministic", choices=BACKEND_CHOICES)
     p_run.add_argument("--allow-live-codex", action="store_true")
     p_run.add_argument("--codex-command", default="codex")
+    p_run.add_argument("--codex-model", default=DEFAULT_CODEX_CLI_MODEL)
+    p_run.add_argument("--codex-reasoning-effort", default=DEFAULT_CODEX_CLI_REASONING_EFFORT, choices=["low", "medium", "high", "xhigh"])
     p_run.add_argument("--run-id")
     p_run.set_defaults(func=command_run)
     p_loop_status = sub.add_parser("loop-status")

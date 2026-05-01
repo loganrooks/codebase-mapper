@@ -316,6 +316,10 @@ def test_run_backend_codex_cli_fake_producer_writes_agent_review(tmp_path: Path)
         "import json\n"
         "import sys\n"
         "from pathlib import Path\n"
+        "assert '-m' in sys.argv\n"
+        "assert sys.argv[sys.argv.index('-m') + 1] == 'gpt-5.4-mini'\n"
+        "assert '-c' in sys.argv\n"
+        "assert sys.argv[sys.argv.index('-c') + 1] == 'model_reasoning_effort=\"medium\"'\n"
         "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
         "prompt = sys.stdin.read()\n"
         "assert 'surface-map.json' in prompt\n"
@@ -367,6 +371,7 @@ def test_run_backend_codex_cli_fake_producer_writes_agent_review(tmp_path: Path)
     assert [step["step_id"] for step in codex_steps] == ["codex-cli-smoke-skeptic-review"]
     assert codex_steps[0]["producer_id"] == "codex-cli-smoke@0.1"
     assert codex_steps[0]["status"] == "succeeded"
+    assert "-m gpt-5.4-mini -c model_reasoning_effort=\"medium\"" in codex_steps[0]["command"]
     assert "--ephemeral --ignore-user-config --ignore-rules" in codex_steps[0]["command"]
     assert "-s read-only -a never" in codex_steps[0]["command"]
     handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])

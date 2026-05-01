@@ -1321,3 +1321,16 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This removes a benchmark harness blocker rather than adding unrelated kernel strictness.
   - Contract check: The schema source rule is now documented in `docs/contracts.md` and covered by regression.
   - Reviewer-eye check: This is source-checkout fallback, not a packaging proof. A future package smoke should verify installed package data includes schemas before distribution claims.
+
+## 2026-05-01 — Runtime-producer slice: Codex CLI smoke model controls
+
+- Implemented: `cbm run --backend codex-cli` now defaults smoke subprocesses to `gpt-5.4-mini` with `model_reasoning_effort="medium"`.
+- Implemented: `--codex-model` and `--codex-reasoning-effort` are explicit override flags for the smoke backend.
+- Implemented: the manifest command records `-m <model>` and `-c model_reasoning_effort="<effort>"`.
+- Evidence: local `codex exec --help` shows `-m/--model` and `-c/--config <key=value>`; it does not expose a dedicated reasoning-effort flag, so the backend uses the documented config override surface.
+- Verification run:
+  - Focused regression passed: `pytest -q tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review`.
+- Self-critique:
+  - Drift check: This controls the cost/profile of harness agents before any live smoke, rather than escalating quality prematurely.
+  - Contract check: The fake executable asserts the model and reasoning config argv entries, and the manifest string is asserted.
+  - Reviewer-eye check: This verifies command construction, not that the live Codex CLI accepts the selected model in the current account. The live smoke remains approval-sensitive.

@@ -16,6 +16,7 @@ Current product state:
 - citation, freshness, ledger, registry, contestation, reuse, and refresh scaffolding exist;
 - deterministic smoke artifacts exist under `.research/`;
 - a guarded `codex-cli` smoke backend exists and can be tested with a fake executable;
+- the `codex-cli` smoke backend defaults to `gpt-5.4-mini` with medium reasoning for harness tests;
 - runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
 - no live Codex CLI model subprocess has been run through CBM yet;
 - current deterministic artifacts must not be treated as proof of nuanced codebase understanding.
@@ -112,6 +113,8 @@ Last known full suite after the guarded Codex CLI backend slice: `pytest -q` rep
 
 Last known full suite after the schema-source benchmark-harness slice: `pytest -q` reported `59 passed, 2 warnings`.
 
+Last known full suite after the Codex CLI smoke model-control slice: `pytest -q` reported `59 passed, 2 warnings`.
+
 This verifies the test suite, not `VISION.md` maturity.
 
 Required next verification:
@@ -124,4 +127,5 @@ Required next verification:
 - benchmark/ledger fix slice: focused regressions passed; full `pytest -q` passed;
 - guarded Codex CLI backend slice: fake executable regressions passed; full `pytest -q` passed;
 - schema-source benchmark-harness slice: focused no-pollution regression passed; full `pytest -q` passed;
+- Codex CLI smoke model-control slice: focused fake-executable regression passed; full `pytest -q` passed;
 - benchmark slice: generated artifacts must validate and show honest producer identity and coverage.
