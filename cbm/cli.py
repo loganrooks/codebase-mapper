@@ -247,6 +247,7 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "surface_map": "surface-map.schema.json",
         "extractor_registry": "extractor-registry.schema.json",
         "authority_map": "authority-map.schema.json",
+        "dependency_graph": "dependency-graph.schema.json",
         "goal_binding": "goal-binding.schema.json",
         "handoff": "handoff.schema.json",
         "intervention_card": "intervention-card.schema.json",
@@ -883,6 +884,75 @@ def command_authority_map(args: argparse.Namespace) -> int:
     )
     write_json(authority_path, authority_map)
     print(authority_path)
+    return 0
+
+
+def edge_partition(edge: dict[str, Any]) -> str:
+    if edge["kind"] == "unknown":
+        return "unknown"
+    if "static_relation" in edge.get("evidence_kinds", []) and edge.get("claim_register") == "factual":
+        return "certain"
+    if edge.get("claim_register") == "inferential":
+        return "suspected"
+    return "advisory"
+
+
+def build_dependency_graph(repo: Path, paths: RunPaths) -> dict[str, Any]:
+    surface_path = paths.run_dir / "surface-map.json"
+    surface = read_json(surface_path)
+    edges = surface["edges"]
+    partition_counts = {"certain": 0, "suspected": 0, "advisory": 0, "unknown": 0}
+    for edge in edges:
+        partition_counts[edge_partition(edge)] += 1
+    depends_on = sorted(
+        {
+            path
+            for edge in edges
+            for path in [edge.get("from", {}).get("path"), edge.get("to", {}).get("path")]
+            if path
+        }
+    )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "dependency_graph",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "dependency-mapper@0.1",
+        "source_sha": surface["source_sha"],
+        "inputs": [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}],
+        "status": "draft",
+        "coverage": surface["coverage"],
+        "staleness": {
+            "stale_if_input_hash_changes": True,
+            "depends_on_paths": depends_on,
+            "scope_signature": surface["staleness"]["scope_signature"],
+        },
+        "partition_counts": partition_counts,
+        "edges": edges,
+    }
+
+
+def command_dependency_graph(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    dependency_graph = build_dependency_graph(repo, paths)
+    errors = validate_data(repo, dependency_graph, "dependency_graph")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    graph_path = paths.run_dir / "dependency-graph.json"
+    append_citation_entries(
+        repo,
+        paths.run_dir / "evidence-ledger.jsonl",
+        paths.run_id,
+        dependency_graph["source_sha"],
+        str(graph_path.relative_to(repo)),
+        dependency_graph,
+        "dependency-mapper",
+    )
+    write_json(graph_path, dependency_graph)
+    print(graph_path)
     return 0
 
 
@@ -2162,6 +2232,7 @@ def command_run(args: argparse.Namespace) -> int:
     ]
     if args.mode in {"standard", "deep"}:
         commands.append((command_authority_map, map_args))
+        commands.append((command_dependency_graph, map_args))
         commands.append((command_verify_map, map_args))
     commands.extend(
         [
@@ -2251,6 +2322,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_authority_map.add_argument("--repo", default=".")
     p_authority_map.add_argument("--run-id")
     p_authority_map.set_defaults(func=command_authority_map)
+    p_dependency_graph = sub.add_parser("dependency-graph")
+    p_dependency_graph.add_argument("--repo", default=".")
+    p_dependency_graph.add_argument("--run-id")
+    p_dependency_graph.set_defaults(func=command_dependency_graph)
     p_verify_map = sub.add_parser("verify-map")
     p_verify_map.add_argument("--repo", default=".")
     p_verify_map.add_argument("--run-id")
@@ -2341,6 +2416,10 @@ def surface_main() -> int:
 
 def authority_map_main() -> int:
     return main(["authority-map", *sys.argv[1:]])
+
+
+def dependency_graph_main() -> int:
+    return main(["dependency-graph", *sys.argv[1:]])
 
 
 def verify_map_main() -> int:

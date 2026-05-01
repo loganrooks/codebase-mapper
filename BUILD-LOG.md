@@ -339,3 +339,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The split artifact preserves the existing surface-map authorities rather than changing the reading discipline.
   - Contract check: The new schema validates the universal artifact envelope and authority claim fields with challenge/contradiction lifecycle constraints.
   - Reviewer-eye check: This is a mechanical split, not yet three independent Surface Mapper subagents. It gives standard-mode consumers the artifact boundary before adding true parallel mapper production.
+
+## 2026-05-01 — Phase B slice: dependency-graph split
+
+- Implemented: `schemas/dependency-graph.schema.json` for standard-mode dependency edges and explicit certain/suspected/advisory/unknown partition counts.
+- Implemented: `cbm-dependency-graph` / `cbm dependency-graph`, deriving `dependency-graph.json` from the combined surface map's edges while preserving citations, registers, claim statuses, extractor ids, and challenges.
+- Implemented: standard and deep `cbm run` now generate `dependency-graph.json`.
+- Verification run:
+  - `pytest -q` passed: 17 tests, including direct dependency-graph generation, schema validation, unknown partition checks, and standard-mode run artifact creation.
+- Self-critique:
+  - Drift check: The graph carries unknown dependency closure as structured content rather than hiding it behind a successful run.
+  - Contract check: Non-unknown edges still require citations, extracted relation edges require extractor ids, and challenged/contested claims require challenges.
+  - Reviewer-eye check: This graph is mechanically split from the combined surface map. It does not yet add richer call/runtime dependency extraction beyond existing Python import edges and the explicit unknown edge.

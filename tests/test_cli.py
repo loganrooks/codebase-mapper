@@ -148,13 +148,18 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
 
     run_dir = repo / ".research" / "run-standard"
     authority_map = run_dir / "authority-map.json"
+    dependency_graph = run_dir / "dependency-graph.json"
     verification_map = run_dir / "verification-map.json"
     assert authority_map.exists()
+    assert dependency_graph.exists()
     assert verification_map.exists()
     assert main(["validate", str(authority_map), "--repo", str(repo)]) == 0
+    assert main(["validate", str(dependency_graph), "--repo", str(repo)]) == 0
     assert main(["validate", str(verification_map), "--repo", str(repo)]) == 0
     authority_data = json.loads(authority_map.read_text(encoding="utf-8"))
     assert authority_data["authorities"]
+    dependency_data = json.loads(dependency_graph.read_text(encoding="utf-8"))
+    assert dependency_data["partition_counts"]["unknown"] >= 1
     data = json.loads(verification_map.read_text(encoding="utf-8"))
     assert data["ci_gates"]
     assert data["ci_gates"][0]["command"]["safety_envelope"]["requires_network"] is False
@@ -504,6 +509,27 @@ def test_authority_map_command_splits_surface_authorities(tmp_path: Path) -> Non
     assert data["artifact_type"] == "authority_map"
     assert data["inputs"][0]["path"].endswith("surface-map.json")
     assert data["authorities"][0]["claim_register"] in {"factual", "interpretive"}
+
+
+def test_dependency_graph_command_splits_surface_edges(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-dependency-graph"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["dependency-graph", "--repo", str(repo), "--run-id", run_id]) == 0
+    dependency_graph = repo / ".research" / run_id / "dependency-graph.json"
+    assert main(["validate", str(dependency_graph), "--repo", str(repo)]) == 0
+    data = json.loads(dependency_graph.read_text(encoding="utf-8"))
+    assert data["artifact_type"] == "dependency_graph"
+    assert data["inputs"][0]["path"].endswith("surface-map.json")
+    assert data["partition_counts"]["certain"] >= 1
+    assert data["partition_counts"]["unknown"] >= 1
+    assert any(edge["kind"] == "unknown" for edge in data["edges"])
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
