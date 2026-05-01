@@ -2068,6 +2068,12 @@ def command_extractor_registry(args: argparse.Namespace) -> int:
     for index, extractor in enumerate(data.get("extractors", [])):
         if not extractor.get("known_blind_spots"):
             errors.append(f"extractors/{index}/{extractor.get('id', '<unknown>')}: known_blind_spots must be non-empty")
+    for index, annotation in enumerate(data.get("project_pack_annotations", [])):
+        project_type = annotation.get("project_type", "<unknown>")
+        if not annotation.get("extractor_annotations"):
+            errors.append(f"project_pack_annotations/{index}/{project_type}: extractor_annotations must be non-empty")
+        if not annotation.get("known_blind_spots"):
+            errors.append(f"project_pack_annotations/{index}/{project_type}: known_blind_spots must be non-empty")
     if errors:
         for error in errors:
             print(f"registry-fail {error}")

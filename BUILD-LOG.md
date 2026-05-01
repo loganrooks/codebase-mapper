@@ -977,3 +977,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Extractor declarations now constrain not just identity but what evidence a claim may derive from them.
   - Contract check: This uses existing extractor-registry fields and edge evidence fields; no schema changes.
   - Reviewer-eye check: This is per-edge validation only. It does not yet verify authorities against extractors because authority claims currently do not carry `extractor_id`.
+
+## 2026-05-01 — Registry slice: project-pack annotation validation
+
+- Implemented: `cbm extractor-registry validate` now rejects project-pack annotations with empty `extractor_annotations` or empty `known_blind_spots`.
+- Verification run:
+  - `pytest -q` passed: 41 tests, including a registry regression that rejects a detected project-pack annotation with its extractor annotations removed.
+- Self-critique:
+  - Drift check: Project-type context now remains available to Skeptic/mapping consumers instead of being silently stripped from a schema-valid registry.
+  - Contract check: This strengthens the dedicated registry command without changing the registry schema.
+  - Reviewer-eye check: The command checks presence, not the quality or specificity of the annotation prose.
