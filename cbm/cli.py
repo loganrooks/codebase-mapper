@@ -2338,6 +2338,63 @@ def verify_citation_at_head(repo: Path, citation: str) -> dict[str, Any]:
     return {"citation": citation, "status": "needs_review", "reason": "file bytes changed at HEAD but cited lines still exist"}
 
 
+def referenced_claim(repo: Path, ref: str) -> tuple[str, dict[str, Any]] | None:
+    if "#/" not in ref:
+        return None
+    artifact_ref, pointer = ref.split("#/", 1)
+    artifact_path = repo / artifact_ref
+    if not artifact_path.exists():
+        return None
+    data = read_json(artifact_path)
+    parts = pointer.split("/")
+    if len(parts) != 2 or parts[0] not in {"authorities", "edges"}:
+        return None
+    try:
+        claim = data[parts[0]][int(parts[1])]
+    except (KeyError, IndexError, ValueError, TypeError):
+        return None
+    return artifact_ref, claim
+
+
+def verify_contestation_propagation(repo: Path, data: dict[str, Any]) -> dict[str, Any]:
+    if data.get("artifact_type") not in {"findings_card", "intervention_card"}:
+        return {"checked": False, "missing": [], "stale": []}
+    dependent_by_claim = {
+        (item["claim_artifact"], item["claim_id"]): set(item["challenge_ids"])
+        for item in data.get("dependent_challenges", [])
+    }
+    refs = []
+    for values in data.get("related_dependencies", {}).values():
+        if isinstance(values, list):
+            refs.extend(value for value in values if isinstance(value, str))
+    missing = []
+    expected_keys = set()
+    for ref in refs:
+        referenced = referenced_claim(repo, ref)
+        if referenced is None:
+            continue
+        artifact_ref, claim = referenced
+        live_ids = {challenge["challenge_id"] for challenge in live_challenges(claim)}
+        if claim.get("claim_status") in {"challenged", "contested"} and live_ids:
+            key = (artifact_ref, claim["id"])
+            expected_keys.add(key)
+            actual_ids = dependent_by_claim.get(key, set())
+            missing_ids = sorted(live_ids - actual_ids)
+            if missing_ids:
+                missing.append(
+                    {
+                        "claim_artifact": artifact_ref,
+                        "claim_id": claim["id"],
+                        "missing_challenge_ids": missing_ids,
+                    }
+                )
+    stale = []
+    for claim_artifact, claim_id in dependent_by_claim:
+        if (claim_artifact, claim_id) not in expected_keys:
+            stale.append({"claim_artifact": claim_artifact, "claim_id": claim_id})
+    return {"checked": True, "missing": missing, "stale": stale}
+
+
 def command_verify(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.artifact)
@@ -2345,6 +2402,8 @@ def command_verify(args: argparse.Namespace) -> int:
         path = repo / path
     citations = artifact_citations(path)
     results = [verify_citation_at_head(repo, citation) for citation in citations]
+    data, _ = load_artifact_frontmatter(path)
+    contestation = verify_contestation_propagation(repo, data)
     report = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "verify_report",
@@ -2352,10 +2411,13 @@ def command_verify(args: argparse.Namespace) -> int:
         "artifact_path": str(path.relative_to(repo)) if path.is_relative_to(repo) else str(path),
         "head_sha": source_sha(repo),
         "results": results,
+        "contestation_propagation": contestation,
         "summary": {
             "still_grounded": sum(1 for item in results if item["status"] == "still_grounded"),
             "needs_review": sum(1 for item in results if item["status"] == "needs_review"),
             "broken": sum(1 for item in results if item["status"] == "broken"),
+            "contestation_missing": len(contestation["missing"]),
+            "contestation_stale": len(contestation["stale"]),
         },
     }
     output_path = Path(args.output) if args.output else path.with_name("verify-report.json")
@@ -2364,10 +2426,21 @@ def command_verify(args: argparse.Namespace) -> int:
     write_json(output_path, report)
     for item in results:
         print(f"{item['status']} {item['citation']} {item['reason']}")
+    for item in contestation["missing"]:
+        print(f"contestation_missing {item['claim_artifact']} {item['claim_id']} {','.join(item['missing_challenge_ids'])}")
+    for item in contestation["stale"]:
+        print(f"contestation_stale {item['claim_artifact']} {item['claim_id']}")
     if not results:
         print("no citations found")
     print(output_path)
-    return 0 if report["summary"]["needs_review"] == 0 and report["summary"]["broken"] == 0 else 2
+    return (
+        0
+        if report["summary"]["needs_review"] == 0
+        and report["summary"]["broken"] == 0
+        and report["summary"]["contestation_missing"] == 0
+        and report["summary"]["contestation_stale"] == 0
+        else 2
+    )
 
 
 def iter_research_artifacts(repo: Path) -> Iterable[Path]:

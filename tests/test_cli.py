@@ -785,6 +785,59 @@ def test_validate_fresh_and_verify_track_head_movement(tmp_path: Path) -> None:
     assert verify_report["summary"]["broken"] == 1
 
 
+def test_verify_reports_missing_card_contestation(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-verify-contestation"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    run_dir = repo / ".research" / run_id
+    surface = run_dir / "surface-map.json"
+    surface_data = json.loads(surface.read_text(encoding="utf-8"))
+    import_edge = next(edge for edge in surface_data["edges"] if edge["kind"] == "import")
+    assert (
+        main(
+            [
+                "challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--claim-id",
+                import_edge["id"],
+                "--competing-reading",
+                "The import relation should remain challenged for card propagation verification.",
+                "--evidence",
+                import_edge["citations"][0],
+                "--rationale",
+                "The verify command should fail if the card drops this live challenge.",
+            ]
+        )
+        == 0
+    )
+    assert main(["bind", "--repo", str(repo), "--run-id", run_id, "--goal", "understand this repo"]) == 0
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
+    card = run_dir / "findings" / "int-0001.md"
+    report = run_dir / "verify-report.json"
+    assert main(["verify", str(card), "--repo", str(repo), "--output", str(report)]) == 0
+
+    text = card.read_text(encoding="utf-8")
+    _, frontmatter, body = text.split("---", 2)
+    card_data = yaml.safe_load(frontmatter)
+    card_data["dependent_challenges"] = [
+        item for item in card_data["dependent_challenges"] if item["claim_id"] != import_edge["id"]
+    ]
+    card.write_text("---\n" + yaml.safe_dump(card_data, sort_keys=False) + "---" + body, encoding="utf-8")
+    assert main(["verify", str(card), "--repo", str(repo), "--output", str(report)]) == 2
+    verify_report = json.loads(report.read_text(encoding="utf-8"))
+    assert verify_report["summary"]["contestation_missing"] == 1
+    missing = verify_report["contestation_propagation"]["missing"][0]
+    assert missing["claim_id"] == import_edge["id"]
+
+
 def test_corpus_status_writes_manifest(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

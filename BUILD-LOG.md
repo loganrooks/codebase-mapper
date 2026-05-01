@@ -700,3 +700,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Historical challenge records remain in the artifact and ledger, but live summaries now describe only unresolved contestation.
   - Contract check: This changes counting semantics without schema changes; the existing summary descriptions already frame these fields as live/open contestation.
   - Reviewer-eye check: `open_challenges` still counts only `status=open`, while accepted alternatives/replacements make a claim live through `challenged_claims` and claim status rather than increasing the open count.
+
+## 2026-05-01 — Verify slice: card contestation propagation audit
+
+- Implemented: `cbm-verify` now audits findings/intervention cards by following `related_dependencies` artifact refs and checking that challenged or contested dependency claims appear in `dependent_challenges`.
+- Implemented: verify reports now include `contestation_propagation` details plus summary counts for missing or stale propagated contestation.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including a tampered card that drops a live dependency challenge and fails `cbm-verify`.
+- Self-critique:
+  - Drift check: This makes contestation propagation auditable instead of relying on card generation intent or schema shape alone.
+  - Contract check: The verify report remains the existing transient JSON artifact; this slice adds fields without introducing a new schema.
+  - Reviewer-eye check: The audit only follows explicit `related_dependencies` refs, so card dependencies not expressed there remain outside this verifier.
