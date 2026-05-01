@@ -1031,3 +1031,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Resume now validates both freshness and audit-log integrity, matching the compaction-recovery discipline.
   - Contract check: This reuses existing hook JSON behavior and append-only manifests; no adapter or schema change was needed.
   - Reviewer-eye check: Hook-start still validates only the latest run by modification time; selecting an older run explicitly remains outside this hook path.
+
+## 2026-05-01 — Hook slice: explicit run selection
+
+- Implemented: `cbm hook-start --run-id <id>` and `cbm hook-stop --run-id <id>` so lifecycle gates can validate a specific run instead of only the most recently modified run.
+- Verification run:
+  - `pytest -q` passed: 47 tests, including a regression that creates two runs, tampers the older run's ledger, blocks `hook-start --run-id` for the older run, and still passes `hook-stop --run-id` for the newer run.
+- Self-critique:
+  - Drift check: Explicit run selection makes recovery/debug gates more precise without changing default platform hook behavior.
+  - Contract check: Existing platform adapters can keep omitting `--run-id`; the option is additive and defaults to latest-run behavior.
+  - Reviewer-eye check: The hook still treats a missing explicit run as non-blocking informational output; stricter missing-run behavior may be desirable for scripted CI use.

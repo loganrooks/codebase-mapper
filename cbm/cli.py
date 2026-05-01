@@ -3999,6 +3999,13 @@ def latest_run_dir(repo: Path) -> Path | None:
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
+def hook_run_dir(repo: Path, run_id: str | None) -> Path | None:
+    if run_id:
+        candidate = repo / ".research" / run_id
+        return candidate if candidate.is_dir() else None
+    return latest_run_dir(repo)
+
+
 def append_only_integrity_errors(run_dir: Path) -> list[str]:
     errors: list[str] = []
     ledger_path = run_dir / "evidence-ledger.jsonl"
@@ -4018,9 +4025,10 @@ def command_hook_stop(args: argparse.Namespace) -> int:
     except json.JSONDecodeError:
         payload = {}
     repo = Path(payload.get("cwd") or args.repo).resolve()
-    run_dir = latest_run_dir(repo)
+    run_dir = hook_run_dir(repo, args.run_id)
     if not run_dir:
-        print(json.dumps({"continue": True, "systemMessage": "CBM: no .research run found for stop-hook validation."}))
+        detail = f"run {args.run_id} not found" if args.run_id else "no .research run found"
+        print(json.dumps({"continue": True, "systemMessage": f"CBM: {detail} for stop-hook validation."}))
         return 0
     handoff = run_dir / "handoff.md"
     if not handoff.exists():
@@ -4078,9 +4086,10 @@ def command_hook_start(args: argparse.Namespace) -> int:
     except json.JSONDecodeError:
         payload = {}
     repo = Path(payload.get("cwd") or args.repo).resolve()
-    run_dir = latest_run_dir(repo)
+    run_dir = hook_run_dir(repo, args.run_id)
     if not run_dir:
-        print(json.dumps({"continue": True, "systemMessage": "CBM: no .research run found for start-hook freshness validation."}))
+        detail = f"run {args.run_id} not found" if args.run_id else "no .research run found"
+        print(json.dumps({"continue": True, "systemMessage": f"CBM: {detail} for start-hook freshness validation."}))
         return 0
     handoff = run_dir / "handoff.md"
     if not handoff.exists():
@@ -4265,9 +4274,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.set_defaults(func=command_run)
     p_hook_stop = sub.add_parser("hook-stop")
     p_hook_stop.add_argument("--repo", default=".")
+    p_hook_stop.add_argument("--run-id")
     p_hook_stop.set_defaults(func=command_hook_stop)
     p_hook_start = sub.add_parser("hook-start")
     p_hook_start.add_argument("--repo", default=".")
+    p_hook_start.add_argument("--run-id")
     p_hook_start.set_defaults(func=command_hook_start)
     return parser
 

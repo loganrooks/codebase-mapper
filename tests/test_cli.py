@@ -917,6 +917,35 @@ def test_start_hook_rejects_mutated_evidence_ledger(tmp_path: Path, monkeypatch,
     assert "ledger append-only verification failed" in output["systemMessage"]
 
 
+def test_hooks_can_validate_explicit_run_id(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", "run-explicit-old"]) == 0
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", "run-explicit-new"]) == 0
+
+    ledger = repo / ".research" / "run-explicit-old" / "evidence-ledger.jsonl"
+    lines = ledger.read_text(encoding="utf-8").splitlines()
+    first = json.loads(lines[0])
+    first["claim_id"] = "tampered-explicit-run"
+    lines[0] = json.dumps(first)
+    ledger.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": str(repo)})))
+    assert main(["hook-start", "--repo", str(repo), "--run-id", "run-explicit-old"]) == 0
+    output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert output["continue"] is False
+    assert "run-explicit-old" in output["stopReason"]
+    assert "ledger append-only verification failed" in output["systemMessage"]
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": str(repo)})))
+    assert main(["hook-stop", "--repo", str(repo), "--run-id", "run-explicit-new"]) == 0
+    output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert output["continue"] is True
+    assert "run-explicit-new" in output["systemMessage"]
+
+
 def test_ledger_integrity_detects_mutated_existing_line(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
