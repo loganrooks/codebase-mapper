@@ -258,6 +258,108 @@ def test_run_backend_external_refuses_without_fake_agent_outputs(tmp_path: Path)
     assert manifest_data["steps"] == []
 
 
+def test_run_backend_codex_cli_requires_explicit_live_flag(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-codex-cli-refused"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--backend", "codex-cli", "--run-id", run_id]) == 2
+
+    run_dir = repo / ".research" / run_id
+    producer_registry = run_dir / "producer-registry.json"
+    run_manifest = run_dir / "run-manifest.json"
+    assert producer_registry.exists()
+    assert run_manifest.exists()
+    assert not (run_dir / "surface-map.json").exists()
+    assert main(["validate", str(producer_registry), "--repo", str(repo)]) == 0
+    assert main(["validate", str(run_manifest), "--repo", str(repo)]) == 0
+    registry_data = json.loads(producer_registry.read_text(encoding="utf-8"))
+    manifest_data = json.loads(run_manifest.read_text(encoding="utf-8"))
+    assert registry_data["backend"] == "codex-cli"
+    assert any(
+        item["artifact_type"] == "skeptic_review"
+        and item["producer_id"] == "codex-cli-smoke@0.1"
+        and item["backend"] == "codex-cli"
+        and item["execution_contract"] == "external_agent"
+        for item in registry_data["producers"]
+    )
+    assert manifest_data["backend"] == "codex-cli"
+    assert manifest_data["status"] == "refused"
+    assert "requires --allow-live-codex" in manifest_data["refusal_reason"]
+    assert manifest_data["steps"] == []
+
+
+def test_run_backend_codex_cli_fake_producer_writes_agent_review(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    fake_codex = tmp_path / "fake-codex"
+    fake_codex.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "prompt = sys.stdin.read()\n"
+        "assert 'surface-map.json' in prompt\n"
+        "output_path.write_text(json.dumps({\n"
+        "    'body': 'The smoke reviewer confirms the artifact is readable and cites the supplied anchor.',\n"
+        "    'findings_logged': 0,\n"
+        "    'challenge_ids': []\n"
+        "}) + '\\n', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o755)
+
+    run_id = "run-codex-cli-fake"
+    assert (
+        main(
+            [
+                "run",
+                "--repo",
+                str(repo),
+                "--goal",
+                "understand this repo",
+                "--backend",
+                "codex-cli",
+                "--allow-live-codex",
+                "--codex-command",
+                str(fake_codex),
+                "--run-id",
+                run_id,
+            ]
+        )
+        == 0
+    )
+
+    run_dir = repo / ".research" / run_id
+    skeptic_review = run_dir / "skeptic-review" / "surface-map.md"
+    run_manifest = run_dir / "run-manifest.json"
+    assert skeptic_review.exists()
+    assert main(["validate", str(skeptic_review), "--repo", str(repo)]) == 0
+    assert main(["validate", str(run_manifest), "--repo", str(repo)]) == 0
+    review_text = skeptic_review.read_text(encoding="utf-8")
+    review_frontmatter = yaml.safe_load(review_text.split("---", 2)[1])
+    assert review_frontmatter["produced_by"] == "codex-cli-smoke@0.1"
+    assert review_frontmatter["findings_logged"] == 0
+    assert "dev-fixture-skeptic@0.1" not in review_text
+    manifest_data = json.loads(run_manifest.read_text(encoding="utf-8"))
+    assert manifest_data["backend"] == "codex-cli"
+    assert manifest_data["status"] == "succeeded"
+    codex_steps = [step for step in manifest_data["steps"] if step["backend"] == "codex-cli"]
+    assert [step["step_id"] for step in codex_steps] == ["codex-cli-smoke-skeptic-review"]
+    assert codex_steps[0]["producer_id"] == "codex-cli-smoke@0.1"
+    assert codex_steps[0]["status"] == "succeeded"
+    assert "--ephemeral --ignore-user-config --ignore-rules" in codex_steps[0]["command"]
+    assert "-s read-only -a never" in codex_steps[0]["command"]
+    handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 0
+
+
 def test_init_records_project_type_citations_in_ledger(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

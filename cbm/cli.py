@@ -65,6 +65,8 @@ DETERMINISTIC_PRODUCERS = {
     "intervention_card": "dev-fixture-planner@0.1",
     "handoff": "cbm-baseline-handoff@0.1",
 }
+CODEX_CLI_SMOKE_PRODUCER = "codex-cli-smoke@0.1"
+BACKEND_CHOICES = ["deterministic", "external", "codex-cli"]
 
 
 @dataclass(frozen=True)
@@ -837,6 +839,23 @@ def build_producer_registry(backend: str) -> dict[str, Any]:
                     "execution_contract": producer_execution_contract(producer_id),
                 }
             )
+    elif backend == "codex-cli":
+        for artifact_type, producer_id in DETERMINISTIC_PRODUCERS.items():
+            if artifact_type == "skeptic_review":
+                producer_id = CODEX_CLI_SMOKE_PRODUCER
+                producer_backend = "codex-cli"
+                execution_contract = "external_agent"
+            else:
+                producer_backend = "deterministic"
+                execution_contract = producer_execution_contract(producer_id)
+            producers.append(
+                {
+                    "artifact_type": artifact_type,
+                    "producer_id": producer_id,
+                    "backend": producer_backend,
+                    "execution_contract": execution_contract,
+                }
+            )
     else:
         for artifact_type in sorted(DETERMINISTIC_PRODUCERS):
             producers.append(
@@ -855,16 +874,22 @@ def build_producer_registry(backend: str) -> dict[str, Any]:
     }
 
 
-def run_manifest_step(step_id: str, command: str, artifact_type: str, producer_id: str) -> dict[str, Any]:
+def run_manifest_step(step_id: str, command: str, artifact_type: str, producer_id: str, backend: str = "deterministic") -> dict[str, Any]:
     return {
         "step_id": step_id,
         "command": command,
         "artifact_type": artifact_type,
         "producer_id": producer_id,
-        "backend": "deterministic",
+        "backend": backend,
         "status": "planned",
         "exit_code": None,
     }
+
+
+def refusal_reason(args: argparse.Namespace) -> str:
+    if args.backend == "codex-cli":
+        return "codex-cli backend requires --allow-live-codex because it may invoke a live model subprocess"
+    return "external backend is declared but no external producer runner is configured"
 
 
 def build_run_manifest(args: argparse.Namespace, repo: Path, run_id: str, status: str, steps: list[dict[str, Any]]) -> dict[str, Any]:
@@ -886,7 +911,7 @@ def build_run_manifest(args: argparse.Namespace, repo: Path, run_id: str, status
         "steps": steps,
     }
     if status == "refused":
-        manifest["refusal_reason"] = "external backend is declared but no external producer runner is configured"
+        manifest["refusal_reason"] = refusal_reason(args)
     return manifest
 
 
@@ -3678,6 +3703,166 @@ def first_citable_file(repo: Path, codebase_map: dict[str, Any], sha: str) -> tu
     raise SystemExit("no citable source file found")
 
 
+def codex_cli_smoke_output_schema() -> dict[str, Any]:
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["body", "findings_logged", "challenge_ids"],
+        "properties": {
+            "body": {"type": "string", "minLength": 1},
+            "findings_logged": {"type": "integer", "minimum": 0},
+            "challenge_ids": {
+                "type": "array",
+                "items": {"type": "string", "pattern": "^chl-[0-9]{5,}$"},
+            },
+        },
+    }
+
+
+def parse_json_object_output(text: str) -> dict[str, Any]:
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
+        stripped = re.sub(r"\s*```$", "", stripped)
+    data = json.loads(stripped)
+    if not isinstance(data, dict):
+        raise ValueError("Codex smoke output must be a JSON object")
+    return data
+
+
+def validate_json_with_schema(data: Any, schema: dict[str, Any]) -> list[str]:
+    validator = Draft202012Validator(schema)
+    return [f"{'/'.join(str(p) for p in error.absolute_path) or '<root>'}: {error.message}" for error in validator.iter_errors(data)]
+
+
+def codex_cli_smoke_command_display(codex_command: str, repo: Path, run_id: str) -> str:
+    run_dir = repo / ".research" / run_id
+    output_path = run_dir / "codex-cli-smoke-output.json"
+    output_schema_path = run_dir / "codex-cli-smoke-output.schema.json"
+    return " ".join(
+        [
+            codex_command,
+            "exec",
+            "--ephemeral",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "-C",
+            str(repo),
+            "-s",
+            "read-only",
+            "-a",
+            "never",
+            "--json",
+            "-o",
+            str(output_path),
+            "--output-schema",
+            str(output_schema_path),
+            "-",
+        ]
+    )
+
+
+def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    surface_path = paths.run_dir / "surface-map.json"
+    if not surface_path.exists():
+        print("codex-cli smoke requires surface-map.json", file=sys.stderr)
+        return 1
+    sha = source_sha(repo)
+    codebase_map = read_codebase_map(paths.run_dir)
+    citation_path, citation_line = first_citable_file(repo, codebase_map, sha)
+    citation = f"{citation_path}:{citation_line}@{sha}"
+    output_schema_path = paths.run_dir / "codex-cli-smoke-output.schema.json"
+    output_path = paths.run_dir / "codex-cli-smoke-output.json"
+    output_schema = codex_cli_smoke_output_schema()
+    write_json(output_schema_path, output_schema)
+    prompt = (
+        "You are a bounded CBM smoke reviewer. Read the existing surface-map.json only as an artifact under review. "
+        "Return JSON matching the supplied schema. This smoke is not a full Skeptic pass; report findings_logged=0 "
+        "unless the artifact is unreadable.\n\n"
+        f"Repository: {repo}\n"
+        f"Run id: {paths.run_id}\n"
+        f"Artifact under review: {surface_path.relative_to(repo)}\n"
+        f"Required citation anchor to include in your reasoning: {citation}\n"
+    )
+    command = [
+        args.codex_command,
+        "exec",
+        "--ephemeral",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "-C",
+        str(repo),
+        "-s",
+        "read-only",
+        "-a",
+        "never",
+        "--json",
+        "-o",
+        str(output_path),
+        "--output-schema",
+        str(output_schema_path),
+        "-",
+    ]
+    proc = subprocess.run(command, input=prompt, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if proc.returncode != 0:
+        print(proc.stderr.strip() or proc.stdout.strip() or "codex-cli smoke failed", file=sys.stderr)
+        return proc.returncode
+    if not output_path.exists():
+        print("codex-cli smoke did not write output", file=sys.stderr)
+        return 1
+    try:
+        output = parse_json_object_output(output_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, ValueError) as exc:
+        print(f"codex-cli smoke output invalid: {exc}", file=sys.stderr)
+        return 1
+    output_errors = validate_json_with_schema(output, output_schema)
+    if output_errors:
+        for error in output_errors:
+            print(f"codex-cli smoke output invalid {error}", file=sys.stderr)
+        return 1
+    now = utc_now()
+    frontmatter = {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "skeptic_review",
+        "run_id": paths.run_id,
+        "produced_at": now,
+        "produced_by": CODEX_CLI_SMOKE_PRODUCER,
+        "source_sha": sha,
+        "artifact_reviewed": str(surface_path.relative_to(repo)),
+        "findings_logged": int(output.get("findings_logged", 0)),
+        "challenge_ids": list(output.get("challenge_ids", [])),
+    }
+    errors = validate_data(repo, frontmatter, "skeptic_review")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    skeptic_path = paths.run_dir / "skeptic-review" / "surface-map.md"
+    skeptic_path.parent.mkdir(parents=True, exist_ok=True)
+    skeptic_path.write_text(
+        "---\n"
+        + yaml.safe_dump(frontmatter, sort_keys=False)
+        + "---\n# Codex CLI Smoke Review\n\n"
+        + output["body"].strip()
+        + "\n\n"
+        + f"Smoke citation anchor: {citation}\n",
+        encoding="utf-8",
+    )
+    print(skeptic_path)
+    return 0
+
+
+def validate_existing_skeptic_review(repo: Path, skeptic_path: Path) -> list[str]:
+    try:
+        frontmatter, _ = load_artifact_frontmatter(skeptic_path)
+    except Exception as exc:
+        return [str(exc)]
+    return validate_data(repo, frontmatter, "skeptic_review")
+
+
 def command_handoff(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     paths = run_paths(repo, args.run_id)
@@ -3822,26 +4007,33 @@ def command_handoff(args: argparse.Namespace) -> int:
             print(f"evidence-fail {error}", file=sys.stderr)
         return 1
     write_json(surface_path, surface)
-    skeptic_path.write_text(
-        "---\n"
-        + yaml.safe_dump(
-            {
-                "schema_version": SCHEMA_VERSION,
-                "artifact_type": "skeptic_review",
-                "run_id": paths.run_id,
-                "produced_at": now,
-                "produced_by": "dev-fixture-skeptic@0.1",
-                "source_sha": sha,
-                "artifact_reviewed": str(surface_path.relative_to(repo)),
-                "findings_logged": 0,
-                "challenge_ids": [],
-            },
-            sort_keys=False,
+    if skeptic_path.exists():
+        review_errors = validate_existing_skeptic_review(repo, skeptic_path)
+        if review_errors:
+            for error in review_errors:
+                print(f"skeptic-review invalid {error}", file=sys.stderr)
+            return 1
+    else:
+        skeptic_path.write_text(
+            "---\n"
+            + yaml.safe_dump(
+                {
+                    "schema_version": SCHEMA_VERSION,
+                    "artifact_type": "skeptic_review",
+                    "run_id": paths.run_id,
+                    "produced_at": now,
+                    "produced_by": "dev-fixture-skeptic@0.1",
+                    "source_sha": sha,
+                    "artifact_reviewed": str(surface_path.relative_to(repo)),
+                    "findings_logged": 0,
+                    "challenge_ids": [],
+                },
+                sort_keys=False,
+            )
+            + "---\n# Skeptic Review\n\nNo runtime Skeptic ran for this deterministic baseline handoff. The unknown dependency edge remains active for a real isolated Skeptic.\n\n"
+            + f"Reviewed artifact evidence: {citation}\n",
+            encoding="utf-8",
         )
-        + "---\n# Skeptic Review\n\nNo runtime Skeptic ran for this deterministic baseline handoff. The unknown dependency edge remains active for a real isolated Skeptic.\n\n"
-        + f"Reviewed artifact evidence: {citation}\n",
-        encoding="utf-8",
-    )
     dependent_challenges = []
     selected_claim = relation_edge if relation_edge else primary_authority
     selected_challenges = live_challenges(selected_claim)
@@ -4068,10 +4260,10 @@ def command_run(args: argparse.Namespace) -> int:
     paths = run_paths(repo, run_id)
     paths.run_dir.mkdir(parents=True, exist_ok=True)
     write_json(paths.run_dir / "producer-registry.json", build_producer_registry(args.backend))
-    if args.backend == "external":
+    if args.backend == "external" or (args.backend == "codex-cli" and not args.allow_live_codex):
         manifest = build_run_manifest(args, repo, run_id, "refused", [])
         write_json(paths.run_dir / "run-manifest.json", manifest)
-        print("external backend is declared but no external producer runner is configured", file=sys.stderr)
+        print(refusal_reason(args), file=sys.stderr)
         return 2
     init_args = argparse.Namespace(repo=str(repo), goal=args.goal, goal_class=args.goal_class, mode=args.mode, run_id=run_id, backend=args.backend)
     map_args = argparse.Namespace(repo=str(repo), run_id=run_id)
@@ -4080,6 +4272,20 @@ def command_run(args: argparse.Namespace) -> int:
         (run_manifest_step("map", "map", "codebase_map", DETERMINISTIC_PRODUCERS["codebase_map"]), command_map, map_args),
         (run_manifest_step("surface", "surface", "surface_map", DETERMINISTIC_PRODUCERS["surface_map"]), command_surface, map_args),
     ]
+    if args.backend == "codex-cli":
+        commands.append(
+            (
+                run_manifest_step(
+                    "codex-cli-smoke-skeptic-review",
+                    codex_cli_smoke_command_display(args.codex_command, repo, run_id),
+                    "skeptic_review",
+                    CODEX_CLI_SMOKE_PRODUCER,
+                    backend="codex-cli",
+                ),
+                command_codex_cli_smoke_review,
+                argparse.Namespace(repo=str(repo), run_id=run_id, codex_command=args.codex_command),
+            )
+        )
     if args.mode in {"standard", "deep"}:
         commands.append((run_manifest_step("authority-map", "authority-map", "authority_map", DETERMINISTIC_PRODUCERS["authority_map"]), command_authority_map, map_args))
         commands.append(
@@ -4423,7 +4629,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--goal", required=True)
     p_init.add_argument("--goal-class", default="understand_repo")
     p_init.add_argument("--mode", default="lightweight", choices=["lightweight", "standard", "deep"])
-    p_init.add_argument("--backend", default="deterministic", choices=["deterministic", "external"])
+    p_init.add_argument("--backend", default="deterministic", choices=BACKEND_CHOICES)
     p_init.add_argument("--run-id")
     p_init.set_defaults(func=command_init)
     p_map = sub.add_parser("map")
@@ -4560,7 +4766,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--goal", required=True)
     p_run.add_argument("--goal-class", default="understand_repo")
     p_run.add_argument("--mode", default="lightweight", choices=["lightweight", "standard", "deep"])
-    p_run.add_argument("--backend", default="deterministic", choices=["deterministic", "external"])
+    p_run.add_argument("--backend", default="deterministic", choices=BACKEND_CHOICES)
+    p_run.add_argument("--allow-live-codex", action="store_true")
+    p_run.add_argument("--codex-command", default="codex")
     p_run.add_argument("--run-id")
     p_run.set_defaults(func=command_run)
     p_loop_status = sub.add_parser("loop-status")

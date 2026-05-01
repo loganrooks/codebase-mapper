@@ -15,7 +15,9 @@ Current product state:
 - artifact schemas and validation gates exist;
 - citation, freshness, ledger, registry, contestation, reuse, and refresh scaffolding exist;
 - deterministic smoke artifacts exist under `.research/`;
+- a guarded `codex-cli` smoke backend exists and can be tested with a fake executable;
 - runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
+- no live Codex CLI model subprocess has been run through CBM yet;
 - current deterministic artifacts must not be treated as proof of nuanced codebase understanding.
 
 ## Authority
@@ -63,7 +65,7 @@ Accepted default for recovery:
 
 CBM should own the run lifecycle through a producer registry. A producer entry chooses whether an artifact is produced by the deterministic baseline, an external host-agent handoff, or a CLI-launched agent backend. Parent-side CBM validation remains mandatory after each produced artifact.
 
-Codex CLI subprocesses are a candidate backend, not an assumption. The local CLI capability spike shows useful isolation controls exist, but the Skeptic role may use Codex subprocesses only after a live smoke proves model-visible isolation and output-schema behavior.
+Codex CLI subprocesses are a candidate backend, not an assumption. The local CLI capability spike shows useful isolation controls exist, and the guarded backend now records a Codex CLI smoke step in `run-manifest.json`. The Skeptic role may use Codex subprocesses only after a live smoke proves model-visible isolation and output-schema behavior.
 
 Hooks remain optional adapter glue. They are not the deployment model and not the correctness mechanism.
 
@@ -106,6 +108,8 @@ Last known full suite after the producer-registry/run-manifest slice: `pytest -q
 
 Last known full suite after the benchmark/ledger fix slice: `pytest -q` reported `56 passed, 2 warnings`.
 
+Last known full suite after the guarded Codex CLI backend slice: `pytest -q` reported `58 passed, 2 warnings`.
+
 This verifies the test suite, not `VISION.md` maturity.
 
 Required next verification:
@@ -116,4 +120,5 @@ Required next verification:
 - Codex isolation spike: local CLI help/version evidence recorded; no live model subprocess was run;
 - benchmark baseline: deterministic MCP `src/git` run passed handoff and run-manifest validation; scope pollution by copied schemas recorded as a harness gap;
 - benchmark/ledger fix slice: focused regressions passed; full `pytest -q` passed;
+- guarded Codex CLI backend slice: fake executable regressions passed; full `pytest -q` passed;
 - benchmark slice: generated artifacts must validate and show honest producer identity and coverage.

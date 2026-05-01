@@ -217,9 +217,9 @@ Each must declare its blind spots specifically. Generic disclaimers ("might miss
 
 ## Producer registry and run manifest
 
-`producer-registry.json` records which producer backend is responsible for each artifact type in a run. Deterministic runs use explicit `cbm-baseline-*` or `dev-fixture-*` producer IDs. External-agent producer IDs are declared only when `--backend external` is selected, and that backend currently refuses rather than fabricating outputs.
+`producer-registry.json` records which producer backend is responsible for each artifact type in a run. Deterministic runs use explicit `cbm-baseline-*` or `dev-fixture-*` producer IDs. External-agent producer IDs are declared when `--backend external` is selected, and that backend currently refuses rather than fabricating outputs. `--backend codex-cli` is a guarded smoke backend: deterministic producers still create the baseline artifacts, while a Codex CLI smoke producer may write `skeptic-review/surface-map.md` only when `--allow-live-codex` is explicitly passed.
 
-`run-manifest.json` records the selected backend, mode, goal, producer registry hash, and each run step's status and exit code. It is lifecycle evidence for `cbm run`; it is not a substitute for validating the artifacts produced by those steps.
+`run-manifest.json` records the selected backend, mode, goal, producer registry hash, and each run step's command, producer id, backend, status, and exit code. It is lifecycle evidence for `cbm run`; it is not a substitute for validating the artifacts produced by those steps.
 
 ## What the contracts do not commit to
 

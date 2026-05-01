@@ -1287,3 +1287,22 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Run `git diff --check -- .planning BUILD-LOG.md`.
   - Run `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category benchmark` after committing planning changes, because dirty authority docs should fail before commit.
   - Run `pytest -q`.
+
+## 2026-05-01 — Runtime-producer slice: guarded Codex CLI smoke backend
+
+- Implemented: `cbm run --backend codex-cli` as a guarded smoke backend.
+- Implemented: `--allow-live-codex` is required before CBM invokes a Codex CLI subprocess; without it the run writes `producer-registry.json` and a refused `run-manifest.json`, then exits 2.
+- Implemented: `--codex-command` allows tests or operators to provide the executable path; regression tests use a fake executable and do not call the live Codex CLI.
+- Implemented: the `codex-cli` backend keeps deterministic producers for baseline artifacts and assigns `skeptic_review` to `codex-cli-smoke@0.1`.
+- Implemented: the smoke step invokes `codex exec` with `--ephemeral`, `--ignore-user-config`, `--ignore-rules`, read-only sandboxing, no approval prompts, `--json`, `-o`, and `--output-schema`; the full invocation is recorded in `run-manifest.json`.
+- Implemented: `cbm-handoff` now preserves an existing valid `skeptic-review/surface-map.md` instead of overwriting external producer output with the deterministic dev fixture.
+- Boundary: no live model subprocess was run in this slice. The fake-executable regression proves dispatch, manifest recording, schema validation, and handoff preservation; it does not prove model-visible isolation or runtime-agent quality.
+- Verification run:
+  - Red test first: `pytest -q tests/test_cli.py::test_run_backend_codex_cli_requires_explicit_live_flag` initially failed because `codex-cli` was not an accepted backend.
+  - Red test next: `pytest -q tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review` initially failed because handoff overwrote the fake producer review with `dev-fixture-skeptic@0.1`.
+  - Focused regressions passed: `pytest -q tests/test_cli.py::test_run_backend_deterministic_writes_manifest_and_producer_registry tests/test_cli.py::test_run_backend_external_refuses_without_fake_agent_outputs tests/test_cli.py::test_run_orchestrates_phase_a_flow tests/test_cli.py::test_run_backend_codex_cli_requires_explicit_live_flag tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review`.
+  - Full suite passed: `pytest -q` reported 58 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Self-critique:
+  - Drift check: This advances the runtime-producer evidence track without claiming a real Skeptic exists yet.
+  - Contract check: New backend enum values are reflected in producer-registry and run-manifest schemas; artifacts are validated in tests.
+  - Reviewer-eye check: `--allow-live-codex` is a sharp guard but still operator-controlled. The next slice must run a user-approved live smoke on the pinned external benchmark or keep the backend classified as unproven.
