@@ -317,6 +317,37 @@ def resolve_citation(repo: Path, citation: str) -> tuple[bool, str]:
     return True, "ok"
 
 
+def citation_parts(citation: str) -> dict[str, Any] | None:
+    match = CITATION_RE.fullmatch(citation)
+    if not match:
+        return None
+    return {
+        "path": match.group("path"),
+        "start": int(match.group("start")),
+        "end": int(match.group("end") or match.group("start")),
+        "sha": match.group("sha"),
+    }
+
+
+def git_show_bytes(repo: Path, ref: str, rel: str) -> bytes | None:
+    try:
+        return subprocess.run(
+            ["git", "-C", str(repo), "show", f"{ref}:./{rel}"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        ).stdout
+    except subprocess.CalledProcessError:
+        return None
+
+
+def blob_hash_at(repo: Path, ref: str, rel: str) -> str | None:
+    content = git_show_bytes(repo, ref, rel)
+    if content is None:
+        return None
+    return hashlib.sha256(content).hexdigest()
+
+
 def citation_for(repo: Path, rel: str, sha: str, line: int = 1) -> str | None:
     path = repo / rel
     if not path.exists() or not path.is_file() or not path_matches_sha(repo, rel, sha):
@@ -339,14 +370,8 @@ def path_matches_sha(repo: Path, rel: str, sha: str) -> bool:
     path = repo / rel
     if not path.exists() or not path.is_file():
         return False
-    try:
-        content = subprocess.run(
-            ["git", "-C", str(repo), "show", f"{sha}:./{rel}"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        ).stdout
-    except subprocess.CalledProcessError:
+    content = git_show_bytes(repo, sha, rel)
+    if content is None:
         return False
     return path.read_bytes() == content
 
@@ -932,6 +957,99 @@ def command_stale(args: argparse.Namespace) -> int:
     return 0
 
 
+def artifact_citations(path: Path) -> list[str]:
+    data, body = load_artifact_frontmatter(path)
+    return sorted(set(extract_citations(data) + extract_citations(body)))
+
+
+def command_validate_fresh(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    path = Path(args.artifact)
+    if not path.is_absolute():
+        path = repo / path
+    failed = 0
+    citations = artifact_citations(path)
+    for citation in citations:
+        parts = citation_parts(citation)
+        if not parts:
+            print(f"stale {citation} invalid citation")
+            failed += 1
+            continue
+        cited_hash = blob_hash_at(repo, parts["sha"], parts["path"])
+        head_hash = blob_hash_at(repo, "HEAD", parts["path"])
+        if cited_hash is None:
+            print(f"stale {citation} cited file missing at recorded sha")
+            failed += 1
+        elif head_hash is None:
+            print(f"stale {citation} file missing at HEAD")
+            failed += 1
+        elif cited_hash != head_hash:
+            print(f"stale {citation} file bytes changed at HEAD")
+            failed += 1
+        else:
+            print(f"fresh {citation}")
+    if not citations:
+        print("no citations found")
+    return 0 if failed == 0 else 2
+
+
+def verify_citation_at_head(repo: Path, citation: str) -> dict[str, Any]:
+    parts = citation_parts(citation)
+    if not parts:
+        return {"citation": citation, "status": "broken", "reason": "invalid citation"}
+    cited_content = git_show_bytes(repo, parts["sha"], parts["path"])
+    head_content = git_show_bytes(repo, "HEAD", parts["path"])
+    if cited_content is None:
+        return {"citation": citation, "status": "broken", "reason": "path missing at cited sha"}
+    if head_content is None:
+        return {"citation": citation, "status": "broken", "reason": "path missing at HEAD"}
+    try:
+        head_lines = head_content.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        return {"citation": citation, "status": "broken", "reason": "HEAD file is not UTF-8 text"}
+    if parts["end"] > len(head_lines):
+        return {
+            "citation": citation,
+            "status": "broken",
+            "reason": f"line range exceeds HEAD file length ({len(head_lines)})",
+        }
+    if hashlib.sha256(cited_content).hexdigest() == hashlib.sha256(head_content).hexdigest():
+        return {"citation": citation, "status": "still_grounded", "reason": "file bytes unchanged at HEAD"}
+    return {"citation": citation, "status": "needs_review", "reason": "file bytes changed at HEAD but cited lines still exist"}
+
+
+def command_verify(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    path = Path(args.artifact)
+    if not path.is_absolute():
+        path = repo / path
+    citations = artifact_citations(path)
+    results = [verify_citation_at_head(repo, citation) for citation in citations]
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "verify_report",
+        "produced_at": utc_now(),
+        "artifact_path": str(path.relative_to(repo)) if path.is_relative_to(repo) else str(path),
+        "head_sha": source_sha(repo),
+        "results": results,
+        "summary": {
+            "still_grounded": sum(1 for item in results if item["status"] == "still_grounded"),
+            "needs_review": sum(1 for item in results if item["status"] == "needs_review"),
+            "broken": sum(1 for item in results if item["status"] == "broken"),
+        },
+    }
+    output_path = Path(args.output) if args.output else path.with_name("verify-report.json")
+    if not output_path.is_absolute():
+        output_path = repo / output_path
+    write_json(output_path, report)
+    for item in results:
+        print(f"{item['status']} {item['citation']} {item['reason']}")
+    if not results:
+        print("no citations found")
+    print(output_path)
+    return 0 if report["summary"]["needs_review"] == 0 and report["summary"]["broken"] == 0 else 2
+
+
 def read_intake(run_dir: Path) -> dict[str, Any]:
     return read_json(run_dir / "intake.json")
 
@@ -1359,6 +1477,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_stale.add_argument("artifact")
     p_stale.add_argument("--repo", default=".")
     p_stale.set_defaults(func=command_stale)
+    p_validate_fresh = sub.add_parser("validate-fresh")
+    p_validate_fresh.add_argument("artifact")
+    p_validate_fresh.add_argument("--repo", default=".")
+    p_validate_fresh.set_defaults(func=command_validate_fresh)
+    p_verify_fresh = sub.add_parser("verify")
+    p_verify_fresh.add_argument("artifact")
+    p_verify_fresh.add_argument("--repo", default=".")
+    p_verify_fresh.add_argument("--output")
+    p_verify_fresh.set_defaults(func=command_verify)
     p_handoff = sub.add_parser("handoff")
     p_handoff.add_argument("--repo", default=".")
     p_handoff.add_argument("--run-id")
@@ -1407,6 +1534,14 @@ def verify_citations_main() -> int:
 
 def stale_main() -> int:
     return main(["stale", *sys.argv[1:]])
+
+
+def validate_fresh_main() -> int:
+    return main(["validate-fresh", *sys.argv[1:]])
+
+
+def verify_main() -> int:
+    return main(["verify", *sys.argv[1:]])
 
 
 def handoff_main() -> int:

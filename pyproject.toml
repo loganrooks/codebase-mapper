@@ -22,6 +22,8 @@ cbm-bind = "cbm.cli:bind_main"
 cbm-validate = "cbm.cli:validate_main"
 cbm-verify-citations = "cbm.cli:verify_citations_main"
 cbm-stale = "cbm.cli:stale_main"
+cbm-validate-fresh = "cbm.cli:validate_fresh_main"
+cbm-verify = "cbm.cli:verify_main"
 cbm-handoff = "cbm.cli:handoff_main"
 cbm-run = "cbm.cli:run_main"
 

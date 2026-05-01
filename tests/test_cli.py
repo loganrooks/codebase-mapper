@@ -191,6 +191,35 @@ def test_stale_detects_changed_input_and_dependent_path(tmp_path: Path) -> None:
     assert main(["stale", str(card), "--repo", str(repo)]) == 2
 
 
+def test_validate_fresh_and_verify_track_head_movement(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-freshness"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    card = repo / ".research" / run_id / "findings" / "int-0001.md"
+    report = repo / ".research" / run_id / "verify-report.json"
+    assert main(["validate-fresh", str(card), "--repo", str(repo)]) == 0
+    assert main(["verify", str(card), "--repo", str(repo), "--output", str(report)]) == 0
+
+    (repo / "tests" / "test_app.py").write_text("from src.app import hello\n\n# changed but line survives\n", encoding="utf-8")
+    git(repo, "add", "tests/test_app.py")
+    git(repo, "commit", "-m", "change cited file")
+    assert main(["validate-fresh", str(card), "--repo", str(repo)]) == 2
+    assert main(["verify", str(card), "--repo", str(repo), "--output", str(report)]) == 2
+    verify_report = json.loads(report.read_text(encoding="utf-8"))
+    assert verify_report["summary"]["needs_review"] == 1
+    assert verify_report["summary"]["broken"] == 0
+
+    git(repo, "rm", "tests/test_app.py")
+    git(repo, "commit", "-m", "remove cited file")
+    assert main(["verify", str(card), "--repo", str(repo), "--output", str(report)]) == 2
+    verify_report = json.loads(report.read_text(encoding="utf-8"))
+    assert verify_report["summary"]["broken"] == 1
+
+
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

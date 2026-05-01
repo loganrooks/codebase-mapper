@@ -217,6 +217,20 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Contract check: This implements the basic `cbm-stale` contract. It is not yet the richer v1.2 `cbm-validate-fresh` or `cbm-verify` report flow.
   - Reviewer-eye check: The command checks file bytes against `source_sha`; it does not distinguish harmless whitespace from semantic changes.
 
+## 2026-05-01 — Phase B slice: validate-fresh and verify
+
+- Implemented: `cbm-validate-fresh` / `cbm validate-fresh <artifact>`, the v1.2 Mode 1 freshness check. It compares each cited file's bytes at the cited SHA with that file's bytes at current `HEAD` and exits 2 when any cited evidence has shifted.
+- Implemented: `cbm-verify` / `cbm verify <artifact>`, the v1.2 Mode 2 check. It writes a `verify_report` JSON artifact and reports each citation as `still_grounded`, `needs_review`, or `broken`.
+- Verification run:
+  - `pytest -q` passed: 7 tests, including a freshness test that commits a changed cited file and then removes it, producing `needs_review` and `broken` statuses.
+  - Smoke run `run-phase-b-freshness-smoke`: `python3 -m cbm run --repo . --goal "Phase B freshness smoke" --run-id run-phase-b-freshness-smoke` completed.
+  - `python3 -m cbm validate-fresh .research/run-phase-b-freshness-smoke/findings/int-0001.md --repo .` reported the card citation fresh.
+  - `python3 -m cbm verify .research/run-phase-b-freshness-smoke/findings/int-0001.md --repo . --output .research/run-phase-b-freshness-smoke/verify-report.json` produced a verify report with `still_grounded: 1`, `needs_review: 0`, `broken: 0`.
+- Self-critique:
+  - Drift check: These commands annotate freshness and do not rewrite interpretive artifacts.
+  - Contract check: Mode 1 produces no artifact; Mode 2 writes a transient verify report and leaves the original artifact unchanged.
+  - Reviewer-eye check: The verify report is schema-shaped but currently has no dedicated schema, because the kit names `verify_report` as transient without shipping a schema.
+
 ## 2026-05-01 — Skeptic challenge target fix
 
 - Audit finding: once Python import extraction exists, `cbm-handoff` must not assume the unknown edge is `surface.edges[0]`. A current-head smoke showed the Skeptic challenge was attached to the first edge by index, which could incorrectly challenge a factual import edge.
