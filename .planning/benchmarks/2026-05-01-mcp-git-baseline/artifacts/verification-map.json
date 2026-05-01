@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "verification_map",
+  "run_id": "run-mcp-git-baseline-2",
+  "produced_at": "2026-05-01T20:24:46Z",
+  "produced_by": "cbm-baseline-verification@0.1",
+  "source_sha": "4503e2d12b79",
+  "inputs": [
+    {
+      "path": ".research/run-mcp-git-baseline-2/codebase-map.json",
+      "sha256": "6a6804512a22e132da0808c930665b9b2d974e9c194ff9bf76687c81f824c3d9"
+    }
+  ],
+  "status": "draft",
+  "coverage": {
+    "scope": {
+      "included_globs": [
+        "**/*"
+      ],
+      "excluded_globs": [
+        ".git/**",
+        ".research/**",
+        ".venv/**",
+        "node_modules/**",
+        "**/__pycache__/**",
+        ".pytest_cache/**",
+        ".DS_Store"
+      ]
+    },
+    "result": {
+      "files_in_scope": 31,
+      "files_examined_directly": 0,
+      "files_inspected_via_extractor": 31,
+      "files_unread_in_scope": 31
+    },
+    "limitations": [
+      "Phase A kernel records structure only; interpretive review remains a runtime-agent task."
+    ]
+  },
+  "staleness": {
+    "stale_if_input_hash_changes": true,
+    "depends_on_paths": [
+      "tests/test_server.py"
+    ],
+    "scope_signature": "286ec4ed090333a7e1e5865b0bd28fc337e2784bbdc7ff943196fc17607b3150"
+  },
+  "ci_gates": [
+    {
+      "id": "test-001",
+      "name": "Run tests/test_server.py",
+      "path": "tests/test_server.py",
+      "kind": "test",
+      "citations": [
+        "tests/test_server.py:1@4503e2d12b79"
+      ],
+      "command": {
+        "runner": "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "argv": [
+          "-m",
+          "pytest",
+          "tests/test_server.py"
+        ],
+        "cwd": ".",
+        "safety_envelope": {
+          "requires_network": false,
+          "requires_install": false,
+          "mutates_filesystem": false,
+          "max_duration_seconds": 120
+        }
+      }
+    }
+  ]
+}

@@ -258,6 +258,28 @@ def test_run_backend_external_refuses_without_fake_agent_outputs(tmp_path: Path)
     assert manifest_data["steps"] == []
 
 
+def test_init_records_project_type_citations_in_ledger(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-project-type-ledger"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+
+    run_dir = repo / ".research" / run_id
+    project_type = json.loads((run_dir / "project-type.json").read_text(encoding="utf-8"))
+    project_type_citations = set(extract_citations(project_type))
+    ledger_entries = [
+        json.loads(line)
+        for line in (run_dir / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    ledger_citations = {entry.get("citation") for entry in ledger_entries if entry.get("citation")}
+    assert project_type_citations
+    assert project_type_citations <= ledger_citations
+
+
 def test_goal_packs_rank_same_surface_differently(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

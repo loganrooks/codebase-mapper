@@ -783,7 +783,10 @@ def citation_claim_pairs(data: Any, default_claim_id: str = "artifact") -> list[
 def append_citation_entries(repo: Path, ledger_path: Path, run_id: str, sha: str, artifact_path: str, data: Any, agent: str) -> None:
     seen = ledger_citations(ledger_path)
     now = utc_now()
-    for citation, claim_id in citation_claim_pairs(data):
+    pairs = citation_claim_pairs(data)
+    if not pairs:
+        pairs = [(citation, "artifact") for citation in extract_citations(data)]
+    for citation, claim_id in pairs:
         if citation in seen:
             continue
         entry = {
@@ -1009,6 +1012,15 @@ def command_init(args: argparse.Namespace) -> int:
     write_json(paths.run_dir / "project-type.json", project_type_report)
     (paths.run_dir / "evidence-ledger.jsonl").touch()
     write_ledger_integrity_manifest(paths.run_dir / "evidence-ledger.jsonl")
+    append_citation_entries(
+        repo,
+        paths.run_dir / "evidence-ledger.jsonl",
+        run_id,
+        sha,
+        str((paths.run_dir / "project-type.json").relative_to(repo)),
+        project_type_report,
+        "cbm-baseline-project-type",
+    )
     (paths.run_dir / "uncertainty-register.jsonl").touch()
     write_ledger_integrity_manifest(paths.run_dir / "uncertainty-register.jsonl")
     print(paths.run_dir)
@@ -4695,3 +4707,7 @@ def hook_stop_main() -> int:
 
 def hook_start_main() -> int:
     return main(["hook-start", *sys.argv[1:]])
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

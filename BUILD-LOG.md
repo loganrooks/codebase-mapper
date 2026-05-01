@@ -1253,3 +1253,23 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This keeps Codex CLI as a candidate backend rather than silently assuming it satisfies runtime-agent isolation.
   - Contract check: Planning artifact only; no runtime schema or code changed.
   - Reviewer-eye check: Help output is weaker evidence than a live subprocess transcript. The next backend slice must include a bounded live smoke or remain unwired.
+
+## 2026-05-01 — Recovery slice: external deterministic benchmark baseline
+
+- Implemented: `cbm/cli.py` now has a `__main__` guard so `python3 -m cbm.cli ...` actually dispatches commands.
+- Correction: Prior build-log/commit-message references to `python3 -m cbm.cli loop-status ...` as a passing preflight were invalid because the module previously only imported. After adding the guard, the same preflight actually ran, printed checkpoint-pending warning, printed `loop-status: ok`, and exited 0.
+- Implemented: project-type citations are now recorded in the evidence ledger during `cbm init`.
+- Added regression: `test_init_records_project_type_citations_in_ledger`.
+- Ran the first pinned external deterministic baseline on MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
+- Result artifact: `.planning/benchmarks/2026-05-01-mcp-git-baseline/RESULT.md`.
+- Rationale: The recovery plan required at least one external baseline before further autonomous work so CBM's deterministic behavior is tested beyond the tiny fixture.
+- Verification run:
+  - Actual recovery preflight passed: `python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category benchmark`.
+  - Focused regressions passed: `pytest -q tests/test_cli.py::test_init_records_project_type_citations_in_ledger tests/test_cli.py::test_run_backend_deterministic_writes_manifest_and_producer_registry tests/test_cli.py::test_init_map_handoff_and_citation_resolution`.
+  - Benchmark command passed: `python3 -m cbm.cli run --repo /tmp/cbm-benchmark-mcp-servers-4503e2d/src/git --goal "understand MCP git server surfaces" --backend deterministic --mode standard --run-id run-mcp-git-baseline-2`.
+  - Benchmark `handoff.md` and `run-manifest.json` both validated.
+  - Full suite passed: `pytest -q` reported 56 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Self-critique:
+  - Drift check: This is still deterministic baseline evidence, not a Phase B+ or runtime-agent pass.
+  - Contract check: Handoff caught the missing project-type ledger citations before the fix; the gate behaved correctly.
+  - Reviewer-eye check: The benchmark required copying CBM schemas into the target checkout, polluting file scope. This is now a recorded benchmark-harness gap and should be fixed before comparing quality.

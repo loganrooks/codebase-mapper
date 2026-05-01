@@ -1,0 +1,475 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "surface_map",
+  "run_id": "run-mcp-git-baseline-2",
+  "produced_at": "2026-05-01T20:24:46Z",
+  "produced_by": "cbm-baseline-surface@0.1",
+  "source_sha": "4503e2d12b79",
+  "inputs": [
+    {
+      "path": ".research/run-mcp-git-baseline-2/codebase-map.json",
+      "sha256": "6a6804512a22e132da0808c930665b9b2d974e9c194ff9bf76687c81f824c3d9"
+    }
+  ],
+  "status": "draft",
+  "coverage": {
+    "scope": {
+      "included_globs": [
+        "**/*"
+      ],
+      "excluded_globs": [
+        ".git/**",
+        ".research/**",
+        ".venv/**",
+        "node_modules/**",
+        "**/__pycache__/**",
+        ".pytest_cache/**",
+        ".DS_Store"
+      ]
+    },
+    "result": {
+      "files_in_scope": 31,
+      "files_examined_directly": 0,
+      "files_inspected_via_extractor": 31,
+      "files_unread_in_scope": 31
+    },
+    "limitations": [
+      "Phase A kernel records structure only; interpretive review remains a runtime-agent task."
+    ]
+  },
+  "staleness": {
+    "stale_if_input_hash_changes": true,
+    "depends_on_paths": [
+      "pyproject.toml",
+      "tests/test_server.py"
+    ],
+    "scope_signature": "286ec4ed090333a7e1e5865b0bd28fc337e2784bbdc7ff943196fc17607b3150"
+  },
+  "authorities": [
+    {
+      "id": "auth-001",
+      "kind": "build",
+      "path": "pyproject.toml",
+      "citations": [
+        "pyproject.toml:1@4503e2d12b79"
+      ],
+      "authority_source": "config",
+      "claim_register": "interpretive",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_structure"
+      ],
+      "corroboration_count": 1,
+      "rationale": "Phase A identifies pyproject.toml as a build surface from deterministic file and manifest discovery.",
+      "confidence": "low"
+    },
+    {
+      "id": "auth-002",
+      "kind": "test_suite",
+      "path": "tests/test_server.py",
+      "citations": [
+        "tests/test_server.py:1@4503e2d12b79"
+      ],
+      "authority_source": "test",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_structure"
+      ],
+      "corroboration_count": 1,
+      "rationale": "Phase A identifies tests/test_server.py as a test_suite surface from deterministic file and manifest discovery.",
+      "confidence": "medium"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-call-001",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/__init__.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/__init__.py",
+        "symbol": "main"
+      },
+      "citations": [
+        "src/mcp_server_git/__init__.py:24@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-002",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "by_commandline"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:468@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-003",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "validate_repo_path"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:477@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-004",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "by_roots"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:469@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-005",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_status"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:484@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-006",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_diff_unstaged"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:491@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-007",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_diff_staged"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:498@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-008",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_diff"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:505@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-009",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_commit"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:512@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-010",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_add"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:519@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-011",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_reset"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:526@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-012",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_log"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:534@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-013",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_create_branch"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:546@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-014",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_checkout"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:557@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-015",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_show"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:564@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-call-016",
+      "kind": "call",
+      "from": {
+        "path": "src/mcp_server_git/server.py"
+      },
+      "to": {
+        "path": "src/mcp_server_git/server.py",
+        "symbol": "git_branch"
+      },
+      "citations": [
+        "src/mcp_server_git/server.py:571@4503e2d12b79"
+      ],
+      "extractor_id": "ext-python-calls-v1",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_relation"
+      ],
+      "corroboration_count": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "edge-unknown-001",
+      "kind": "unknown",
+      "from": {
+        "path": "pyproject.toml"
+      },
+      "to": {
+        "path": ".gitignore"
+      },
+      "claim_register": "inferential",
+      "claim_status": "active",
+      "evidence_kinds": [
+        "static_structure"
+      ],
+      "corroboration_count": 1,
+      "confidence": "low",
+      "rationale": "Phase A extracts direct Python imports and simple direct function calls only; runtime workflows, relative imports, methods, dynamic dispatch, and dynamic loading remain unknown."
+    }
+  ],
+  "verification": {
+    "tests": [
+      {
+        "path": "tests/test_server.py",
+        "framework": "pytest",
+        "exercises": []
+      }
+    ],
+    "ci_gates": [],
+    "coverage_summary": {
+      "files_with_tests": 1,
+      "files_without_tests": 30,
+      "coverage_unknown": 17
+    }
+  },
+  "unknowns": {
+    "edge_unknowns_present": true,
+    "summary": "Phase A preserves unknown dependency edges for runtime workflows, methods, relative imports, dynamic dispatch, and dynamic loading not covered by the Python extractors."
+  }
+}

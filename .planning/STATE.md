@@ -53,7 +53,8 @@ Important examples:
 - `5d47a7a` `feat: add recovery loop status preflight`
 - `ebf43d7` `feat: label deterministic artifacts honestly`
 - `5368a33` `feat: add run producer manifest`
-- pending Codex isolation spike artifact: local CLI capability check for future `codex_cli` backend
+- `20af433` `docs: record codex cli isolation spike`
+- pending benchmark baseline slice: MCP servers `src/git` deterministic baseline and benchmark-harness limitation
 
 ## Active Architecture Decision
 
@@ -77,6 +78,12 @@ Default benchmark candidate:
 
 No Phase B+ pass claim is allowed until a real agent-produced artifact passes existing gates on a pinned external benchmark.
 
+First deterministic external baseline:
+
+- Target: MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
+- Result artifact: `.planning/benchmarks/2026-05-01-mcp-git-baseline/RESULT.md`.
+- Status: deterministic baseline passed validation, but benchmark scope was polluted by copied CBM schemas because schema loading currently expects `<target-repo>/schemas`.
+
 ## Known Risks
 
 - Deterministic artifact provenance was misleading; the recovery slice now labels deterministic baseline and dev-fixture producers explicitly.
@@ -90,6 +97,8 @@ Last known full suite after the false-provenance recovery slice: `pytest -q` rep
 
 Last known full suite after the producer-registry/run-manifest slice: `pytest -q` reported `55 passed, 2 warnings`.
 
+Last known full suite after the benchmark/ledger fix slice: `pytest -q` reported `56 passed, 2 warnings`.
+
 This verifies the test suite, not `VISION.md` maturity.
 
 Required next verification:
@@ -98,4 +107,6 @@ Required next verification:
 - provenance/coverage slice: focused regressions passed; full `pytest -q` passed;
 - producer-registry/run-manifest slice: focused regressions passed; full `pytest -q` passed;
 - Codex isolation spike: local CLI help/version evidence recorded; no live model subprocess was run;
+- benchmark baseline: deterministic MCP `src/git` run passed handoff and run-manifest validation; scope pollution by copied schemas recorded as a harness gap;
+- benchmark/ledger fix slice: focused regressions passed; full `pytest -q` passed;
 - benchmark slice: generated artifacts must validate and show honest producer identity and coverage.

@@ -32,7 +32,7 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 9. Fix false provenance and coverage honesty in code. Status: completed in `ebf43d7`.
 10. Add `cbm run --backend deterministic|external` and `run-manifest.json`. Status: completed in pending commit.
 11. Spike Codex CLI isolation and document the result. Status: completed in pending commit.
-12. Pin and run the first external benchmark baseline. Status: pending.
+12. Pin and run the first external benchmark baseline. Status: completed in pending commit.
 
 ## Allowed Next Code Work
 
