@@ -31,6 +31,7 @@ DEFAULT_EXCLUDED = [
     ".pytest_cache/**",
     ".DS_Store",
 ]
+LIVE_CHALLENGE_STATUSES = {"open", "accepted_as_alternative", "accepted_as_replacement"}
 
 
 @dataclass(frozen=True)
@@ -2141,7 +2142,7 @@ def find_challenge(data: dict[str, Any], challenge_id: str) -> tuple[dict[str, A
 
 def update_claim_status_from_challenges(claim: dict[str, Any]) -> None:
     challenges = claim.get("challenges", [])
-    openish = [challenge for challenge in challenges if challenge.get("status") in {"open", "accepted_as_alternative", "accepted_as_replacement"}]
+    openish = [challenge for challenge in challenges if challenge.get("status") in LIVE_CHALLENGE_STATUSES]
     if not openish:
         claim["claim_status"] = "active"
     elif any(challenge.get("status") == "accepted_as_replacement" for challenge in openish):
@@ -2150,6 +2151,10 @@ def update_claim_status_from_challenges(claim: dict[str, Any]) -> None:
         claim["claim_status"] = "contested"
     else:
         claim["claim_status"] = "challenged"
+
+
+def live_challenges(claim: dict[str, Any]) -> list[dict[str, Any]]:
+    return [challenge for challenge in claim.get("challenges", []) if challenge.get("status") in LIVE_CHALLENGE_STATUSES]
 
 
 def contestation_summary_for_claim_refs(claim_refs: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
@@ -3213,7 +3218,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         }
     ]
     selected_claim = relation_edge if relation_edge else primary_authority
-    selected_challenges = selected_claim.get("challenges", [])
+    selected_challenges = live_challenges(selected_claim)
     if selected_claim.get("id") != "edge-unknown-001" and selected_challenges:
         dependent_challenges.append(
             {
@@ -3223,6 +3228,15 @@ def command_handoff(args: argparse.Namespace) -> int:
                 "impact": "The selected goal-binding surface has live contestation, so downstream planning must preserve the competing reading.",
             }
         )
+    card_confidence = "low"
+    if selected_challenges:
+        selected_ids = ", ".join(challenge["challenge_id"] for challenge in selected_challenges)
+        confidence_rationale = (
+            "Confidence is low because the selected goal-bound surface has live challenge(s) "
+            f"{selected_ids}, and dependency closure remains challenged by edge-unknown-001."
+        )
+    else:
+        confidence_rationale = "Confidence is low because dependency closure remains challenged by edge-unknown-001."
     card_inputs = [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}]
     if binding_path.exists():
         card_inputs.append({"path": str(binding_path.relative_to(repo)), "sha256": sha256_file(binding_path)})
@@ -3269,8 +3283,8 @@ def command_handoff(args: argparse.Namespace) -> int:
             "manual_review": [{"description": "Confirm the first structural file is relevant to the user's actual goal before acting on it.", "reviewer_role": "senior engineer"}],
         },
         "risks": [{"description": "This Phase A generated card is structural and may not identify the highest-leverage surface.", "severity": "medium", "mitigation": "Run the runtime Surface Mapper and Skeptic before using the card for implementation decisions."}],
-        "confidence": "low",
-        "confidence_rationale": "Confidence is low because the Skeptic logged an unresolved challenge against the draft surface map's unknown dependency closure.",
+        "confidence": card_confidence,
+        "confidence_rationale": confidence_rationale,
         "open_questions": [{"question": "Which code surface actually matters most for the user's goal?", "register_id": "unc-00001"}],
         "dependent_challenges": dependent_challenges,
         "recommended_next_slice": recommended_next_slice,

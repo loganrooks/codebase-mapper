@@ -417,6 +417,14 @@ def test_challenge_adds_human_challenge_to_claim(tmp_path: Path) -> None:
     ]
     assert any(entry["entry_kind"] == "claim_challenged" and entry["claim_id"] == import_edge["id"] for entry in ledger_entries)
     assert any(entry["entry_kind"] == "challenge_resolved" and entry["challenge_id"] == challenge_id for entry in ledger_entries)
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
+    card_frontmatter = yaml.safe_load(
+        (repo / ".research" / run_id / "findings" / "int-0001.md").read_text(encoding="utf-8").split("---", 2)[1]
+    )
+    dependent_claim_ids = {item["claim_id"] for item in card_frontmatter["dependent_challenges"]}
+    assert import_edge["id"] not in dependent_claim_ids
+    assert dependent_claim_ids == {"edge-unknown-001"}
+    assert card_frontmatter["confidence_rationale"] == "Confidence is low because dependency closure remains challenged by edge-unknown-001."
 
 
 def test_handoff_rejects_evidence_invalid_surface(tmp_path: Path) -> None:
@@ -481,6 +489,8 @@ def test_handoff_summarizes_human_challenges(tmp_path: Path) -> None:
     dependent_claim_ids = {item["claim_id"] for item in card_frontmatter["dependent_challenges"]}
     assert import_edge["id"] in dependent_claim_ids
     assert "edge-unknown-001" in dependent_claim_ids
+    assert card_frontmatter["confidence"] == "low"
+    assert "selected goal-bound surface has live challenge(s)" in card_frontmatter["confidence_rationale"]
 
 
 def test_deep_run_writes_workflow_trace(tmp_path: Path) -> None:

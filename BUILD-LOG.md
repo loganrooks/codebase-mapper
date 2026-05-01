@@ -669,3 +669,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The handoff now reports contestation across maps without trying to adjudicate it.
   - Contract check: Summary counts derive from each artifact's claim statuses and challenge lists.
   - Reviewer-eye check: Verification-map, workflow-trace, and refinement-report contestation are not yet folded into this summary because they do not expose the same authority/edge claim shape.
+
+## 2026-05-01 — Card slice: live contestation confidence rationale
+
+- Implemented: generated card confidence rationale now responds to live selected-surface challenges while filtering withdrawn or otherwise resolved challenge history out of `dependent_challenges`.
+- Implemented: challenge liveness now uses the same status set as claim status recalculation (`open`, `accepted_as_alternative`, `accepted_as_replacement`).
+- Verification run:
+  - `pytest -q` passed: 34 tests, including live selected-surface challenge rationale and withdrawn challenge exclusion from card dependencies.
+- Self-critique:
+  - Drift check: Cards still treat unresolved dependency closure as low confidence and now explain when human contestation also affects the selected surface.
+  - Contract check: The change stays inside existing `confidence`, `confidence_rationale`, and `dependent_challenges` fields without schema drift.
+  - Reviewer-eye check: Confidence remains a coarse enum; this slice improves the audit trail before introducing any richer confidence scoring model.
