@@ -362,6 +362,47 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def ledger_integrity_path(ledger_path: Path) -> Path:
+    return ledger_path.with_name(f"{ledger_path.name}.integrity.json")
+
+
+def ledger_line_hashes(ledger_path: Path) -> list[str]:
+    if not ledger_path.exists():
+        return []
+    return [
+        sha256_text(line)
+        for line in ledger_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def write_ledger_integrity_manifest(ledger_path: Path) -> None:
+    manifest_path = ledger_integrity_path(ledger_path)
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "ledger_integrity_manifest",
+        "ledger_path": ledger_path.name,
+        "line_count": ledger_count(ledger_path),
+        "line_hashes": ledger_line_hashes(ledger_path),
+        "updated_at": utc_now(),
+    }
+    write_json(manifest_path, manifest)
+
+
+def verify_ledger_append_only(ledger_path: Path) -> tuple[bool, str]:
+    manifest_path = ledger_integrity_path(ledger_path)
+    if not manifest_path.exists():
+        return True, "no integrity manifest yet"
+    manifest = read_json(manifest_path)
+    expected_hashes = manifest.get("line_hashes", [])
+    current_hashes = ledger_line_hashes(ledger_path)
+    if len(current_hashes) < len(expected_hashes):
+        return False, "ledger has fewer lines than the integrity manifest records"
+    if current_hashes[: len(expected_hashes)] != expected_hashes:
+        return False, "existing ledger line hashes differ from the integrity manifest"
+    return True, "ok"
+
+
 def ledger_count(path: Path) -> int:
     if not path.exists():
         return 0
@@ -381,7 +422,11 @@ def append_ledger_entry(repo: Path, ledger_path: Path, entry: dict[str, Any]) ->
     errors = validate_ledger_entry(repo, entry)
     if errors:
         raise ValueError("\n".join(errors))
+    ok, reason = verify_ledger_append_only(ledger_path)
+    if not ok:
+        raise ValueError(f"ledger append-only verification failed: {reason}")
     append_jsonl(ledger_path, entry)
+    write_ledger_integrity_manifest(ledger_path)
 
 
 def ledger_citations(path: Path) -> set[str]:
@@ -535,6 +580,7 @@ def command_init(args: argparse.Namespace) -> int:
     write_json(paths.run_dir / "state.json", state)
     write_json(paths.run_dir / "extractor-registry.json", registry)
     (paths.run_dir / "evidence-ledger.jsonl").touch()
+    write_ledger_integrity_manifest(paths.run_dir / "evidence-ledger.jsonl")
     (paths.run_dir / "uncertainty-register.jsonl").touch()
     print(paths.run_dir)
     return 0
@@ -1012,6 +1058,7 @@ def command_handoff(args: argparse.Namespace) -> int:
     citation_ok, citation_reason = resolve_citation(repo, citation)
     required_citations = set(extract_citations(surface) + extract_citations(card_frontmatter))
     missing_ledger_citations = sorted(required_citations - ledger_citations(ledger_path))
+    ledger_append_only_ok, ledger_append_only_reason = verify_ledger_append_only(ledger_path)
     artifacts = [
         {"path": str((paths.run_dir / "codebase-map.json").relative_to(repo)), "artifact_type": "codebase_map", "status": "draft", "summary": "Deterministic structural file inventory."},
         {"path": str(surface_path.relative_to(repo)), "artifact_type": "surface_map", "status": "draft", "summary": "Draft deterministic surface map with explicit unknown dependency edge."},
@@ -1039,7 +1086,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "gate_summary": {
             "schema_validation": {"passed": 3, "failed_artifacts": []},
             "citation_resolution": {"resolved": 1 if citation_ok else 0, "unresolved_count": 0 if citation_ok else 1, "unresolved_examples": [] if citation_ok else [f"{citation}: {citation_reason}"]},
-            "ledger_consistency": {"append_only_verified": not missing_ledger_citations, "entry_count": ledger_count(ledger_path)},
+            "ledger_consistency": {"append_only_verified": ledger_append_only_ok and not missing_ledger_citations, "entry_count": ledger_count(ledger_path)},
             "staleness_check": {"fresh": 2, "stale_artifacts": []},
             "skeptic_review": {"artifacts_reviewed": 1, "challenges_logged": 1, "challenges_resolved": 0},
         },
@@ -1066,6 +1113,9 @@ def command_handoff(args: argparse.Namespace) -> int:
         encoding="utf-8",
     )
     print(paths.run_dir / "handoff.md")
+    if not ledger_append_only_ok:
+        print(f"ledger append-only verification failed: {ledger_append_only_reason}", file=sys.stderr)
+        return 1
     if missing_ledger_citations:
         print("missing ledger citations: " + ", ".join(missing_ledger_citations), file=sys.stderr)
         return 1

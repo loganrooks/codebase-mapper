@@ -111,3 +111,22 @@
   - Contract check: The card propagates the unknown-edge challenge and does not raise confidence above medium even when an import edge exists.
   - Reviewer-eye check: This is now meaningfully more actionable on codebases with local Python imports, but non-Python or dirty repos can still fall back to a weaker structural card.
 - Remaining Phase A gap: append-only ledger mutation detection across historical revisions. Current ledger consistency checks presence of artifact citations, not whether previous ledger lines were edited.
+
+## 2026-05-01 — Ledger append-only integrity manifest
+
+- Implemented: `evidence-ledger.jsonl.integrity.json` sidecar manifest. It records the hash of every non-empty ledger line after each append.
+- Implemented: every ledger append first verifies that existing ledger line hashes match the sidecar manifest; if a previous line has been edited or removed, the append fails.
+- Implemented: `cbm-handoff` now includes append-only verification in `gate_summary.ledger_consistency.append_only_verified`, not just citation presence.
+- Verification run:
+  - `pytest -q` passed: 5 tests, including a tamper test that mutates an existing ledger line after `cbm-surface`; `cbm-handoff` fails as expected.
+  - Smoke run `run-phase-a-smoke-7`: `python3 -m cbm run --repo . --goal "Phase A ledger integrity smoke test" --run-id run-phase-a-smoke-7` completed.
+  - `python3 -m cbm validate .research/run-phase-a-smoke-7/surface-map.json --repo .` passed.
+  - `python3 -m cbm verify-citations .research/run-phase-a-smoke-7/surface-map.json --repo .` resolved `.codex/config.toml:1@f558c51cd6b6`, `.codex/hooks.json:1@f558c51cd6b6`, and `pyproject.toml:1@f558c51cd6b6`.
+  - `python3 -m cbm validate .research/run-phase-a-smoke-7/findings/int-0001.md --repo .` passed.
+  - `python3 -m cbm verify-citations .research/run-phase-a-smoke-7/findings/int-0001.md --repo .` resolved `pyproject.toml:1@f558c51cd6b6`.
+  - `python3 -m cbm validate .research/run-phase-a-smoke-7/handoff.md --repo .` passed.
+- Self-critique:
+  - Drift check: This strengthens the mechanical evidence gate and stays within CBM's artifact discipline.
+  - Contract check: The sidecar is additive and does not alter the v1.2 evidence-ledger entry schema.
+  - Reviewer-eye check: The sidecar detects edits after it exists; it cannot prove the original ledger was never wrong before the first manifest. `cbm-init` creates an empty manifest immediately, so normal runs are covered from the start.
+- Remaining Phase A gap: phase completion audit against roadmap acceptance criteria.

@@ -98,6 +98,9 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
         for citation in edge.get("citations", [])
     }
     assert surface_citations <= ledger_citations
+    integrity_manifest = json.loads((run_dir / "evidence-ledger.jsonl.integrity.json").read_text(encoding="utf-8"))
+    assert integrity_manifest["line_count"] == len(ledger_entries)
+    assert len(integrity_manifest["line_hashes"]) == len(ledger_entries)
 
 
 def test_run_orchestrates_phase_a_flow(tmp_path: Path) -> None:
@@ -129,6 +132,28 @@ def test_stop_hook_validates_latest_handoff(tmp_path: Path, monkeypatch, capsys)
     output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert output["continue"] is True
     assert "passed" in output["systemMessage"]
+
+
+def test_ledger_integrity_detects_mutated_existing_line(tmp_path: Path) -> None:
+    source_root = Path(__file__).resolve().parents[1]
+    repo = make_repo(tmp_path)
+    copy_contracts(source_root, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-ledger-tamper"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    ledger = repo / ".research" / run_id / "evidence-ledger.jsonl"
+    lines = ledger.read_text(encoding="utf-8").splitlines()
+    first = json.loads(lines[0])
+    first["claim_id"] = "tampered"
+    lines[0] = json.dumps(first)
+    ledger.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 1
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
