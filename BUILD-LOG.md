@@ -888,3 +888,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Reader mode now refuses stale answers explicitly instead of making stale corpus state look like absence of knowledge.
   - Contract check: The consultation artifact remains markdown with YAML frontmatter; new refusal metadata is additive.
   - Reviewer-eye check: Freshness is still evaluated at artifact granularity, so one stale citation blocks a matching artifact even when some claims inside it remain fresh.
+
+## 2026-05-01 — Consultation slice: live challenge metadata
+
+- Implemented: `cbm-consult` now carries `live_challenges` metadata when a matched artifact claim is challenged or contested.
+- Implemented: consultation answer text names live challenge ids for matched challenged claims instead of flattening disputes into ordinary matches.
+- Verification run:
+  - `pytest -q` passed: 37 tests, including a consultation query for `edge-unknown-001` that surfaces live challenge metadata and challenge ids in the answer body.
+- Self-critique:
+  - Drift check: Reader mode now preserves dispute visibility for matched claims, aligning consultation with the system's contestation discipline.
+  - Contract check: The metadata is additive in the consultation artifact and reuses existing claim/challenge fields.
+  - Reviewer-eye check: Challenge metadata is claim-text matched; broader artifact-level disputes are intentionally not attached to unrelated query hits.

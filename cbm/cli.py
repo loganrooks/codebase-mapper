@@ -3029,6 +3029,22 @@ def consult_scan(repo: Path, question: str) -> tuple[list[dict[str, Any]], list[
             "matched_terms": tokens,
             "citations": citations[:5],
         }
+        challenged = []
+        for claim in all_artifact_claims(data):
+            claim_text = json.dumps(claim, sort_keys=True).lower()
+            if not all(token in claim_text for token in tokens):
+                continue
+            challenges = live_challenges(claim)
+            if claim.get("claim_status") in {"challenged", "contested"} and challenges:
+                challenged.append(
+                    {
+                        "claim_id": claim["id"],
+                        "claim_status": claim["claim_status"],
+                        "challenge_ids": [challenge["challenge_id"] for challenge in challenges],
+                    }
+                )
+        if challenged:
+            match["live_challenges"] = challenged
         if fresh:
             matches.append(match)
         else:
@@ -3160,7 +3176,15 @@ def command_consult(args: argparse.Namespace) -> int:
         ]
         for match in matches:
             citation_text = ", ".join(match["citations"]) if match["citations"] else "no citations in artifact"
-            lines.append(f"- `{match['artifact']}` ({match['artifact_type']}): {citation_text}")
+            line = f"- `{match['artifact']}` ({match['artifact_type']}): {citation_text}"
+            if match.get("live_challenges"):
+                challenge_ids = [
+                    challenge_id
+                    for challenged in match["live_challenges"]
+                    for challenge_id in challenged["challenge_ids"]
+                ]
+                line += f" Live challenges: {', '.join(challenge_ids)}."
+            lines.append(line)
         output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         append_consultation_reuse_entries(repo, consult_id, matches)
         print(output_path)

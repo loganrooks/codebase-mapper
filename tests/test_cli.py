@@ -1075,6 +1075,14 @@ def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path
     integrity = json.loads((repo / ".research" / "run-consult" / "evidence-ledger.jsonl.integrity.json").read_text(encoding="utf-8"))
     assert integrity["line_count"] == len(ledger_entries)
 
+    assert main(["consult", "edge-unknown-001", "--repo", str(repo)]) == 0
+    consultations = sorted((repo / ".research" / "consultations").glob("*.md"))
+    challenged_answer = consultations[-1]
+    challenged_text = challenged_answer.read_text(encoding="utf-8")
+    challenged_frontmatter = yaml.safe_load(challenged_text.split("---", 2)[1])
+    assert any(match.get("live_challenges") for match in challenged_frontmatter["matches"])
+    assert "chl-" in challenged_text
+
     assert main(["consult", "nonexistent_surface_zzz", "--repo", str(repo)]) == 2
     consultations = sorted((repo / ".research" / "consultations").glob("*.md"))
     refused = consultations[-1]
