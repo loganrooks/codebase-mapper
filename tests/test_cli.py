@@ -381,13 +381,38 @@ def test_challenge_adds_human_challenge_to_claim(tmp_path: Path) -> None:
     updated = next(edge for edge in challenged["edges"] if edge["id"] == import_edge["id"])
     assert updated["claim_status"] == "challenged"
     assert updated["challenges"][0]["raised_by"] == "human-reviewer"
+    challenge_id = updated["challenges"][0]["challenge_id"]
     assert main(["gate-artifact", str(surface), "--repo", str(repo)]) == 0
+    assert (
+        main(
+            [
+                "resolve-challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--challenge-id",
+                challenge_id,
+                "--status",
+                "withdrawn",
+                "--resolution",
+                "Reviewer withdrew the challenge after confirming the import is the relevant planning relation.",
+                "--resolved-by",
+                "human-reviewer",
+            ]
+        )
+        == 0
+    )
+    resolved = json.loads(surface.read_text(encoding="utf-8"))
+    resolved_edge = next(edge for edge in resolved["edges"] if edge["id"] == import_edge["id"])
+    assert resolved_edge["claim_status"] == "active"
+    assert resolved_edge["challenges"][0]["status"] == "withdrawn"
     ledger_entries = [
         json.loads(line)
         for line in (repo / ".research" / run_id / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
     assert any(entry["entry_kind"] == "claim_challenged" and entry["claim_id"] == import_edge["id"] for entry in ledger_entries)
+    assert any(entry["entry_kind"] == "challenge_resolved" and entry["challenge_id"] == challenge_id for entry in ledger_entries)
 
 
 def test_handoff_rejects_evidence_invalid_surface(tmp_path: Path) -> None:

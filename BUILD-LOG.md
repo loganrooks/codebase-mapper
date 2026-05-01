@@ -627,3 +627,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Human review enters as structured contestation, not as silent mutation or chat-only feedback.
   - Contract check: Challenges use the existing schema shape and ledger entry kind.
   - Reviewer-eye check: Resolution UX is still missing; this slice adds challenge creation only.
+
+## 2026-05-01 — Human review slice: challenge resolution
+
+- Implemented: `cbm-resolve-challenge` / `cbm resolve-challenge`, allowing a reviewer to mark a challenge as withdrawn, accepted as alternative/replacement, or resolved to contradiction.
+- Implemented: resolution updates claim status from challenge state and appends `challenge_resolved` ledger entries.
+- Verification run:
+  - `pytest -q` passed: 33 tests, including a reviewer challenge lifecycle from challenge creation through withdrawal and ledger verification.
+- Self-critique:
+  - Drift check: Resolution is explicit and ledger-backed; it does not erase prior challenges.
+  - Contract check: Challenge status uses the existing schema enum and append-only ledger kind.
+  - Reviewer-eye check: The command resolves one challenge at a time. Batch review workflows and downstream card confidence recalculation remain future work.

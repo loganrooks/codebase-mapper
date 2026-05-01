@@ -2131,6 +2131,77 @@ def command_challenge(args: argparse.Namespace) -> int:
     return 0
 
 
+def find_challenge(data: dict[str, Any], challenge_id: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    for claim in all_artifact_claims(data):
+        for challenge in claim.get("challenges", []):
+            if challenge.get("challenge_id") == challenge_id:
+                return claim, challenge
+    return None
+
+
+def update_claim_status_from_challenges(claim: dict[str, Any]) -> None:
+    challenges = claim.get("challenges", [])
+    openish = [challenge for challenge in challenges if challenge.get("status") in {"open", "accepted_as_alternative", "accepted_as_replacement"}]
+    if not openish:
+        claim["claim_status"] = "active"
+    elif any(challenge.get("status") == "accepted_as_replacement" for challenge in openish):
+        claim["claim_status"] = "contested"
+    elif len(openish) > 1 or any(challenge.get("status") == "accepted_as_alternative" for challenge in openish):
+        claim["claim_status"] = "contested"
+    else:
+        claim["claim_status"] = "challenged"
+
+
+def command_resolve_challenge(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    artifact_path = Path(args.artifact)
+    if not artifact_path.is_absolute():
+        artifact_path = repo / artifact_path
+    data = read_json(artifact_path)
+    artifact_type = infer_artifact_type(artifact_path, data)
+    if artifact_type not in {"surface_map", "authority_map", "dependency_graph"}:
+        print(f"{artifact_type} does not support claim challenges", file=sys.stderr)
+        return 1
+    found = find_challenge(data, args.challenge_id)
+    if found is None:
+        print(f"challenge not found: {args.challenge_id}", file=sys.stderr)
+        return 1
+    claim, challenge = found
+    challenge["status"] = args.status
+    update_claim_status_from_challenges(claim)
+    errors = validate_data(repo, data, artifact_type)
+    errors.extend(check_claim_evidence(data))
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    ledger_path = artifact_path.parent / "evidence-ledger.jsonl"
+    if not ledger_path.exists():
+        ledger_path = artifact_path.parents[1] / "evidence-ledger.jsonl"
+    entry = {
+        "schema_version": SCHEMA_VERSION,
+        "entry_id": next_ledger_id(ledger_path),
+        "ts": utc_now(),
+        "entry_kind": "challenge_resolved",
+        "agent": args.resolved_by,
+        "skill_version": "0.1",
+        "run_id": data["run_id"],
+        "source_sha": data["source_sha"],
+        "challenge_id": args.challenge_id,
+        "resolution": args.resolution,
+        "artifact_path": str(artifact_path.relative_to(repo)),
+        "claim_id": claim["id"],
+    }
+    try:
+        append_ledger_entry(repo, ledger_path, entry)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    write_json(artifact_path, data)
+    print(args.challenge_id)
+    return 0
+
+
 def command_stale(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.artifact)
@@ -3471,6 +3542,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_challenge.add_argument("--rationale", required=True)
     p_challenge.add_argument("--raised-by", default="human-reviewer")
     p_challenge.set_defaults(func=command_challenge)
+    p_resolve_challenge = sub.add_parser("resolve-challenge")
+    p_resolve_challenge.add_argument("artifact")
+    p_resolve_challenge.add_argument("--repo", default=".")
+    p_resolve_challenge.add_argument("--challenge-id", required=True)
+    p_resolve_challenge.add_argument("--status", required=True, choices=["accepted_as_alternative", "accepted_as_replacement", "withdrawn", "resolved_to_contradiction"])
+    p_resolve_challenge.add_argument("--resolution", required=True)
+    p_resolve_challenge.add_argument("--resolved-by", default="human-reviewer")
+    p_resolve_challenge.set_defaults(func=command_resolve_challenge)
     p_stale = sub.add_parser("stale")
     p_stale.add_argument("artifact")
     p_stale.add_argument("--repo", default=".")
@@ -3595,6 +3674,10 @@ def gate_artifact_main() -> int:
 
 def challenge_main() -> int:
     return main(["challenge", *sys.argv[1:]])
+
+
+def resolve_challenge_main() -> int:
+    return main(["resolve-challenge", *sys.argv[1:]])
 
 
 def stale_main() -> int:
