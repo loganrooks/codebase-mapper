@@ -14,6 +14,10 @@ path/to/file.ext:START-END@SHA
 
 Cross-artifact references use JSON Pointer: `.research/<run_id>/dependency-graph.json#/edges/47`.
 
+## Schema source
+
+CBM validates generated artifacts against CBM's own schema source, not against arbitrary files in the target repository. Lookup order is: `CBM_SCHEMA_DIR` when set, the CBM checkout's `schemas/` directory, then a target-local `schemas/` directory only as a legacy fallback. Benchmark targets do not need copied CBM schemas.
+
 ## Universal frontmatter (v1.2)
 
 ```yaml

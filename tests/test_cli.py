@@ -232,6 +232,19 @@ def test_run_backend_deterministic_writes_manifest_and_producer_registry(tmp_pat
     assert all(step["status"] == "succeeded" and step["exit_code"] == 0 for step in manifest_data["steps"])
 
 
+def test_run_validates_with_cbm_schema_source_without_polluting_target_repo(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+
+    run_id = "run-packaged-schemas"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+
+    run_dir = repo / ".research" / run_id
+    assert not (repo / "schemas").exists()
+    assert main(["validate", str(run_dir / "handoff.md"), "--repo", str(repo)]) == 0
+    codebase_map = json.loads((run_dir / "codebase-map.json").read_text(encoding="utf-8"))
+    assert not any(item["path"].startswith("schemas/") for item in codebase_map["files"])
+
+
 def test_run_backend_external_refuses_without_fake_agent_outputs(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

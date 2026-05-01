@@ -34,6 +34,7 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 11. Spike Codex CLI isolation and document the result. Status: completed in `20af433`.
 12. Pin and run the first external benchmark baseline. Status: completed in `9f618b2`.
 13. Add guarded `cbm run --backend codex-cli` smoke backend with fake-executable regression coverage. Status: completed.
+14. Remove benchmark harness requirement to copy CBM schemas into target repositories. Status: completed.
 
 Recovery implementation is complete. Broad unattended `/goal` is allowed only for the next runtime-producer evidence slice after final `cbm-loop-status` success.
 
@@ -41,7 +42,7 @@ Recovery implementation is complete. Broad unattended `/goal` is allowed only fo
 
 The next broad `/goal` track should produce the first real agent-produced benchmark artifact. The first implementation target is a narrow live Codex CLI smoke or equivalent external producer backend that writes one schema-valid artifact, records its subprocess invocation in `run-manifest.json`, and passes parent-side validation.
 
-Current status: the guarded `codex-cli` backend is implemented for a surface-map smoke review and is covered with a fake executable. The remaining proof is a user-approved live Codex CLI smoke on a pinned external benchmark. Do not treat the fake-executable regression as runtime-agent evidence.
+Current status: the guarded `codex-cli` backend is implemented for a surface-map smoke review and is covered with a fake executable. The benchmark schema-source pollution gap is being closed so the live smoke can run against a clean target checkout. The remaining proof is a user-approved live Codex CLI smoke on a pinned external benchmark. Do not treat the fake-executable regression as runtime-agent evidence.
 
 This is not a Phase B+ pass claim. It is the first runtime-producer evidence slice.
 

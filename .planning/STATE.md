@@ -85,7 +85,7 @@ First deterministic external baseline:
 
 - Target: MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
 - Result artifact: `.planning/benchmarks/2026-05-01-mcp-git-baseline/RESULT.md`.
-- Status: deterministic baseline passed validation, but benchmark scope was polluted by copied CBM schemas because schema loading currently expects `<target-repo>/schemas`.
+- Status: deterministic baseline passed validation, but benchmark scope was polluted by copied CBM schemas at the time because schema loading expected `<target-repo>/schemas`. The harness gap is now fixed for future runs: validation can use CBM's own schema source without copying schemas into the target checkout.
 
 ## Known Risks
 
@@ -110,6 +110,8 @@ Last known full suite after the benchmark/ledger fix slice: `pytest -q` reported
 
 Last known full suite after the guarded Codex CLI backend slice: `pytest -q` reported `58 passed, 2 warnings`.
 
+Last known full suite after the schema-source benchmark-harness slice: `pytest -q` reported `59 passed, 2 warnings`.
+
 This verifies the test suite, not `VISION.md` maturity.
 
 Required next verification:
@@ -121,4 +123,5 @@ Required next verification:
 - benchmark baseline: deterministic MCP `src/git` run passed handoff and run-manifest validation; scope pollution by copied schemas recorded as a harness gap;
 - benchmark/ledger fix slice: focused regressions passed; full `pytest -q` passed;
 - guarded Codex CLI backend slice: fake executable regressions passed; full `pytest -q` passed;
+- schema-source benchmark-harness slice: focused no-pollution regression passed; full `pytest -q` passed;
 - benchmark slice: generated artifacts must validate and show honest producer identity and coverage.

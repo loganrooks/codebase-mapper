@@ -1306,3 +1306,18 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This advances the runtime-producer evidence track without claiming a real Skeptic exists yet.
   - Contract check: New backend enum values are reflected in producer-registry and run-manifest schemas; artifacts are validated in tests.
   - Reviewer-eye check: `--allow-live-codex` is a sharp guard but still operator-controlled. The next slice must run a user-approved live smoke on the pinned external benchmark or keep the backend classified as unproven.
+
+## 2026-05-01 — Benchmark harness slice: CBM schema source
+
+- Implemented: artifact validation now uses CBM's own schema source instead of requiring `<target-repo>/schemas`.
+- Implemented: schema lookup order is `CBM_SCHEMA_DIR`, the CBM checkout's `schemas/`, then target-local `schemas/` only as a legacy fallback.
+- Added regression: `test_run_validates_with_cbm_schema_source_without_polluting_target_repo` runs `cbm run` on a sample repo without copying schemas and verifies `codebase-map.json` does not include a polluted `schemas/` subtree.
+- Updated contracts and planning state so future benchmark runs do not repeat the MCP baseline's copied-schema scope pollution.
+- Verification run:
+  - Red test first: `pytest -q tests/test_cli.py::test_run_validates_with_cbm_schema_source_without_polluting_target_repo` initially failed with `FileNotFoundError` for `<target-repo>/schemas/evidence-ledger.schema.json`.
+  - Focused regression passed: `pytest -q tests/test_cli.py::test_run_validates_with_cbm_schema_source_without_polluting_target_repo tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review`.
+  - Full suite passed: `pytest -q` reported 59 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Self-critique:
+  - Drift check: This removes a benchmark harness blocker rather than adding unrelated kernel strictness.
+  - Contract check: The schema source rule is now documented in `docs/contracts.md` and covered by regression.
+  - Reviewer-eye check: This is source-checkout fallback, not a packaging proof. A future package smoke should verify installed package data includes schemas before distribution claims.

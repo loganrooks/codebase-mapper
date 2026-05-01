@@ -391,11 +391,33 @@ def scope_signature(paths: list[str]) -> str:
     return sha256_text("\n".join(sorted(paths)))
 
 
+def schema_source_roots(repo: Path) -> list[Path]:
+    roots: list[Path] = []
+    env_root = os.environ.get("CBM_SCHEMA_DIR")
+    if env_root:
+        roots.append(Path(env_root).expanduser().resolve())
+    source_root = Path(__file__).resolve().parents[1] / "schemas"
+    if source_root.exists():
+        roots.append(source_root)
+    repo_root = repo / "schemas"
+    if repo_root.exists():
+        roots.append(repo_root)
+    unique_roots: list[Path] = []
+    seen: set[Path] = set()
+    for root in roots:
+        resolved = root.resolve()
+        if resolved not in seen:
+            unique_roots.append(resolved)
+            seen.add(resolved)
+    return unique_roots
+
+
 def schema_store(repo: Path) -> dict[str, Any]:
     schemas = {}
-    for path in (repo / "schemas").glob("*.schema.json"):
-        data = read_json(path)
-        schemas[data["$id"]] = data
+    for root in schema_source_roots(repo):
+        for path in root.glob("*.schema.json"):
+            data = read_json(path)
+            schemas[data["$id"]] = data
     return schemas
 
 
@@ -425,7 +447,12 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
     name = mapping.get(artifact_type)
     if not name:
         raise ValueError(f"unsupported artifact_type: {artifact_type}")
-    return read_json(repo / "schemas" / name)
+    for root in schema_source_roots(repo):
+        candidate = root / name
+        if candidate.exists():
+            return read_json(candidate)
+    roots = ", ".join(str(root) for root in schema_source_roots(repo)) or "<none>"
+    raise FileNotFoundError(f"schema {name} not found for {artifact_type}; searched {roots}")
 
 
 def infer_artifact_type(path: Path, data: dict[str, Any]) -> str:
