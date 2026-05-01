@@ -280,3 +280,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Consultation mode reuses existing research artifacts and does not introduce a new interpretive runtime agent.
   - Contract check: Answers are gated on citations that are still grounded at `HEAD`, matching the reuse-and-refresh direction.
   - Reviewer-eye check: Matching is token-based and intentionally narrow. It can miss semantically related questions until a richer index exists, but refusal is safer than synthesizing from an insufficient corpus.
+
+## 2026-05-01 — Phase B slice: interpretive refresh
+
+- Implemented: `cbm-refresh <surface-map> --mode interpretive`. It writes a refreshed codebase map input, a successor surface map, and a `refresh-delta-interpretive-<sha>.json` under the run's `refreshes/` directory.
+- Implemented: differential surface comparison by claim signature. Claims that still match are carried forward when their citations remain grounded at `HEAD`, updated when their evidence moved, and retracted when no successor claim exists. New successor claims are recorded in `newly_added`.
+- Implemented: existing challenge state is carried into surviving successor claims and recorded in `challenges_carried_forward`.
+- Verification run:
+  - `pytest -q` passed: 11 tests, including an interpretive-refresh test that changes a cited import file, adds a new import edge, validates the successor surface map and refresh delta, and confirms `chl-00001` stays active.
+- Self-critique:
+  - Drift check: This preserves prior readings and challenge state instead of overwriting the old surface map.
+  - Contract check: The successor surface map uses `refreshed_from`, and the delta validates against the v1.2 refresh-delta schema.
+  - Reviewer-eye check: This is a deterministic differential refresh, not yet a true Surface Mapper rereading pass. It can classify a still-matching changed claim as `updated`, but it does not make a qualitative judgment about whether the interpretation still holds beyond the static signature match.

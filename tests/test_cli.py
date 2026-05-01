@@ -270,6 +270,40 @@ def test_structural_refresh_emits_successor_and_delta(tmp_path: Path) -> None:
     assert successor_data["refreshed_from"]["refresh_delta_path"].endswith(delta.name)
 
 
+def test_interpretive_refresh_emits_successor_surface_and_delta(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-interpretive-refresh"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    old_surface = repo / ".research" / run_id / "surface-map.json"
+
+    (repo / "src" / "util.py").write_text("VALUE = 'hello'\n", encoding="utf-8")
+    (repo / "src" / "app.py").write_text("from src.util import VALUE\n\n\ndef hello():\n    return VALUE\n", encoding="utf-8")
+    (repo / "tests" / "test_app.py").write_text("from src.app import hello\n\n# changed evidence file\n\ndef test_hello():\n    assert hello() == 'hello'\n", encoding="utf-8")
+    git(repo, "add", "src/app.py", "src/util.py", "tests/test_app.py")
+    git(repo, "commit", "-m", "change app import surface")
+
+    assert main(["refresh", str(old_surface), "--repo", str(repo), "--mode", "interpretive"]) == 0
+
+    refresh_dir = repo / ".research" / run_id / "refreshes"
+    successor = next(refresh_dir.glob("surface-map-*.json"))
+    delta = next(refresh_dir.glob("refresh-delta-interpretive-*.json"))
+    assert main(["validate", str(successor), "--repo", str(repo)]) == 0
+    assert main(["validate", str(delta), "--repo", str(repo)]) == 0
+    successor_data = json.loads(successor.read_text(encoding="utf-8"))
+    delta_data = json.loads(delta.read_text(encoding="utf-8"))
+    assert successor_data["refreshed_from"]["refresh_mode"] == "interpretive"
+    assert successor_data["refreshed_from"]["refresh_delta_path"].endswith(delta.name)
+    assert any(edge["to"]["path"] == "src/util.py" for edge in successor_data["edges"] if edge["kind"] == "import")
+    assert delta_data["refresh_mode"] == "interpretive"
+    assert any(item["claim_id"] == "edge-import-001" for item in delta_data["updated"])
+    assert any(item["successor_claim_id"].startswith("edge-import-") for item in delta_data["newly_added"])
+    assert any(item["challenge_id"] == "chl-00001" and item["post_refresh_status"] == "still_active" for item in delta_data["challenges_carried_forward"])
+
+
 def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

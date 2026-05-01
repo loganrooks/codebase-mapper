@@ -697,10 +697,16 @@ def authority_kind_for(path: str) -> tuple[str, str]:
     return "other", "code"
 
 
-def build_surface_map(repo: Path, paths: RunPaths) -> dict[str, Any]:
+def build_surface_map(
+    repo: Path,
+    paths: RunPaths,
+    codebase_path: Path | None = None,
+    codebase_map: dict[str, Any] | None = None,
+    refreshed_from: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     sha = source_sha(repo)
-    codebase_path = paths.run_dir / "codebase-map.json"
-    codebase_map = read_codebase_map(paths.run_dir)
+    codebase_path = codebase_path or paths.run_dir / "codebase-map.json"
+    codebase_map = codebase_map or read_codebase_map(paths.run_dir)
     authorities: list[dict[str, Any]] = []
     candidate_paths = []
     for build in codebase_map["build_systems"]:
@@ -778,7 +784,7 @@ def build_surface_map(repo: Path, paths: RunPaths) -> dict[str, Any]:
         if citation:
             ci_gates.append({"name": Path(ci).stem, "path": ci, "kind": "other", "citations": [citation]})
     rels = [item["path"] for item in codebase_map["files"]]
-    return {
+    artifact = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "surface_map",
         "run_id": paths.run_id,
@@ -809,6 +815,9 @@ def build_surface_map(repo: Path, paths: RunPaths) -> dict[str, Any]:
             "summary": "Phase A preserves unknown dependency edges for call edges, runtime workflows, relative imports, and dynamic loading not covered by the Python import extractor.",
         },
     }
+    if refreshed_from:
+        artifact["refreshed_from"] = refreshed_from
+    return artifact
 
 
 def command_surface(args: argparse.Namespace) -> int:
@@ -1210,22 +1219,232 @@ def structural_refresh_delta(
     }
 
 
+def claim_citations(claim: dict[str, Any]) -> list[str]:
+    return sorted(set(extract_citations(claim)))
+
+
+def citations_still_grounded(repo: Path, citations: list[str]) -> bool:
+    return all(verify_citation_at_head(repo, citation)["status"] == "still_grounded" for citation in citations)
+
+
+def surface_claim_signature(kind: str, claim: dict[str, Any]) -> str:
+    if kind == "authority":
+        return f"authority:{claim['kind']}:{claim['path']}"
+    from_ref = claim.get("from", {})
+    to_ref = claim.get("to", {})
+    return ":".join(
+        [
+            "edge",
+            claim["kind"],
+            from_ref.get("path", ""),
+            from_ref.get("symbol", ""),
+            to_ref.get("path", ""),
+            to_ref.get("symbol", ""),
+            claim.get("extractor_id", ""),
+        ]
+    )
+
+
+def surface_claims_by_signature(surface: dict[str, Any]) -> dict[str, tuple[str, dict[str, Any]]]:
+    claims: dict[str, tuple[str, dict[str, Any]]] = {}
+    for authority in surface.get("authorities", []):
+        claims[surface_claim_signature("authority", authority)] = ("authority", authority)
+    for edge in surface.get("edges", []):
+        claims[surface_claim_signature("edge", edge)] = ("edge", edge)
+    return claims
+
+
+def carry_forward_review_state(prior_claim: dict[str, Any], successor_claim: dict[str, Any]) -> None:
+    successor_claim["claim_status"] = prior_claim.get("claim_status", successor_claim["claim_status"])
+    if "challenges" in prior_claim:
+        successor_claim["challenges"] = [
+            {**challenge, "challenges_claim_id": successor_claim["id"]}
+            for challenge in prior_claim["challenges"]
+        ]
+    if "contradicted_by" in prior_claim:
+        successor_claim["contradicted_by"] = prior_claim["contradicted_by"]
+
+
+def interpretive_refresh_delta(
+    repo: Path,
+    paths: RunPaths,
+    prior_path: Path,
+    prior: dict[str, Any],
+    successor_path: Path,
+    successor: dict[str, Any],
+) -> dict[str, Any]:
+    prior_claims = surface_claims_by_signature(prior)
+    successor_claims = surface_claims_by_signature(successor)
+    carried_forward: list[dict[str, Any]] = []
+    updated: list[dict[str, Any]] = []
+    retracted: list[dict[str, Any]] = []
+    newly_added: list[dict[str, Any]] = []
+    challenges_carried_forward: list[dict[str, Any]] = []
+
+    for signature, (_, prior_claim) in sorted(prior_claims.items()):
+        successor_entry = successor_claims.get(signature)
+        if not successor_entry:
+            retracted.append(
+                {
+                    "claim_id": prior_claim["id"],
+                    "rationale": "No matching surface claim exists after differential refresh at current HEAD.",
+                }
+            )
+            for challenge in prior_claim.get("challenges", []):
+                challenges_carried_forward.append(
+                    {
+                        "challenge_id": challenge["challenge_id"],
+                        "post_refresh_status": "obsolete_target_retracted",
+                        "rationale": "The challenged claim did not survive the interpretive refresh.",
+                    }
+                )
+            continue
+
+        _, successor_claim = successor_entry
+        carry_forward_review_state(prior_claim, successor_claim)
+        citations = claim_citations(prior_claim)
+        if citations_still_grounded(repo, citations):
+            carried_forward.append(
+                {
+                    "claim_id": prior_claim["id"],
+                    "claim_register": successor_claim["claim_register"],
+                    "claim_status": successor_claim["claim_status"],
+                    "successor_claim_id": successor_claim["id"],
+                }
+            )
+        else:
+            updated.append(
+                {
+                    "claim_id": prior_claim["id"],
+                    "successor_claim_id": successor_claim["id"],
+                    "what_changed": "The claim still exists in the refreshed surface map, but at least one prior citation changed or no longer resolves unchanged at HEAD.",
+                    "claim_register": successor_claim["claim_register"],
+                }
+            )
+        for challenge in prior_claim.get("challenges", []):
+            challenges_carried_forward.append(
+                {
+                    "challenge_id": challenge["challenge_id"],
+                    "post_refresh_status": "still_active",
+                    "rationale": "The challenged claim survived refresh, so the challenge remains active.",
+                }
+            )
+
+    for signature, (_, successor_claim) in sorted(successor_claims.items()):
+        if signature not in prior_claims:
+            newly_added.append(
+                {
+                    "successor_claim_id": successor_claim["id"],
+                    "rationale": "This surface claim is present at current HEAD and had no matching claim in the prior surface map.",
+                }
+            )
+
+    downstream = []
+    for candidate in ["goal-binding.json", "handoff.md"]:
+        candidate_path = paths.run_dir / candidate
+        if candidate_path.exists():
+            downstream.append(
+                {
+                    "artifact_path": str(candidate_path.relative_to(repo)),
+                    "reason": "Surface map was interpretively refreshed; downstream goal-bound artifacts need review or regeneration.",
+                }
+            )
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "refresh_delta",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "cbm-refresh@0.1",
+        "source_sha": successor["source_sha"],
+        "status": "draft",
+        "refresh_mode": "interpretive",
+        "prior_artifact": {
+            "path": str(prior_path.relative_to(repo)),
+            "sha256": sha256_file(prior_path),
+            "source_sha": prior["source_sha"],
+        },
+        "successor_artifact": {
+            "path": str(successor_path.relative_to(repo)),
+            "sha256": sha256_file(successor_path) if successor_path.exists() else "0" * 64,
+        },
+        "summary": f"Interpretive refresh compared {len(prior_claims)} prior surface claims with {len(successor_claims)} current claims: {len(carried_forward)} carried, {len(updated)} updated, {len(retracted)} retracted, {len(newly_added)} added.",
+        "carried_forward": carried_forward,
+        "updated": updated,
+        "retracted": retracted,
+        "newly_added": newly_added,
+        "newly_contested": [],
+        "challenges_carried_forward": challenges_carried_forward,
+        "open_questions_reconciled": [],
+        "downstream_invalidation": downstream,
+    }
+
+
 def command_refresh(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     prior_path = Path(args.artifact)
     if not prior_path.is_absolute():
         prior_path = repo / prior_path
     prior = read_json(prior_path)
-    if args.mode != "structural":
-        print("only --mode structural is implemented", file=sys.stderr)
-        return 1
-    if prior.get("artifact_type") != "codebase_map":
+    if args.mode == "structural" and prior.get("artifact_type") != "codebase_map":
         print("structural refresh requires a codebase-map artifact", file=sys.stderr)
+        return 1
+    if args.mode == "interpretive" and prior.get("artifact_type") != "surface_map":
+        print("interpretive refresh requires a surface-map artifact", file=sys.stderr)
         return 1
     paths = run_paths(repo, prior["run_id"])
     refresh_dir = paths.run_dir / "refreshes"
     refresh_dir.mkdir(parents=True, exist_ok=True)
     head = source_sha(repo)
+    if args.mode == "interpretive":
+        codebase_path = refresh_dir / f"codebase-map-{head}.json"
+        successor_path = refresh_dir / f"surface-map-{head}.json"
+        delta_path = refresh_dir / f"refresh-delta-interpretive-{head}.json"
+        codebase_map = build_codebase_map(
+            repo,
+            paths,
+            refreshed_from={
+                "artifact_path": str((paths.run_dir / "codebase-map.json").relative_to(repo)),
+                "source_sha": prior["source_sha"],
+                "refresh_mode": "structural",
+            },
+        )
+        errors = validate_data(repo, codebase_map, "codebase_map")
+        if errors:
+            for error in errors:
+                print(error, file=sys.stderr)
+            return 1
+        write_json(codebase_path, codebase_map)
+        successor = build_surface_map(
+            repo,
+            paths,
+            codebase_path=codebase_path,
+            codebase_map=codebase_map,
+            refreshed_from={
+                "artifact_path": str(prior_path.relative_to(repo)),
+                "source_sha": prior["source_sha"],
+                "refresh_mode": "interpretive",
+                "refresh_delta_path": str(delta_path.relative_to(repo)),
+            },
+        )
+        delta = interpretive_refresh_delta(repo, paths, prior_path, prior, successor_path, successor)
+        errors = validate_data(repo, successor, "surface_map")
+        if errors:
+            for error in errors:
+                print(error, file=sys.stderr)
+            return 1
+        write_json(successor_path, successor)
+        delta["successor_artifact"]["sha256"] = sha256_file(successor_path)
+        errors = validate_data(repo, delta, "refresh_delta")
+        if errors:
+            for error in errors:
+                print(error, file=sys.stderr)
+            return 1
+        write_json(delta_path, delta)
+        print(successor_path)
+        print(delta_path)
+        return 0
+
     successor_path = refresh_dir / f"codebase-map-{head}.json"
     delta_path = refresh_dir / f"refresh-delta-structural-{head}.json"
     successor = build_codebase_map(
