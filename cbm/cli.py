@@ -2445,6 +2445,7 @@ def command_validate_fresh(args: argparse.Namespace) -> int:
             print(f"fresh {citation}")
     if not citations:
         print("no citations found")
+        failed += 1
     return 0 if failed == 0 else 2
 
 

@@ -1072,3 +1072,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The reusable post-write gate now enforces evidence presence instead of only checking citation resolution when citations happen to exist.
   - Contract check: Existing cited artifacts still pass; the new failure mode is limited to empty citation sets.
   - Reviewer-eye check: Citationless administrative artifacts should be gated by schema/status-specific checks rather than the evidence-bound artifact gate.
+
+## 2026-05-01 — Freshness slice: uncited artifacts fail validate-fresh
+
+- Implemented: `cbm validate-fresh` now exits stale/nonzero when an artifact has no citations, matching `verify`, `verify-citations`, and `gate-artifact`.
+- Verification run:
+  - `pytest -q` passed: 49 tests, including the uncited-artifact regression now covering the freshness precondition as well.
+- Self-critique:
+  - Drift check: Consultation and compaction-recovery freshness checks no longer treat uncited artifacts as trustworthy by default.
+  - Contract check: Cited artifacts keep the same byte-comparison behavior; only empty citation sets fail differently.
+  - Reviewer-eye check: Artifact types that are truly citationless need a different freshness/status command rather than passing through this evidence freshness gate.

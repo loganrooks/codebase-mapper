@@ -1114,6 +1114,7 @@ def test_verify_commands_reject_artifacts_without_citations(tmp_path: Path) -> N
     )
 
     assert main(["verify-citations", str(artifact), "--repo", str(repo)]) == 1
+    assert main(["validate-fresh", str(artifact), "--repo", str(repo)]) == 2
     assert main(["gate-artifact", str(artifact), "--repo", str(repo)]) == 2
     assert main(["verify", str(artifact), "--repo", str(repo), "--output", str(report)]) == 2
     verify_report = json.loads(report.read_text(encoding="utf-8"))
