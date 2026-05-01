@@ -2081,9 +2081,15 @@ def command_extractor_registry(args: argparse.Namespace) -> int:
         path = run_paths(repo, args.run_id).run_dir / "extractor-registry.json"
     data = read_json(path)
     errors = validate_data(repo, data, "extractor_registry")
+    seen_extractor_ids: dict[str, int] = {}
     for index, extractor in enumerate(data.get("extractors", [])):
+        extractor_id = extractor.get("id", "<unknown>")
+        if extractor_id in seen_extractor_ids:
+            errors.append(f"extractors/{index}/{extractor_id}: duplicate id first declared at extractors/{seen_extractor_ids[extractor_id]}")
+        else:
+            seen_extractor_ids[extractor_id] = index
         if not extractor.get("known_blind_spots"):
-            errors.append(f"extractors/{index}/{extractor.get('id', '<unknown>')}: known_blind_spots must be non-empty")
+            errors.append(f"extractors/{index}/{extractor_id}: known_blind_spots must be non-empty")
     for index, annotation in enumerate(data.get("project_pack_annotations", [])):
         project_type = annotation.get("project_type", "<unknown>")
         if not annotation.get("extractor_annotations"):

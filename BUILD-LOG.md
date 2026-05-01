@@ -1113,3 +1113,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Final handoff completion now matches the schema-validation-in-CI guardrail instead of merely documenting a failed artifact.
   - Contract check: No schema shape changed; `gate_summary.schema_validation.failed_artifacts` remains the durable audit surface.
   - Reviewer-eye check: The command still writes a failed-run handoff artifact before returning nonzero, which is deliberate for asynchronous review.
+
+## 2026-05-01 — Registry slice: duplicate extractor IDs
+
+- Implemented: `cbm extractor-registry validate` now rejects duplicate extractor ids before they can collapse into a last-write-wins lookup.
+- Verification run:
+  - Focused regression passed: `pytest -q tests/test_cli.py::test_extractor_registry_validate_command_enforces_blind_spots`.
+- Self-critique:
+  - Drift check: Registry identity is now stable enough for extractor-backed claim validation to remain auditable.
+  - Contract check: This is command-level validation over the existing schema shape; no schema edit was needed.
+  - Reviewer-eye check: Duplicate project-pack annotations are still permitted; only extractor id identity is hardened in this slice.

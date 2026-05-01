@@ -258,6 +258,12 @@ def test_extractor_registry_validate_command_enforces_blind_spots(tmp_path: Path
     bad_annotation.write_text(json.dumps(data, indent=2), encoding="utf-8")
     assert main(["extractor-registry", "validate", str(bad_annotation), "--repo", str(repo)]) == 2
 
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    data["extractors"][1]["id"] = data["extractors"][0]["id"]
+    duplicate_id = repo / ".research" / run_id / "extractor-registry.duplicate-id.json"
+    duplicate_id.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    assert main(["extractor-registry", "validate", str(duplicate_id), "--repo", str(repo)]) == 2
+
 
 def test_handoff_emits_goal_pack_card_type(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
