@@ -1,0 +1,11 @@
+{
+  "goal_class": "understand_repo",
+  "research_only": true,
+  "card_type": "findings_card",
+  "priority": {
+    "import": 0,
+    "call": 1,
+    "authority": 2
+  },
+  "rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces."
+}

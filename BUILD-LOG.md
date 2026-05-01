@@ -420,3 +420,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The card type now follows the bound goal pack without changing the underlying goal-agnostic surface map.
   - Contract check: The generated intervention card validates against the existing shared intervention/findings card schema and citation resolution still passes.
   - Reviewer-eye check: The card body remains generic. This closes the pack-to-artifact integration gap, but richer pack-specific planning language is still future work.
+
+## 2026-05-01 — Phase C slice: goal-pack loader
+
+- Implemented: goal packs now live as package data under `cbm/goal_packs/*.json` instead of as inline Python constants.
+- Implemented: a small loader validates pack shape and returns the same pack interface consumed by `cbm-bind`, with a reversible fallback for unknown goal classes.
+- Verification run:
+  - `pytest -q` passed: 22 tests, including package-data loading for `understand_repo`, `research_only`, `feature_add`, `refactor`, and `audit`.
+- Self-critique:
+  - Drift check: Pack-specific ranking data moved out of the kernel while the deterministic binding algorithm stayed in the kernel.
+  - Contract check: The loader enforces required pack fields, boolean research mode, allowed card types, priority map shape, and rationale presence.
+  - Reviewer-eye check: Pack validation is intentionally local and lightweight, not yet a published JSON schema. That is acceptable for Phase C because these are bundled kernel packs, but external pack loading would need a formal schema.

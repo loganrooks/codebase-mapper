@@ -1,0 +1,14 @@
+{
+  "goal_class": "audit",
+  "research_only": false,
+  "card_type": "intervention_card",
+  "priority": {
+    "authority:test_suite": 0,
+    "authority:ci_gate": 1,
+    "authority:config": 2,
+    "call": 3,
+    "import": 4,
+    "authority": 5
+  },
+  "rationale": "audit prioritizes verification, CI, and configuration authorities before code relation edges."
+}

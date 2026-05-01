@@ -1,0 +1,11 @@
+{
+  "goal_class": "feature_add",
+  "research_only": false,
+  "card_type": "intervention_card",
+  "priority": {
+    "call": 0,
+    "import": 1,
+    "authority": 2
+  },
+  "rationale": "feature_add prioritizes executable call seams before static imports and authorities."
+}

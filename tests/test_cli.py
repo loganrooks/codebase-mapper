@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yaml
 
-from cbm.cli import main
+from cbm.cli import goal_pack, load_goal_packs, main
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -170,6 +170,15 @@ def test_goal_packs_rank_same_surface_differently(tmp_path: Path) -> None:
     assert audit_binding["candidates"][0]["surface_kind"] == "authority"
     assert audit_binding["candidates"][0]["path"] == "tests/test_app.py"
     assert (repo / ".research" / run_id / "surface-map.json").stat().st_mtime_ns == surface_mtime
+
+
+def test_goal_packs_load_from_package_data() -> None:
+    packs = load_goal_packs()
+    assert {"understand_repo", "research_only", "feature_add", "refactor", "audit"} <= packs.keys()
+    assert goal_pack("feature_add")["priority"]["call"] == 0
+    assert goal_pack("audit")["priority"]["authority:test_suite"] == 0
+    assert goal_pack("research_only")["card_type"] == "findings_card"
+    assert goal_pack("unknown_goal")["card_type"] == "intervention_card"
 
 
 def test_handoff_emits_goal_pack_card_type(tmp_path: Path) -> None:

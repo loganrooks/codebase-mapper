@@ -12,6 +12,7 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from importlib import resources
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -1332,50 +1333,63 @@ def command_synthesis_index(args: argparse.Namespace) -> int:
     return 0
 
 
-GOAL_PACKS: dict[str, dict[str, Any]] = {
-    "understand_repo": {
-        "research_only": True,
-        "card_type": "findings_card",
-        "priority": {"import": 0, "call": 1, "authority": 2},
-        "rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces.",
-    },
-    "research_only": {
-        "research_only": True,
-        "card_type": "findings_card",
-        "priority": {"import": 0, "call": 1, "authority": 2},
-        "rationale": "research_only prioritizes readable grounded relations and produces findings cards.",
-    },
-    "feature_add": {
-        "research_only": False,
-        "card_type": "intervention_card",
-        "priority": {"call": 0, "import": 1, "authority": 2},
-        "rationale": "feature_add prioritizes executable call seams before static imports and authorities.",
-    },
-    "refactor": {
-        "research_only": False,
-        "card_type": "intervention_card",
-        "priority": {"call": 0, "import": 1, "authority": 2},
-        "rationale": "refactor prioritizes call and coupling edges because they expose behavior-preserving change boundaries.",
-    },
-    "audit": {
-        "research_only": False,
-        "card_type": "intervention_card",
-        "priority": {"authority:test_suite": 0, "authority:ci_gate": 1, "authority:config": 2, "call": 3, "import": 4, "authority": 5},
-        "rationale": "audit prioritizes verification, CI, and configuration authorities before code relation edges.",
-    },
+DEFAULT_GOAL_PACK: dict[str, Any] = {
+    "research_only": False,
+    "card_type": "intervention_card",
+    "priority": {"call": 0, "import": 1, "authority": 2},
+    "rationale": "default goal pack prioritizes actionable relation edges before broad authority surfaces.",
 }
 
 
+_GOAL_PACK_CACHE: dict[str, dict[str, Any]] | None = None
+
+
+def validate_goal_pack_definition(pack_name: str, data: Any) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ValueError(f"goal pack {pack_name} must be a JSON object")
+    required = {"goal_class", "research_only", "card_type", "priority", "rationale"}
+    missing = sorted(required - data.keys())
+    if missing:
+        raise ValueError(f"goal pack {pack_name} missing required fields: {', '.join(missing)}")
+    if not isinstance(data["goal_class"], str) or not data["goal_class"]:
+        raise ValueError(f"goal pack {pack_name} goal_class must be a non-empty string")
+    if not isinstance(data["research_only"], bool):
+        raise ValueError(f"goal pack {pack_name} research_only must be boolean")
+    if data["card_type"] not in {"findings_card", "intervention_card"}:
+        raise ValueError(f"goal pack {pack_name} card_type must be findings_card or intervention_card")
+    if not isinstance(data["priority"], dict) or not data["priority"]:
+        raise ValueError(f"goal pack {pack_name} priority must be a non-empty object")
+    for key, value in data["priority"].items():
+        if not isinstance(key, str) or not isinstance(value, int):
+            raise ValueError(f"goal pack {pack_name} priority entries must map strings to integers")
+    if not isinstance(data["rationale"], str) or not data["rationale"]:
+        raise ValueError(f"goal pack {pack_name} rationale must be a non-empty string")
+    return {
+        "research_only": data["research_only"],
+        "card_type": data["card_type"],
+        "priority": data["priority"],
+        "rationale": data["rationale"],
+    }
+
+
+def load_goal_packs() -> dict[str, dict[str, Any]]:
+    global _GOAL_PACK_CACHE
+    if _GOAL_PACK_CACHE is not None:
+        return _GOAL_PACK_CACHE
+    packs: dict[str, dict[str, Any]] = {}
+    pack_root = resources.files("cbm.goal_packs")
+    for pack_file in sorted(pack_root.iterdir(), key=lambda path: path.name):
+        if pack_file.name == "__init__.py" or not pack_file.name.endswith(".json"):
+            continue
+        raw_pack = json.loads(pack_file.read_text(encoding="utf-8"))
+        goal_class = raw_pack.get("goal_class") if isinstance(raw_pack, dict) else pack_file.name.removesuffix(".json")
+        packs[goal_class] = validate_goal_pack_definition(pack_file.name, raw_pack)
+    _GOAL_PACK_CACHE = packs
+    return packs
+
+
 def goal_pack(goal_class: str) -> dict[str, Any]:
-    return GOAL_PACKS.get(
-        goal_class,
-        {
-            "research_only": False,
-            "card_type": "intervention_card",
-            "priority": {"call": 0, "import": 1, "authority": 2},
-            "rationale": "default goal pack prioritizes actionable relation edges before broad authority surfaces.",
-        },
-    )
+    return load_goal_packs().get(goal_class, DEFAULT_GOAL_PACK)
 
 
 def candidate_priority(candidate: dict[str, Any], pack: dict[str, Any]) -> tuple[int, str, str]:

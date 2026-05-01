@@ -36,6 +36,9 @@ cbm-run-gate = "cbm.cli:run_gate_main"
 cbm-handoff = "cbm.cli:handoff_main"
 cbm-run = "cbm.cli:run_main"
 
+[tool.setuptools.package-data]
+cbm = ["goal_packs/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
