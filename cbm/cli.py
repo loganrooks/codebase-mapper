@@ -2132,7 +2132,10 @@ def artifact_gate_failures(repo: Path, path: Path) -> list[str]:
         data, body = load_artifact_frontmatter(path)
         artifact_type = infer_artifact_type(path, data)
         failures.extend(f"schema: {error}" for error in validate_data(repo, data, artifact_type))
-        for citation in sorted(set(extract_citations(data) + extract_citations(body))):
+        citations = sorted(set(extract_citations(data) + extract_citations(body)))
+        if not citations:
+            failures.append("citation: no citations found")
+        for citation in citations:
             ok, reason = resolve_citation(repo, citation)
             if not ok:
                 failures.append(f"citation: {citation}: {reason}")

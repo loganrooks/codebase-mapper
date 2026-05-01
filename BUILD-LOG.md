@@ -1062,3 +1062,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This reinforces the evidence-bound artifact discipline from `VISION.md` and `RUNTIME-CONSTITUTION.md`.
   - Contract check: Citation resolution still verifies normal cited artifacts; the new behavior only changes the no-citation case.
   - Reviewer-eye check: Some administrative artifacts may be intentionally citationless; this stricter command behavior means callers should not use citation verification as a vacuous success check for those artifacts.
+
+## 2026-05-01 — Gate slice: uncited artifacts fail composite gate
+
+- Implemented: `cbm gate-artifact` now fails with `citation: no citations found` when an artifact has no citations.
+- Verification run:
+  - `pytest -q` passed: 49 tests, including the uncited-artifact regression now covering `gate-artifact` as well as `verify` and `verify-citations`.
+- Self-critique:
+  - Drift check: The reusable post-write gate now enforces evidence presence instead of only checking citation resolution when citations happen to exist.
+  - Contract check: Existing cited artifacts still pass; the new failure mode is limited to empty citation sets.
+  - Reviewer-eye check: Citationless administrative artifacts should be gated by schema/status-specific checks rather than the evidence-bound artifact gate.
