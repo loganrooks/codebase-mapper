@@ -1155,3 +1155,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The durable verify report is no longer weaker than the artifact gate for evidence-bound artifacts.
   - Contract check: This adds report fields to the generated `verify_report` artifact, which currently has no dedicated schema.
   - Reviewer-eye check: Schema validation itself is still handled by `cbm validate` and `cbm gate-artifact`; `cbm verify` remains focused on freshness and semantic guardrails.
+
+## 2026-05-01 — Planning reset: live state and review surface
+
+- Decision: Add `.planning/STATE.md` and `.planning/CURRENT-PLAN.md` as the live operational truth because `docs/roadmap.md` is now partially superseded by implementation reality.
+- Decision: Update `AGENTS.md` so future agents read `.planning/STATE.md` and `.planning/CURRENT-PLAN.md` before assuming phase status, and so Codex hooks are not treated as the core CBM deployment or correctness mechanism.
+- Decision: Create `.planning/reviews/2026-05-01-opus-architecture-audit/` with `REVIEW-SPEC.md`, `PROMPT.md`, and pending `DISPOSITION.md` for a cross-vendor architecture audit.
+- Rationale: The implementation has moved beyond a clean Phase A-only build, while the runtime agent architecture remains unsettled. The build log is too chronological to serve as current state or plan.
+- Verification plan: Run `git diff --check -- AGENTS.md BUILD-LOG.md .planning` for this documentation/planning slice; run code tests only after code changes or if the audit disposition requires them.
+- Self-critique:
+  - Drift check: This pauses feature work to correct planning and architecture visibility.
+  - Contract check: No runtime artifact schema changed.
+  - Reviewer-eye check: Committing `AGENTS.md` may include a pre-existing uncommitted rewrite of that file; this should be called out because the working tree was already dirty.
