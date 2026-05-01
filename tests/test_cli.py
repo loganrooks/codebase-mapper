@@ -1245,6 +1245,7 @@ def test_corpus_status_writes_manifest(tmp_path: Path) -> None:
     assert main(["corpus-status", "--repo", str(repo), "--output", str(manifest)]) == 0
     status = json.loads(manifest.read_text(encoding="utf-8"))
     assert status["summary"]["fresh"] >= 1
+    assert status["summary"]["missing_citations"] == 0
     assert any(item["artifact_type"] == "goal_binding" for item in status["artifacts"])
 
     (repo / "tests" / "test_app.py").write_text(
@@ -1288,6 +1289,7 @@ def test_corpus_status_marks_uncited_answered_artifacts_broken(tmp_path: Path) -
     assert uncited_status["freshness"] == "broken"
     assert uncited_status["historical_valid"] is False
     assert uncited_status["citation_summary"]["missing_citations"] == 1
+    assert status["summary"]["missing_citations"] == 1
 
 
 def test_structural_refresh_emits_successor_and_delta(tmp_path: Path) -> None:

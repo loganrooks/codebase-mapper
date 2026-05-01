@@ -1093,3 +1093,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Corpus reuse now refuses uncited answer artifacts and keeps Skeptic review findings tied to cited evidence.
   - Contract check: Administrative artifacts may remain citationless; the missing-citation broken status applies only to citation-required artifact types.
   - Reviewer-eye check: The citation-required type list is code-level policy; a future schema or contract field would make this less implicit.
+
+## 2026-05-01 — Corpus slice: missing citation summary
+
+- Implemented: `cbm corpus-status` now includes `summary.missing_citations`, aggregating citation-required artifacts with empty citation sets.
+- Verification run:
+  - `pytest -q` passed: 50 tests, including assertions that clean corpus status reports zero missing citations and an uncited answered consultation increments the summary.
+- Self-critique:
+  - Drift check: Reviewers can now see missing citation failures from the corpus summary without scanning every artifact entry.
+  - Contract check: The field is additive in the generated corpus-status manifest.
+  - Reviewer-eye check: This is still a summary counter; detailed remediation remains in the per-artifact `citation_summary`.

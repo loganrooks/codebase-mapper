@@ -2744,6 +2744,7 @@ def command_corpus_status(args: argparse.Namespace) -> int:
         "stale": sum(1 for item in artifacts if item["freshness"] == "stale"),
         "pinned": sum(1 for item in artifacts if item["freshness"] == "pinned"),
         "broken": sum(1 for item in artifacts if item["freshness"] == "broken"),
+        "missing_citations": sum(item["citation_summary"].get("missing_citations", 0) for item in artifacts),
     }
     manifest = {
         "schema_version": SCHEMA_VERSION,
