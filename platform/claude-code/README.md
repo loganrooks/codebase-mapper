@@ -11,6 +11,7 @@ The kernel, schemas, skills, and CLI commands are platform-neutral and do not ch
 A Claude Code adapter must provide equivalents for:
 
 - stop/finalization hook that runs `python3 -m cbm hook-stop`
+- post-artifact-write hook that runs `python3 -m cbm gate-artifact <artifact-path> --repo <repo>`
 - subagent definitions that load the runtime skills in `skills/*.md`
 - orchestrator entry that calls `python3 -m cbm run`
 - environment setup so `python3 -m cbm ...` imports the local package

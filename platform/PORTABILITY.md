@@ -24,6 +24,7 @@ Run these checks after changing a platform adapter:
 pytest -q
 python3 -m cbm --help
 python3 -m cbm run --repo <fixture-or-repo> --goal "understand this repo" --run-id <id>
+python3 -m cbm gate-artifact <repo>/.research/<id>/surface-map.json --repo <repo>
 python3 -m cbm validate <repo>/.research/<id>/handoff.md --repo <repo>
 python3 -m cbm verify-citations <repo>/.research/<id>/handoff.md --repo <repo>
 ```

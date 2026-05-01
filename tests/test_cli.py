@@ -395,8 +395,11 @@ def test_tracer_skill_is_shipped() -> None:
 def test_platform_portability_docs_are_shipped() -> None:
     assert (SOURCE_ROOT / "platform" / "PORTABILITY.md").exists()
     assert (SOURCE_ROOT / "platform" / "codex" / "hooks.json").exists()
+    codex_gate = (SOURCE_ROOT / "platform" / "codex" / "gate-artifact.sh").read_text(encoding="utf-8")
+    assert "python3 -m cbm gate-artifact" in codex_gate
     claude_readme = (SOURCE_ROOT / "platform" / "claude-code" / "README.md").read_text(encoding="utf-8")
     assert "python3 -m cbm hook-stop" in claude_readme
+    assert "python3 -m cbm gate-artifact" in claude_readme
     assert "Artifact schemas, skills, CLI behavior, and citation format are unchanged." in claude_readme
 
 

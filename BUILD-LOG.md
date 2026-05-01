@@ -605,3 +605,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The command is a gate only; it does not mutate artifacts or interpret failures.
   - Contract check: This provides the reusable entry point required by the post-artifact-write hook contract.
   - Reviewer-eye check: Platform adapters still need to call this command at the right lifecycle points; this slice makes that possible without encoding platform syntax.
+
+## 2026-05-01 — Platform slice: artifact gate adapter
+
+- Implemented: `platform/codex/gate-artifact.sh`, a small command-hook wrapper around `python3 -m cbm gate-artifact`.
+- Updated: portability docs and Claude Code adapter requirements now name the post-artifact-write gate command.
+- Verification run:
+  - `pytest -q` passed: 32 tests, including checks that platform docs ship both `hook-stop` and `gate-artifact` adapter semantics.
+- Self-critique:
+  - Drift check: The adapter script only invokes the kernel gate; it does not encode platform-independent policy in shell.
+- Contract check: The Codex adapter, Claude Code adapter, and portability checklist now point at the same reusable gate.
+  - Reviewer-eye check: This still does not prove Claude Code syntax. It proves the command boundary a Claude Code hook must call once syntax is verified.
