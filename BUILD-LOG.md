@@ -966,3 +966,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Claims can no longer cite arbitrary extractor ids while bypassing the registry/blind-spot discipline.
   - Contract check: This enforces existing registry references without schema changes.
   - Reviewer-eye check: The check requires existence in the registry, but does not yet compare each extractor's declared evidence kinds against the claim's evidence kinds.
+
+## 2026-05-01 — Evidence slice: extractor evidence-kind compatibility
+
+- Implemented: registry-aware claim-evidence validation now checks that each edge's `evidence_kinds` are supported by the referenced extractor's `produces_evidence_kinds`.
+- Implemented: schema-valid claims that combine a registered static extractor with unsupported evidence such as `command_output` now fail `check-evidence` and `gate-artifact`.
+- Verification run:
+  - `pytest -q` passed: 41 tests, including a regression where `ext-python-imports-v1` is asked to support `command_output` and the artifact is rejected.
+- Self-critique:
+  - Drift check: Extractor declarations now constrain not just identity but what evidence a claim may derive from them.
+  - Contract check: This uses existing extractor-registry fields and edge evidence fields; no schema changes.
+  - Reviewer-eye check: This is per-edge validation only. It does not yet verify authorities against extractors because authority claims currently do not carry `extractor_id`.

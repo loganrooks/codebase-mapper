@@ -422,7 +422,7 @@ def has_any_evidence(claim: dict[str, Any], allowed: set[str]) -> bool:
     return bool(set(claim.get("evidence_kinds", [])) & allowed)
 
 
-def extractor_ids_for_artifact(repo: Path, data: dict[str, Any]) -> set[str] | None:
+def extractors_for_artifact(repo: Path, data: dict[str, Any]) -> dict[str, dict[str, Any]] | None:
     run_id = data.get("run_id")
     if not run_id:
         return None
@@ -430,10 +430,10 @@ def extractor_ids_for_artifact(repo: Path, data: dict[str, Any]) -> set[str] | N
     if not registry_path.exists():
         return None
     registry = read_json(registry_path)
-    return {extractor["id"] for extractor in registry.get("extractors", [])}
+    return {extractor["id"]: extractor for extractor in registry.get("extractors", [])}
 
 
-def check_claim_evidence(data: dict[str, Any], extractor_ids: set[str] | None = None) -> list[str]:
+def check_claim_evidence(data: dict[str, Any], extractors: dict[str, dict[str, Any]] | None = None) -> list[str]:
     errors: list[str] = []
 
     def check_interpretive(claim: dict[str, Any], ref: str) -> None:
@@ -461,8 +461,17 @@ def check_claim_evidence(data: dict[str, Any], extractor_ids: set[str] | None = 
     def check_edge(edge: dict[str, Any], ref: str) -> None:
         check_interpretive(edge, ref)
         extractor_id = edge.get("extractor_id")
-        if extractor_ids is not None and extractor_id and extractor_id not in extractor_ids:
-            errors.append(f"{ref}: extractor_id {extractor_id} is not registered")
+        if extractors is not None and extractor_id:
+            extractor = extractors.get(extractor_id)
+            if extractor is None:
+                errors.append(f"{ref}: extractor_id {extractor_id} is not registered")
+            else:
+                supported = set(extractor.get("produces_evidence_kinds", []))
+                unsupported = sorted(set(edge.get("evidence_kinds", [])) - supported)
+                if unsupported:
+                    errors.append(
+                        f"{ref}: extractor_id {extractor_id} does not support evidence_kinds {','.join(unsupported)}"
+                    )
         kind = edge.get("kind")
         evidence = set(edge.get("evidence_kinds", []))
         if kind in {"import", "call"} and "static_relation" not in evidence:
@@ -2073,7 +2082,7 @@ def command_check_evidence(args: argparse.Namespace) -> int:
     if not path.is_absolute():
         path = repo / path
     data, _ = load_artifact_frontmatter(path)
-    errors = check_claim_evidence(data, extractor_ids_for_artifact(repo, data))
+    errors = check_claim_evidence(data, extractors_for_artifact(repo, data))
     if errors:
         for error in errors:
             print(f"evidence-fail {error}")
@@ -2109,7 +2118,7 @@ def artifact_gate_failures(repo: Path, path: Path) -> list[str]:
             ok, reason = resolve_citation(repo, citation)
             if not ok:
                 failures.append(f"citation: {citation}: {reason}")
-        failures.extend(f"evidence: {error}" for error in check_claim_evidence(data, extractor_ids_for_artifact(repo, data)))
+        failures.extend(f"evidence: {error}" for error in check_claim_evidence(data, extractors_for_artifact(repo, data)))
         contestation = verify_contestation_propagation(repo, data)
         for item in contestation["missing"]:
             failures.append(
@@ -2205,7 +2214,7 @@ def command_challenge(args: argparse.Namespace) -> int:
     claim.setdefault("challenges", []).append(challenge)
     claim["claim_status"] = "contested" if len(claim["challenges"]) > 1 else "challenged"
     errors = validate_data(repo, data, artifact_type)
-    errors.extend(check_claim_evidence(data, extractor_ids_for_artifact(repo, data)))
+    errors.extend(check_claim_evidence(data, extractors_for_artifact(repo, data)))
     if errors:
         for error in errors:
             print(error, file=sys.stderr)
@@ -2320,7 +2329,7 @@ def command_resolve_challenge(args: argparse.Namespace) -> int:
     challenge["status"] = args.status
     update_claim_status_from_challenges(claim)
     errors = validate_data(repo, data, artifact_type)
-    errors.extend(check_claim_evidence(data, extractor_ids_for_artifact(repo, data)))
+    errors.extend(check_claim_evidence(data, extractors_for_artifact(repo, data)))
     if errors:
         for error in errors:
             print(error, file=sys.stderr)
@@ -3632,7 +3641,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         for error in errors:
             print(error, file=sys.stderr)
         return 1
-    evidence_errors = check_claim_evidence(surface, extractor_ids_for_artifact(repo, surface))
+    evidence_errors = check_claim_evidence(surface, extractors_for_artifact(repo, surface))
     if evidence_errors:
         for error in evidence_errors:
             print(f"evidence-fail {error}", file=sys.stderr)
@@ -3996,7 +4005,7 @@ def command_hook_stop(args: argparse.Namespace) -> int:
         surface_path = run_dir / "surface-map.json"
         if surface_path.exists():
             surface = read_json(surface_path)
-            errors.extend(check_claim_evidence(surface, extractor_ids_for_artifact(repo, surface)))
+            errors.extend(check_claim_evidence(surface, extractors_for_artifact(repo, surface)))
         for artifact in data.get("artifacts", []):
             if artifact.get("artifact_type") not in {"findings_card", "intervention_card"}:
                 continue
