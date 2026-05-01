@@ -3999,6 +3999,19 @@ def latest_run_dir(repo: Path) -> Path | None:
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
+def append_only_integrity_errors(run_dir: Path) -> list[str]:
+    errors: list[str] = []
+    ledger_path = run_dir / "evidence-ledger.jsonl"
+    ledger_append_only_ok, ledger_append_only_reason = verify_ledger_append_only(ledger_path, require_manifest=True)
+    if not ledger_append_only_ok:
+        errors.append(f"ledger append-only verification failed: {ledger_append_only_reason}")
+    uncertainty_path = run_dir / "uncertainty-register.jsonl"
+    uncertainty_append_only_ok, uncertainty_append_only_reason = verify_ledger_append_only(uncertainty_path, require_manifest=True)
+    if not uncertainty_append_only_ok:
+        errors.append(f"uncertainty register append-only verification failed: {uncertainty_append_only_reason}")
+    return errors
+
+
 def command_hook_stop(args: argparse.Namespace) -> int:
     try:
         payload = json.loads(sys.stdin.read() or "{}")
@@ -4035,14 +4048,7 @@ def command_hook_stop(args: argparse.Namespace) -> int:
         if surface_path.exists():
             surface = read_json(surface_path)
             errors.extend(check_claim_evidence(surface, extractors_for_artifact(repo, surface)))
-        ledger_path = run_dir / "evidence-ledger.jsonl"
-        ledger_append_only_ok, ledger_append_only_reason = verify_ledger_append_only(ledger_path, require_manifest=True)
-        if not ledger_append_only_ok:
-            errors.append(f"ledger append-only verification failed: {ledger_append_only_reason}")
-        uncertainty_path = run_dir / "uncertainty-register.jsonl"
-        uncertainty_append_only_ok, uncertainty_append_only_reason = verify_ledger_append_only(uncertainty_path, require_manifest=True)
-        if not uncertainty_append_only_ok:
-            errors.append(f"uncertainty register append-only verification failed: {uncertainty_append_only_reason}")
+        errors.extend(append_only_integrity_errors(run_dir))
         for artifact in data.get("artifacts", []):
             if artifact.get("artifact_type") not in {"findings_card", "intervention_card"}:
                 continue
@@ -4082,7 +4088,7 @@ def command_hook_start(args: argparse.Namespace) -> int:
         return 0
     try:
         data, _ = load_artifact_frontmatter(handoff)
-        errors = []
+        errors = append_only_integrity_errors(run_dir)
         for input_item in data.get("inputs", []):
             input_path = repo / input_item["path"]
             if not input_path.exists():

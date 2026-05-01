@@ -1020,3 +1020,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This closes a bypass in the append-only audit surface without changing the artifact semantics.
   - Contract check: Bootstrap still creates empty sidecars in `cbm-init`; post-init writes and hooks now treat missing manifests as integrity failures.
   - Reviewer-eye check: Legacy runs created before sidecars existed may now need a deliberate migration or re-run before appending new audit entries.
+
+## 2026-05-01 — Hook slice: start-hook audit integrity
+
+- Implemented: `cbm hook-start` now verifies evidence-ledger and uncertainty-register append-only integrity before allowing a resumed session to trust the latest handoff.
+- Implemented: stop/start hooks share the same append-only integrity helper so lifecycle gates cannot drift independently.
+- Verification run:
+  - `pytest -q` passed: 46 tests, including a start-hook regression that mutates an already-handoffed evidence ledger line before resume and confirms the hook blocks.
+- Self-critique:
+  - Drift check: Resume now validates both freshness and audit-log integrity, matching the compaction-recovery discipline.
+  - Contract check: This reuses existing hook JSON behavior and append-only manifests; no adapter or schema change was needed.
+  - Reviewer-eye check: Hook-start still validates only the latest run by modification time; selecting an older run explicitly remains outside this hook path.
