@@ -752,3 +752,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The card now carries current live disputes rather than historical or invented challenge ids.
   - Contract check: Stale challenge ids are reported through the existing `contestation_propagation.stale` report field.
   - Reviewer-eye check: This still validates against currently referenced artifacts only; if the referenced artifact itself is stale, freshness verification remains a separate gate.
+
+## 2026-05-01 — Gate slice: card coverage honesty
+
+- Implemented: `cbm-verify`, `cbm-gate-artifact`, and `cbm-handoff` now reject findings/intervention cards whose `primary_files` role claims exceed `coverage.result.files_examined_directly`.
+- Implemented: verify reports now include `coverage_honesty` details and `summary.coverage_violations`.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including a tampered card that claims a primary file role while reporting zero directly examined files.
+- Self-critique:
+  - Drift check: Card role claims now have at least count-level coverage support rather than relying on schema shape alone.
+  - Contract check: This enforces existing coverage fields without schema changes.
+  - Reviewer-eye check: The maturity criterion asks for path-level traceability to `files_examined_directly`; the current schema stores counts, not examined paths, so this is a partial gate until coverage evidence becomes path-aware.

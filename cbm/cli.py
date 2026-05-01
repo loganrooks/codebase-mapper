@@ -2043,6 +2043,9 @@ def command_gate_artifact(args: argparse.Namespace) -> int:
         confidence_check = verify_card_confidence(data)
         for item in confidence_check["violations"]:
             failures.append(f"confidence: {item['field']}: {item['reason']}")
+        coverage_check = verify_card_coverage_honesty(data)
+        for item in coverage_check["violations"]:
+            failures.append(f"coverage: {item['field']}: {item['reason']}")
     except Exception as exc:
         failures.append(str(exc))
     if failures:
@@ -2431,6 +2434,23 @@ def verify_card_confidence(data: dict[str, Any]) -> dict[str, Any]:
     return {"checked": True, "violations": violations}
 
 
+def verify_card_coverage_honesty(data: dict[str, Any]) -> dict[str, Any]:
+    if data.get("artifact_type") not in {"findings_card", "intervention_card"}:
+        return {"checked": False, "violations": []}
+    result = data.get("coverage", {}).get("result", {})
+    examined = result.get("files_examined_directly", 0)
+    primary_files = data.get("primary_files", [])
+    violations = []
+    if len(primary_files) > examined:
+        violations.append(
+            {
+                "field": "coverage.result.files_examined_directly",
+                "reason": f"{len(primary_files)} primary file role claim(s) require at least {len(primary_files)} directly examined file(s)",
+            }
+        )
+    return {"checked": True, "violations": violations}
+
+
 def command_verify(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.artifact)
@@ -2441,6 +2461,7 @@ def command_verify(args: argparse.Namespace) -> int:
     data, _ = load_artifact_frontmatter(path)
     contestation = verify_contestation_propagation(repo, data)
     confidence_check = verify_card_confidence(data)
+    coverage_check = verify_card_coverage_honesty(data)
     report = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "verify_report",
@@ -2450,6 +2471,7 @@ def command_verify(args: argparse.Namespace) -> int:
         "results": results,
         "contestation_propagation": contestation,
         "card_confidence": confidence_check,
+        "coverage_honesty": coverage_check,
         "summary": {
             "still_grounded": sum(1 for item in results if item["status"] == "still_grounded"),
             "needs_review": sum(1 for item in results if item["status"] == "needs_review"),
@@ -2457,6 +2479,7 @@ def command_verify(args: argparse.Namespace) -> int:
             "contestation_missing": len(contestation["missing"]),
             "contestation_stale": len(contestation["stale"]),
             "confidence_violations": len(confidence_check["violations"]),
+            "coverage_violations": len(coverage_check["violations"]),
         },
     }
     output_path = Path(args.output) if args.output else path.with_name("verify-report.json")
@@ -2473,6 +2496,8 @@ def command_verify(args: argparse.Namespace) -> int:
         print(f"contestation_stale {item['claim_artifact']} {item['claim_id']}{suffix}")
     for item in confidence_check["violations"]:
         print(f"confidence_violation {item['field']} {item['reason']}")
+    for item in coverage_check["violations"]:
+        print(f"coverage_violation {item['field']} {item['reason']}")
     if not results:
         print("no citations found")
     print(output_path)
@@ -2483,6 +2508,7 @@ def command_verify(args: argparse.Namespace) -> int:
         and report["summary"]["contestation_missing"] == 0
         and report["summary"]["contestation_stale"] == 0
         and report["summary"]["confidence_violations"] == 0
+        and report["summary"]["coverage_violations"] == 0
         else 2
     )
 
@@ -3415,6 +3441,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         return 1
     card_contestation = verify_contestation_propagation(repo, card_frontmatter)
     card_confidence_check = verify_card_confidence(card_frontmatter)
+    card_coverage_check = verify_card_coverage_honesty(card_frontmatter)
     if card_contestation["missing"] or card_contestation["stale"]:
         for item in card_contestation["missing"]:
             print(
@@ -3430,6 +3457,10 @@ def command_handoff(args: argparse.Namespace) -> int:
     if card_confidence_check["violations"]:
         for item in card_confidence_check["violations"]:
             print(f"card-gate-fail confidence {item['field']}: {item['reason']}", file=sys.stderr)
+        return 1
+    if card_coverage_check["violations"]:
+        for item in card_coverage_check["violations"]:
+            print(f"card-gate-fail coverage {item['field']}: {item['reason']}", file=sys.stderr)
         return 1
     if card_type == "intervention_card":
         card_body = "\n# Goal-Bound Intervention Card\n\nThis generated card carries the selected goal pack into a draft intervention artifact while preserving schema validation and citation resolution gates.\n"
