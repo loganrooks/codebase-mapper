@@ -1081,6 +1081,28 @@ def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path
     refused_frontmatter = yaml.safe_load(refused.read_text(encoding="utf-8").split("---", 2)[1])
     assert refused_frontmatter["status"] == "refused"
     assert refused_frontmatter["matches"] == []
+    uncertainties = [
+        json.loads(line)
+        for line in (repo / ".research" / "run-consult" / "uncertainty-register.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    refused_uncertainty = [
+        item
+        for item in uncertainties
+        if item.get("registered_by") == "cbm-consult@0.1" and item.get("consultation_id") == refused_frontmatter["consultation_id"]
+    ]
+    assert refused_uncertainty
+    ledger_entries = [
+        json.loads(line)
+        for line in (repo / ".research" / "run-consult" / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert any(
+        entry["entry_kind"] == "uncertainty_logged"
+        and entry["agent"] == "cbm-consult"
+        and entry["claim_id"] == refused_uncertainty[0]["entry_id"]
+        for entry in ledger_entries
+    )
 
 
 def test_run_gate_executes_declared_command_and_refuses_outside_envelope(tmp_path: Path) -> None:

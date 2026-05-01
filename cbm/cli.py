@@ -3070,6 +3070,57 @@ def append_consultation_reuse_entries(repo: Path, consult_id: str, matches: list
             append_ledger_entry(repo, ledger_path, entry)
 
 
+def next_uncertainty_id(path: Path) -> str:
+    highest = 0
+    for entry in read_jsonl(path):
+        entry_id = entry.get("entry_id")
+        if isinstance(entry_id, str) and entry_id.startswith("unc-"):
+            try:
+                highest = max(highest, int(entry_id.removeprefix("unc-")))
+            except ValueError:
+                continue
+    return f"unc-{highest + 1:05d}"
+
+
+def append_consultation_uncertainty(repo: Path, consult_id: str, question: str) -> None:
+    try:
+        paths = run_paths(repo, None)
+    except SystemExit:
+        return
+    uncertainty_path = paths.run_dir / "uncertainty-register.jsonl"
+    ledger_path = paths.run_dir / "evidence-ledger.jsonl"
+    if not ledger_path.exists():
+        return
+    sha = source_sha(repo)
+    now = utc_now()
+    uncertainty_id = next_uncertainty_id(uncertainty_path)
+    uncertainty = {
+        "schema_version": SCHEMA_VERSION,
+        "entry_id": uncertainty_id,
+        "ts": now,
+        "run_id": paths.run_id,
+        "source_sha": sha,
+        "question": f"Consultation question could not be answered from fresh corpus artifacts: {question}",
+        "status": "open",
+        "registered_by": "cbm-consult@0.1",
+        "consultation_id": consult_id,
+    }
+    append_jsonl(uncertainty_path, uncertainty)
+    entry = {
+        "schema_version": SCHEMA_VERSION,
+        "entry_id": next_ledger_id(ledger_path),
+        "ts": now,
+        "entry_kind": "uncertainty_logged",
+        "agent": "cbm-consult",
+        "skill_version": "0.1",
+        "run_id": paths.run_id,
+        "source_sha": sha,
+        "artifact_path": str(uncertainty_path.relative_to(repo)),
+        "claim_id": uncertainty_id,
+    }
+    append_ledger_entry(repo, ledger_path, entry)
+
+
 def command_consult(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     matches = consult_matches(repo, args.question)
@@ -3121,6 +3172,7 @@ def command_consult(args: argparse.Namespace) -> int:
         + "---\n# Consultation\n\nRefusal: no fresh artifact in the corpus contains enough grounded evidence to answer this question.\n",
         encoding="utf-8",
     )
+    append_consultation_uncertainty(repo, consult_id, args.question)
     print(output_path)
     return 2
 

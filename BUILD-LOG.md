@@ -866,3 +866,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Consultation now behaves more like a Reader over an artifact corpus rather than an unaudited search result.
   - Contract check: The entries use the existing `citation_reused` ledger schema; no schema changes were needed.
   - Reviewer-eye check: The Reader still records reuse only for matched artifacts with run-local ledgers; consultation artifacts under `.research/consultations` are not themselves recursively ledgered.
+
+## 2026-05-01 — Consultation slice: refusal uncertainty
+
+- Implemented: refused `cbm-consult` questions now append an open uncertainty to the latest run's `uncertainty-register.jsonl`.
+- Implemented: each consultation refusal uncertainty is mirrored with an `uncertainty_logged` evidence-ledger entry, preserving append-only auditability.
+- Verification run:
+  - `pytest -q` passed: 37 tests, including a consultation refusal regression that checks both the uncertainty register entry and matching ledger event.
+- Self-critique:
+  - Drift check: Reader refusal now becomes durable corpus knowledge instead of disappearing into a transient consultation artifact.
+  - Contract check: This follows the existing handoff uncertainty JSONL shape because the kit does not currently include a separate uncertainty-register schema.
+  - Reviewer-eye check: Refusals are attached to the latest run as a pragmatic per-run store; a project-level uncertainty register would be cleaner for cross-run consultation later.
