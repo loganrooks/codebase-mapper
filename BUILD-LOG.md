@@ -721,3 +721,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Contestation propagation is now a hard artifact gate, aligning with the vision's zero-exception audit criterion for challenged dependencies.
   - Contract check: The gate uses existing card and map fields; no schema changes or new artifact formats were introduced.
   - Reviewer-eye check: This strengthens card gating but still depends on cards expressing their dependency surface through `related_dependencies`.
+
+## 2026-05-01 — Handoff slice: card propagation gate integration
+
+- Implemented: `cbm-handoff` now runs the card contestation propagation audit before completing handoff, and generated cards name `cbm-gate-artifact` as their hard-gate command.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including a generated-card assertion that the hard gate points at `cbm-gate-artifact`.
+- Self-critique:
+  - Drift check: Handoff no longer relies only on schema validation for cards; it verifies the contestation discipline before finalizing the bundle.
+  - Contract check: The integration reuses the same propagation checker as `verify` and `gate-artifact`.
+  - Reviewer-eye check: The handoff check currently covers card contestation propagation, while broader full-run gate orchestration remains split across existing command boundaries.

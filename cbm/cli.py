@@ -3359,7 +3359,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             "unknown_partition_present": True,
         },
         "verification_strategy": {
-            "hard_gates": [{"description": "Schema validation and citation resolution pass for this card.", "implementation": "Run cbm-validate and cbm-verify-citations on the generated findings card.", "citations": [citation]}],
+            "hard_gates": [{"description": "Schema validation, citation resolution, evidence requirements, and contestation propagation pass for this card.", "implementation": "Run cbm-gate-artifact on the generated findings card.", "citations": [citation]}],
             "warning_gates": [],
             "advisory_checks": [{"description": "Runtime Surface Mapper should replace this Phase A structural card with a role-specific finding."}],
             "manual_review": [{"description": "Confirm the first structural file is relevant to the user's actual goal before acting on it.", "reviewer_role": "senior engineer"}],
@@ -3376,6 +3376,17 @@ def command_handoff(args: argparse.Namespace) -> int:
     if card_errors:
         for error in card_errors:
             print(error, file=sys.stderr)
+        return 1
+    card_contestation = verify_contestation_propagation(repo, card_frontmatter)
+    if card_contestation["missing"] or card_contestation["stale"]:
+        for item in card_contestation["missing"]:
+            print(
+                "card-gate-fail missing dependent challenge "
+                f"{item['claim_artifact']} {item['claim_id']} {','.join(item['missing_challenge_ids'])}",
+                file=sys.stderr,
+            )
+        for item in card_contestation["stale"]:
+            print(f"card-gate-fail stale dependent challenge {item['claim_artifact']} {item['claim_id']}", file=sys.stderr)
         return 1
     if card_type == "intervention_card":
         card_body = "\n# Goal-Bound Intervention Card\n\nThis generated card carries the selected goal pack into a draft intervention artifact while preserving schema validation and citation resolution gates.\n"

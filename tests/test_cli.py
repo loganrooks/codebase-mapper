@@ -104,6 +104,7 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert card_frontmatter["confidence"] == expected["findings_card"]["confidence"]
     assert card_frontmatter["dependent_challenges"][0]["challenge_ids"] == [expected["findings_card"]["dependent_challenge_id"]]
     assert card_frontmatter["related_dependencies"]["certain"][0].endswith("/edges/0")
+    assert card_frontmatter["verification_strategy"]["hard_gates"][0]["implementation"].startswith("Run cbm-gate-artifact")
 
     frontmatter = yaml.safe_load(handoff.read_text(encoding="utf-8").split("---", 2)[1])
     assert frontmatter["gate_summary"]["citation_resolution"]["unresolved_count"] == 0
