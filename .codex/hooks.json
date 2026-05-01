@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PYTHONPATH=\"$(git rev-parse --show-toplevel)\" python3 -m cbm hook-stop",
+            "timeout": 30,
+            "statusMessage": "Checking CBM handoff gates"
+          }
+        ]
+      }
+    ]
+  }
+}
+

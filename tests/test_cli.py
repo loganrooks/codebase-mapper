@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import io
 import subprocess
+import sys
 from pathlib import Path
 
 import yaml
@@ -109,6 +111,21 @@ def test_run_orchestrates_phase_a_flow(tmp_path: Path) -> None:
     assert (run_dir / "surface-map.json").exists()
     assert (run_dir / "findings" / "int-0001.md").exists()
     assert (run_dir / "handoff.md").exists()
+
+
+def test_stop_hook_validates_latest_handoff(tmp_path: Path, monkeypatch, capsys) -> None:
+    source_root = Path(__file__).resolve().parents[1]
+    repo = make_repo(tmp_path)
+    copy_contracts(source_root, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", "run-hook"]) == 0
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": str(repo)})))
+    assert main(["hook-stop", "--repo", str(repo)]) == 0
+    output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert output["continue"] is True
+    assert "passed" in output["systemMessage"]
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:

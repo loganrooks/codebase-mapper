@@ -1074,6 +1074,58 @@ def command_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def latest_run_dir(repo: Path) -> Path | None:
+    research = repo / ".research"
+    if not research.exists():
+        return None
+    candidates = [path for path in research.iterdir() if path.is_dir()]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def command_hook_stop(args: argparse.Namespace) -> int:
+    try:
+        payload = json.loads(sys.stdin.read() or "{}")
+    except json.JSONDecodeError:
+        payload = {}
+    repo = Path(payload.get("cwd") or args.repo).resolve()
+    run_dir = latest_run_dir(repo)
+    if not run_dir:
+        print(json.dumps({"continue": True, "systemMessage": "CBM: no .research run found for stop-hook validation."}))
+        return 0
+    handoff = run_dir / "handoff.md"
+    if not handoff.exists():
+        print(
+            json.dumps(
+                {
+                    "continue": False,
+                    "stopReason": f"CBM run {run_dir.name} has no handoff.md yet.",
+                    "systemMessage": "CBM handoff gate failed: missing handoff.md.",
+                }
+            )
+        )
+        return 0
+    try:
+        data, _ = load_artifact_frontmatter(handoff)
+        errors = validate_data(repo, data, "handoff")
+    except Exception as exc:
+        errors = [str(exc)]
+    if errors:
+        print(
+            json.dumps(
+                {
+                    "continue": False,
+                    "stopReason": f"CBM handoff validation failed for {run_dir.name}.",
+                    "systemMessage": "CBM handoff gate failed: " + "; ".join(errors[:3]),
+                }
+            )
+        )
+        return 0
+    print(json.dumps({"continue": True, "systemMessage": f"CBM handoff gate passed for {run_dir.name}."}))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cbm")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1111,6 +1163,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--mode", default="lightweight", choices=["lightweight", "standard", "deep"])
     p_run.add_argument("--run-id")
     p_run.set_defaults(func=command_run)
+    p_hook_stop = sub.add_parser("hook-stop")
+    p_hook_stop.add_argument("--repo", default=".")
+    p_hook_stop.set_defaults(func=command_hook_stop)
     return parser
 
 
