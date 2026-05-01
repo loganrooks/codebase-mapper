@@ -4288,3 +4288,11 @@ def handoff_main() -> int:
 
 def run_main() -> int:
     return main(["run", *sys.argv[1:]])
+
+
+def hook_stop_main() -> int:
+    return main(["hook-stop", *sys.argv[1:]])
+
+
+def hook_start_main() -> int:
+    return main(["hook-start", *sys.argv[1:]])

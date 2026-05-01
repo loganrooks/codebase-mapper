@@ -219,6 +219,12 @@ def test_project_packs_load_from_package_data() -> None:
     assert packs["mcp_server"]["extractor_annotations"]
 
 
+def test_hook_console_scripts_are_declared() -> None:
+    pyproject = (SOURCE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'cbm-hook-start = "cbm.cli:hook_start_main"' in pyproject
+    assert 'cbm-hook-stop = "cbm.cli:hook_stop_main"' in pyproject
+
+
 def test_handoff_emits_goal_pack_card_type(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
@@ -649,12 +655,23 @@ def test_tracer_skill_is_shipped() -> None:
 def test_platform_portability_docs_are_shipped() -> None:
     assert (SOURCE_ROOT / "platform" / "PORTABILITY.md").exists()
     assert (SOURCE_ROOT / "platform" / "codex" / "hooks.json").exists()
+    hooks = json.loads((SOURCE_ROOT / "platform" / "codex" / "hooks.json").read_text(encoding="utf-8"))
+    hook_commands = json.dumps(hooks)
+    assert "python3 -m cbm hook-start" in hook_commands
+    assert "python3 -m cbm hook-stop" in hook_commands
+    codex_readme = (SOURCE_ROOT / "platform" / "codex" / "README.md").read_text(encoding="utf-8")
+    assert "python3 -m cbm hook-start" in codex_readme
+    assert "python3 -m cbm hook-stop" in codex_readme
     codex_gate = (SOURCE_ROOT / "platform" / "codex" / "gate-artifact.sh").read_text(encoding="utf-8")
     assert "python3 -m cbm gate-artifact" in codex_gate
     claude_readme = (SOURCE_ROOT / "platform" / "claude-code" / "README.md").read_text(encoding="utf-8")
+    assert "python3 -m cbm hook-start" in claude_readme
     assert "python3 -m cbm hook-stop" in claude_readme
     assert "python3 -m cbm gate-artifact" in claude_readme
     assert "Artifact schemas, skills, CLI behavior, and citation format are unchanged." in claude_readme
+    portability = (SOURCE_ROOT / "platform" / "PORTABILITY.md").read_text(encoding="utf-8")
+    assert "python3 -m cbm hook-start" in portability
+    assert "python3 -m cbm hook-stop" in portability
 
 
 def test_deep_run_writes_refinement_report(tmp_path: Path) -> None:

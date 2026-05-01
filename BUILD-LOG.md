@@ -932,3 +932,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Session resume now has a mechanical freshness gate matching the compaction-recovery and reuse discipline.
   - Contract check: The command is additive and uses existing citation freshness logic rather than new schemas.
   - Reviewer-eye check: The hook validates latest handoff inputs only; runs without handoff still continue with an informational message.
+
+## 2026-05-01 — Platform slice: start hook exposure
+
+- Implemented: console-script aliases `cbm-hook-start` and `cbm-hook-stop` for lifecycle hook entry points.
+- Implemented: Codex adapter config/docs now include the session-start freshness hook alongside the stop hook; Claude Code and portability docs list the same required lifecycle semantics.
+- Verification run:
+  - `pytest -q` passed: 40 tests, including portability checks for `hook-start` in Codex hooks/docs, Claude adapter docs, portability checklist, and console-script declarations.
+- Self-critique:
+  - Drift check: The session-start freshness gate is now reachable from platform glue rather than existing only as an internal subcommand.
+  - Contract check: Platform docs preserve the kernel boundary: adapters call `python3 -m cbm hook-start` and do not reimplement freshness policy.
+  - Reviewer-eye check: The Codex hook event name remains adapter syntax; non-Codex adapters must still verify their own lifecycle hook syntax before production use.

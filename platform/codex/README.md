@@ -7,10 +7,11 @@ This adapter documents the current Codex-specific glue for CBM.
 The repository currently uses `.codex/hooks.json` to run:
 
 ```sh
+PYTHONPATH="$(git rev-parse --show-toplevel)" python3 -m cbm hook-start
 PYTHONPATH="$(git rev-parse --show-toplevel)" python3 -m cbm hook-stop
 ```
 
-The hook validates the latest `.research/<run_id>/handoff.md` when present. It does not replace artifact validation during the run; it is a final stop-gate check.
+The start hook checks latest-handoff input hashes and citation freshness before a resumed session proceeds. The stop hook validates the latest `.research/<run_id>/handoff.md` when present. These hooks do not replace artifact validation during the run; they are lifecycle gates around the same kernel checks.
 
 ## Artifact Gate Boundary
 

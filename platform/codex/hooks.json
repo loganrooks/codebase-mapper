@@ -1,5 +1,17 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PYTHONPATH=\"$(git rev-parse --show-toplevel)\" python3 -m cbm hook-start",
+            "timeout": 30,
+            "statusMessage": "Checking CBM session freshness"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
