@@ -783,3 +783,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Handoffs now say what the run did not read instead of using only a generic Phase A caveat.
   - Contract check: This uses the existing `coverage_caveats` handoff field and shared coverage counts.
   - Reviewer-eye check: Caveats still report counts, not path lists; path-aware direct-examination evidence remains a future schema improvement.
+
+## 2026-05-01 — Gate slice: primary-file citation path support
+
+- Implemented: card coverage-honesty checks now require each `primary_files` role claim to include at least one citation whose path matches the claimed primary file path.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including a tampered card whose primary file role is backed by a valid citation to a different path.
+- Self-critique:
+  - Drift check: File-role claims now need direct path-specific evidence instead of any resolving citation.
+  - Contract check: The gate uses existing `primary_files.path` and `primary_files.citations` fields, so no schema change was required.
+  - Reviewer-eye check: This proves citation path support, not that an agent deeply read the cited file; path-aware direct-examination logs remain future work.

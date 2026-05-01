@@ -2474,6 +2474,16 @@ def verify_card_coverage_honesty(data: dict[str, Any]) -> dict[str, Any]:
                 "reason": f"{len(primary_files)} primary file role claim(s) require at least {len(primary_files)} directly examined file(s)",
             }
         )
+    for index, primary_file in enumerate(primary_files):
+        path = primary_file.get("path")
+        citations = primary_file.get("citations", [])
+        if path and not any((parts := citation_parts(citation)) and parts["path"] == path for citation in citations):
+            violations.append(
+                {
+                    "field": f"primary_files/{index}/citations",
+                    "reason": f"primary file role claim for {path} requires a citation to the same path",
+                }
+            )
     return {"checked": True, "violations": violations}
 
 
