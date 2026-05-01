@@ -333,6 +333,7 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "workflow_trace": "workflow-trace.schema.json",
         "refinement_report": "refinement-report.schema.json",
         "approval_plan": "approval-plan.schema.json",
+        "project_type_report": "project-type.schema.json",
     }
     name = mapping.get(artifact_type)
     if not name:
@@ -702,11 +703,91 @@ def command_init(args: argparse.Namespace) -> int:
     write_json(paths.run_dir / "intake.json", intake)
     write_json(paths.run_dir / "state.json", state)
     write_json(paths.run_dir / "extractor-registry.json", registry)
+    project_type_report = build_project_type_report(repo, paths, sha)
+    write_json(paths.run_dir / "project-type.json", project_type_report)
     (paths.run_dir / "evidence-ledger.jsonl").touch()
     write_ledger_integrity_manifest(paths.run_dir / "evidence-ledger.jsonl")
     (paths.run_dir / "uncertainty-register.jsonl").touch()
     print(paths.run_dir)
     return 0
+
+
+def pack_file_matches(pattern: str, paths: set[str]) -> list[str]:
+    if any(char in pattern for char in "*?["):
+        return sorted(path for path in paths if fnmatch.fnmatch(path, pattern))
+    return [pattern] if pattern in paths else []
+
+
+def text_contains_marker(repo: Path, rel: str, marker: str) -> bool:
+    try:
+        return marker.lower() in (repo / rel).read_text(encoding="utf-8", errors="ignore").lower()
+    except OSError:
+        return False
+
+
+def build_project_type_report(repo: Path, paths: RunPaths, sha: str) -> dict[str, Any]:
+    files = [path.relative_to(repo).as_posix() for path in iter_repo_files(repo)]
+    file_set = set(files)
+    detections = []
+    for project_type, pack in load_project_packs().items():
+        evidence_paths: list[tuple[str, str]] = []
+        for pattern in pack["any_files"]:
+            for match in pack_file_matches(pattern, file_set):
+                evidence_paths.append((match, f"matched pack file pattern {pattern}"))
+        all_matches: list[tuple[str, str]] = []
+        all_files_present = True
+        for pattern in pack["all_files"]:
+            matches = pack_file_matches(pattern, file_set)
+            if not matches:
+                all_files_present = False
+                break
+            all_matches.extend((match, f"matched required pack file pattern {pattern}") for match in matches)
+        if all_files_present:
+            evidence_paths.extend(all_matches)
+        for marker in pack["content_markers"]:
+            marker_hit = next((rel for rel in files if line_count(repo / rel) > 0 and text_contains_marker(repo, rel, marker)), None)
+            if marker_hit:
+                evidence_paths.append((marker_hit, f"contains marker {marker}"))
+        deduped: list[tuple[str, str]] = []
+        seen_paths: set[str] = set()
+        for rel, reason in evidence_paths:
+            if rel in seen_paths:
+                continue
+            seen_paths.add(rel)
+            deduped.append((rel, reason))
+        if not deduped:
+            continue
+        confidence = "high" if len(deduped) >= 2 and all_files_present else "medium"
+        evidence = []
+        for rel, reason in deduped[:5]:
+            citation = citation_for(repo, rel, sha)
+            if citation:
+                evidence.append({"path": rel, "reason": reason, "citation": citation})
+        if not evidence:
+            continue
+        detections.append(
+            {
+                "project_type": project_type,
+                "display_name": pack["display_name"],
+                "confidence": confidence,
+                "pack_id": pack["pack_id"],
+                "evidence": evidence,
+                "extractor_annotations": pack["extractor_annotations"],
+                "authority_hints": pack["authority_hints"],
+                "known_blind_spots": pack["known_blind_spots"],
+            }
+        )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "project_type_report",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "project-type-detector@0.1",
+        "source_sha": sha,
+        "inputs": [],
+        "status": "draft",
+        "detections": sorted(detections, key=lambda item: item["project_type"]),
+    }
 
 
 def build_codebase_map(repo: Path, paths: RunPaths, refreshed_from: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -1388,6 +1469,40 @@ def load_goal_packs() -> dict[str, dict[str, Any]]:
         goal_class = raw_pack.get("goal_class") if isinstance(raw_pack, dict) else pack_file.name.removesuffix(".json")
         packs[goal_class] = validate_goal_pack_definition(pack_file.name, raw_pack)
     _GOAL_PACK_CACHE = packs
+    return packs
+
+
+_PROJECT_PACK_CACHE: dict[str, dict[str, Any]] | None = None
+
+
+def validate_project_pack_definition(pack_name: str, data: Any) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ValueError(f"project pack {pack_name} must be a JSON object")
+    required = {"pack_id", "project_type", "display_name", "any_files", "all_files", "content_markers", "extractor_annotations", "authority_hints", "known_blind_spots"}
+    missing = sorted(required - data.keys())
+    if missing:
+        raise ValueError(f"project pack {pack_name} missing required fields: {', '.join(missing)}")
+    for key in ["pack_id", "project_type", "display_name"]:
+        if not isinstance(data[key], str) or not data[key]:
+            raise ValueError(f"project pack {pack_name} {key} must be a non-empty string")
+    for key in ["any_files", "all_files", "content_markers", "extractor_annotations", "authority_hints", "known_blind_spots"]:
+        if not isinstance(data[key], list) or not all(isinstance(item, str) for item in data[key]):
+            raise ValueError(f"project pack {pack_name} {key} must be a string array")
+    return data
+
+
+def load_project_packs() -> dict[str, dict[str, Any]]:
+    global _PROJECT_PACK_CACHE
+    if _PROJECT_PACK_CACHE is not None:
+        return _PROJECT_PACK_CACHE
+    packs: dict[str, dict[str, Any]] = {}
+    pack_root = resources.files("cbm.project_packs")
+    for pack_file in sorted(pack_root.iterdir(), key=lambda path: path.name):
+        if pack_file.name == "__init__.py" or not pack_file.name.endswith(".json"):
+            continue
+        pack = validate_project_pack_definition(pack_file.name, json.loads(pack_file.read_text(encoding="utf-8")))
+        packs[pack["project_type"]] = pack
+    _PROJECT_PACK_CACHE = packs
     return packs
 
 
@@ -2866,6 +2981,10 @@ def command_handoff(args: argparse.Namespace) -> int:
     if binding_path.exists():
         artifacts.insert(2, {"path": str(binding_path.relative_to(repo)), "artifact_type": "goal_binding", "status": "draft", "summary": "Goal-specific candidate binding over the surface map."})
         handoff_inputs.insert(1, {"path": str(binding_path.relative_to(repo)), "sha256": sha256_file(binding_path)})
+    project_type_path = paths.run_dir / "project-type.json"
+    if project_type_path.exists():
+        artifacts.insert(1, {"path": str(project_type_path.relative_to(repo)), "artifact_type": "project_type_report", "status": "draft", "summary": "Phase 0 project-type detection report."})
+        handoff_inputs.insert(1, {"path": str(project_type_path.relative_to(repo)), "sha256": sha256_file(project_type_path)})
     trace_paths = sorted((paths.run_dir / "workflow-traces").glob("*.json")) if (paths.run_dir / "workflow-traces").exists() else []
     for trace_path in trace_paths:
         artifacts.insert(-1, {"path": str(trace_path.relative_to(repo)), "artifact_type": "workflow_trace", "status": "draft", "summary": "Deep-mode static workflow trace."})

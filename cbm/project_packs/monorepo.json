@@ -1,0 +1,13 @@
+{
+  "pack_id": "project-pack-monorepo-v1",
+  "project_type": "monorepo",
+  "display_name": "Monorepo",
+  "any_files": ["pnpm-workspace.yaml", "turbo.json", "nx.json", "lerna.json"],
+  "all_files": [],
+  "content_markers": [],
+  "extractor_annotations": [
+    "Workspace boundaries and package graph edges require package-manager-aware extraction."
+  ],
+  "authority_hints": ["pnpm-workspace.yaml", "package.json", "apps/", "packages/"],
+  "known_blind_spots": ["workspace dependency graph", "generated package aliases", "cross-package test ownership"]
+}

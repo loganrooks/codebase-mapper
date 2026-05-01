@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yaml
 
-from cbm.cli import goal_pack, load_goal_packs, main
+from cbm.cli import goal_pack, load_goal_packs, load_project_packs, main
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -51,12 +51,15 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
 
     run_dir = repo / ".research" / run_id
     codebase_map = run_dir / "codebase-map.json"
+    project_type = run_dir / "project-type.json"
     surface_map = run_dir / "surface-map.json"
     goal_binding = run_dir / "goal-binding.json"
     assert codebase_map.exists()
+    assert project_type.exists()
     assert surface_map.exists()
     assert goal_binding.exists()
     assert main(["validate", str(codebase_map), "--repo", str(repo)]) == 0
+    assert main(["validate", str(project_type), "--repo", str(repo)]) == 0
     assert main(["validate", str(surface_map), "--repo", str(repo)]) == 0
     assert main(["validate", str(goal_binding), "--repo", str(repo)]) == 0
     initial_surface = json.loads(surface_map.read_text(encoding="utf-8"))
@@ -78,6 +81,8 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert binding["goal"] == "understand this repo"
     assert binding["candidates"][0]["surface_ref"].endswith("/edges/0")
     assert binding["candidates"][0]["surface_kind"] == "import"
+    project_data = json.loads(project_type.read_text(encoding="utf-8"))
+    assert any(item["project_type"] == "python_package" for item in project_data["detections"])
 
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
     card = run_dir / "findings" / "int-0001.md"
@@ -103,7 +108,9 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 1
     assert frontmatter["contestation_summary"]["claims_by_register"]["interpretive"] >= 1
     assert "goal_binding" in [artifact["artifact_type"] for artifact in frontmatter["artifacts"]]
+    assert "project_type_report" in [artifact["artifact_type"] for artifact in frontmatter["artifacts"]]
     assert any(input_item["path"].endswith("goal-binding.json") for input_item in frontmatter["inputs"])
+    assert any(input_item["path"].endswith("project-type.json") for input_item in frontmatter["inputs"])
     reviewed_surface = json.loads(surface_map.read_text(encoding="utf-8"))
     reviewed_import_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "import"]
     reviewed_call_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "call"]
@@ -179,6 +186,13 @@ def test_goal_packs_load_from_package_data() -> None:
     assert goal_pack("audit")["priority"]["authority:test_suite"] == 0
     assert goal_pack("research_only")["card_type"] == "findings_card"
     assert goal_pack("unknown_goal")["card_type"] == "intervention_card"
+
+
+def test_project_packs_load_from_package_data() -> None:
+    packs = load_project_packs()
+    assert {"django", "rails", "phoenix", "mcp_server", "agent_orchestration", "monorepo"} <= packs.keys()
+    assert packs["django"]["authority_hints"]
+    assert packs["mcp_server"]["extractor_annotations"]
 
 
 def test_handoff_emits_goal_pack_card_type(tmp_path: Path) -> None:

@@ -40,7 +40,7 @@ cbm-handoff = "cbm.cli:handoff_main"
 cbm-run = "cbm.cli:run_main"
 
 [tool.setuptools.package-data]
-cbm = ["goal_packs/*.json"]
+cbm = ["goal_packs/*.json", "project_packs/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

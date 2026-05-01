@@ -1,0 +1,13 @@
+{
+  "pack_id": "project-pack-agent-orchestration-v1",
+  "project_type": "agent_orchestration",
+  "display_name": "Agent orchestration project",
+  "any_files": ["AGENTS.md", "RUNTIME-CONSTITUTION.md"],
+  "all_files": [],
+  "content_markers": ["agent", "subagent", "skill"],
+  "extractor_annotations": [
+    "Agent workflows rely on instruction surfaces and skill files that should be treated as authority surfaces."
+  ],
+  "authority_hints": ["AGENTS.md", "RUNTIME-CONSTITUTION.md", "skills/"],
+  "known_blind_spots": ["prompt-level routing", "external agent launcher semantics", "human approval workflow"]
+}

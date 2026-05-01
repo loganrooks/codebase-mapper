@@ -515,3 +515,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Phase D did not turn CBM into a code mutator or auto-executor; approval remains explicit.
   - Contract check: New Phase D artifacts validate and are included in handoff.
   - Reviewer-eye check: The largest objection is legitimate: "subagent" is currently represented by a skill plus CLI boundary, not by actual platform subagent invocation. This should remain visible until platform integration work closes it.
+
+## 2026-05-01 — Phase E slice: project-pack detection
+
+- Implemented: bundled project packs under `cbm/project_packs/*.json` for Python packages, Django, Rails, Phoenix, MCP servers, agent orchestration projects, and monorepos.
+- Implemented: `project-type.json` as a Phase 0 detection artifact written during `cbm init`, with evidence citations, extractor annotations, authority hints, and known blind spots.
+- Implemented: handoff now includes the project-type report when present.
+- Verification run:
+  - `pytest -q` passed: 27 tests, including project-pack loading, project-type schema validation, Python package detection, and handoff inclusion.
+- Self-critique:
+  - Drift check: Project-type signals are reported in a separate artifact and do not contaminate goal-agnostic maps yet.
+  - Contract check: Detections cite source files and carry pack annotations through `schemas/project-type.schema.json`.
+  - Reviewer-eye check: Detection is intentionally manifest/content-marker based. It does not yet modify extractor registry behavior based on the detected pack.
