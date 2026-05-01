@@ -490,3 +490,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Approval remains a plan artifact; the system does not auto-approve or execute commands.
   - Contract check: Every approval item records source artifact, action, risk level, status, safety envelope, and rationale.
   - Reviewer-eye check: This is a file-based manual approval UX, not an interactive approval prompt. It satisfies the deep-mode artifact boundary while preserving explicit human control.
+
+## 2026-05-01 — Phase D slice: Tracer skill
+
+- Implemented: `skills/tracer.md`, defining the runtime Tracer protocol for workflow seed selection, evidence classification, ordered steps, unknown preservation, refinement feedback, and anti-patterns.
+- Verification run:
+  - `pytest -q` passed: 26 tests, including a shipping check for the Tracer skill and its workflow-trace schema reference.
+- Self-critique:
+  - Drift check: The skill keeps static projections distinct from observed runtime behavior and forbids confidence inflation without runtime or command evidence.
+  - Contract check: The skill points to `schemas/workflow-trace.schema.json` and requires citation resolution, unknowns, and refinement feedback.
+  - Reviewer-eye check: This adds the missing skill surface. The current CLI still implements a deterministic tracer command rather than launching an isolated Tracer subagent.

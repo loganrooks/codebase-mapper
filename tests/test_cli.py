@@ -303,6 +303,14 @@ def test_deep_run_writes_workflow_trace(tmp_path: Path) -> None:
     assert any(input_item["path"].endswith("workflow-traces/trace-0001.json") for input_item in frontmatter["inputs"])
 
 
+def test_tracer_skill_is_shipped() -> None:
+    skill = SOURCE_ROOT / "skills" / "tracer.md"
+    text = skill.read_text(encoding="utf-8")
+    assert "# Skill: Tracer" in text
+    assert "schemas/workflow-trace.schema.json" in text
+    assert "Do not mark challenges resolved without new evidence." in text
+
+
 def test_deep_run_writes_refinement_report(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
