@@ -1041,6 +1041,60 @@ def test_interpretive_refresh_emits_successor_surface_and_delta(tmp_path: Path) 
     assert any(item["register_id"] == "unc-00001" and item["post_refresh_status"] == "still_open" for item in delta_data["open_questions_reconciled"])
 
 
+def test_interpretive_refresh_marks_replaced_challenge_resolved(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-refresh-replacement"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    old_surface = repo / ".research" / run_id / "surface-map.json"
+    surface_data = json.loads(old_surface.read_text(encoding="utf-8"))
+    import_edge = next(edge for edge in surface_data["edges"] if edge["kind"] == "import")
+    assert (
+        main(
+            [
+                "challenge",
+                str(old_surface),
+                "--repo",
+                str(repo),
+                "--claim-id",
+                import_edge["id"],
+                "--competing-reading",
+                "The imported target may be a placeholder that refresh should replace if the test imports a different module.",
+                "--evidence",
+                import_edge["citations"][0],
+                "--rationale",
+                "A refresh should preserve whether this disputed edge survives or is replaced.",
+            ]
+        )
+        == 0
+    )
+    challenged_surface = json.loads(old_surface.read_text(encoding="utf-8"))
+    challenged_import = next(edge for edge in challenged_surface["edges"] if edge["id"] == import_edge["id"])
+    challenge_id = challenged_import["challenges"][0]["challenge_id"]
+
+    (repo / "src" / "util.py").write_text("def hello():\n    return 'hello'\n", encoding="utf-8")
+    (repo / "tests" / "test_app.py").write_text("from src.util import hello\n\n\ndef test_hello():\n    assert hello() == 'hello'\n", encoding="utf-8")
+    git(repo, "add", "src/util.py", "tests/test_app.py")
+    git(repo, "commit", "-m", "replace test import target")
+
+    assert main(["refresh", str(old_surface), "--repo", str(repo), "--mode", "interpretive"]) == 0
+
+    delta = next((repo / ".research" / run_id / "refreshes").glob("refresh-delta-interpretive-*.json"))
+    assert main(["validate", str(delta), "--repo", str(repo)]) == 0
+    delta_data = json.loads(delta.read_text(encoding="utf-8"))
+    replaced = next(item for item in delta_data["retracted"] if item["claim_id"] == import_edge["id"])
+    assert replaced["superseded_by"].startswith("edge-import-")
+    assert any(
+        item["challenge_id"] == challenge_id and item["post_refresh_status"] == "resolved_by_refresh"
+        for item in delta_data["challenges_carried_forward"]
+    )
+
+
 def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

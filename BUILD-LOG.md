@@ -910,3 +910,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Refresh now carries known unknowns through time rather than treating trajectory as only file and claim diffs.
   - Contract check: This uses the existing `refresh-delta.schema.json` `open_questions_reconciled` field without schema changes.
   - Reviewer-eye check: The current implementation conservatively marks open questions as still open; it does not attempt to prove resolution during deterministic refresh.
+
+## 2026-05-01 — Refresh slice: replacement challenge classification
+
+- Implemented: interpretive refresh now detects a same-kind successor edge/authority when a challenged prior claim disappears, records `superseded_by`, and classifies carried-forward challenge status as `resolved_by_refresh`.
+- Implemented: unmatched challenged claims without a replacement continue to be classified as `obsolete_target_retracted`.
+- Verification run:
+  - `pytest -q` passed: 38 tests, including a new regression where a challenged import edge is replaced by a new import target and the refresh delta records the challenge as resolved by refresh.
+- Self-critique:
+  - Drift check: Refresh now records more precise challenge trajectory instead of treating every disappeared challenged claim as merely obsolete.
+  - Contract check: This uses existing `retracted.superseded_by` and `challenges_carried_forward.post_refresh_status` schema fields.
+  - Reviewer-eye check: Replacement detection is heuristic: same claim kind, extractor, and source side. It does not prove semantic equivalence.

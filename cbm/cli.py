@@ -2800,6 +2800,30 @@ def surface_claims_by_signature(surface: dict[str, Any]) -> dict[str, tuple[str,
     return claims
 
 
+def refresh_replacement_claim(prior_kind: str, prior_claim: dict[str, Any], successors: dict[str, tuple[str, dict[str, Any]]]) -> dict[str, Any] | None:
+    if prior_kind == "authority":
+        for successor_kind, successor_claim in successors.values():
+            if (
+                successor_kind == "authority"
+                and successor_claim.get("kind") == prior_claim.get("kind")
+                and successor_claim.get("path") == prior_claim.get("path")
+            ):
+                return successor_claim
+        return None
+    prior_from = prior_claim.get("from", {})
+    for successor_kind, successor_claim in successors.values():
+        successor_from = successor_claim.get("from", {})
+        if (
+            successor_kind == "edge"
+            and successor_claim.get("kind") == prior_claim.get("kind")
+            and successor_claim.get("extractor_id") == prior_claim.get("extractor_id")
+            and successor_from.get("path") == prior_from.get("path")
+            and successor_from.get("symbol") == prior_from.get("symbol")
+        ):
+            return successor_claim
+    return None
+
+
 def carry_forward_review_state(prior_claim: dict[str, Any], successor_claim: dict[str, Any]) -> None:
     successor_claim["claim_status"] = prior_claim.get("claim_status", successor_claim["claim_status"])
     if "challenges" in prior_claim:
@@ -2827,16 +2851,29 @@ def interpretive_refresh_delta(
     newly_added: list[dict[str, Any]] = []
     challenges_carried_forward: list[dict[str, Any]] = []
 
-    for signature, (_, prior_claim) in sorted(prior_claims.items()):
+    for signature, (prior_kind, prior_claim) in sorted(prior_claims.items()):
         successor_entry = successor_claims.get(signature)
         if not successor_entry:
+            replacement = refresh_replacement_claim(prior_kind, prior_claim, successor_claims)
+            retracted_claim = {
+                "claim_id": prior_claim["id"],
+                "rationale": "No matching surface claim exists after differential refresh at current HEAD.",
+            }
+            if replacement:
+                retracted_claim["superseded_by"] = replacement["id"]
             retracted.append(
-                {
-                    "claim_id": prior_claim["id"],
-                    "rationale": "No matching surface claim exists after differential refresh at current HEAD.",
-                }
+                retracted_claim
             )
             for challenge in prior_claim.get("challenges", []):
+                if replacement:
+                    challenges_carried_forward.append(
+                        {
+                            "challenge_id": challenge["challenge_id"],
+                            "post_refresh_status": "resolved_by_refresh",
+                            "rationale": f"The challenged claim was replaced by successor claim {replacement['id']}.",
+                        }
+                    )
+                    continue
                 challenges_carried_forward.append(
                     {
                         "challenge_id": challenge["challenge_id"],
