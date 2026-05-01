@@ -500,3 +500,18 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The skill keeps static projections distinct from observed runtime behavior and forbids confidence inflation without runtime or command evidence.
   - Contract check: The skill points to `schemas/workflow-trace.schema.json` and requires citation resolution, unknowns, and refinement feedback.
   - Reviewer-eye check: This adds the missing skill surface. The current CLI still implements a deterministic tracer command rather than launching an isolated Tracer subagent.
+
+## 2026-05-01 — Phase D disposition
+
+- Acceptance status: partial pass for the CLI/artifact kernel, with one explicit platform-integration gap.
+- Met: Tracer skill exists and the deterministic tracer command emits schema-valid `workflow-traces/trace-0001.json`.
+- Met: deep mode is mode-aware and produces standard maps, Skeptic reviews, goal binding, workflow traces, refinement reports, approval plans, and handoff.
+- Met: multi-round refinement has a durable protocol artifact that keeps challenges and trace unknowns live with re-entry targets.
+- Met: manual approval has a durable UX artifact listing pending command execution and manual-review approvals with safety envelopes.
+- Gap: the implementation does not yet launch an isolated Tracer subagent; it uses the deterministic `cbm trace-workflows` command as the current runtime boundary.
+- Verification run:
+  - `pytest -q` passed: 26 tests.
+- Self-critique:
+  - Drift check: Phase D did not turn CBM into a code mutator or auto-executor; approval remains explicit.
+  - Contract check: New Phase D artifacts validate and are included in handoff.
+  - Reviewer-eye check: The largest objection is legitimate: "subagent" is currently represented by a skill plus CLI boundary, not by actual platform subagent invocation. This should remain visible until platform integration work closes it.
