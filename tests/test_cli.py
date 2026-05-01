@@ -329,6 +329,30 @@ def test_deep_run_writes_refinement_report(tmp_path: Path) -> None:
     assert any(input_item["path"].endswith("refinements/refinement-0001.json") for input_item in frontmatter["inputs"])
 
 
+def test_deep_run_writes_approval_plan(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    assert main(["run", "--repo", str(repo), "--goal", "add greeting behavior", "--goal-class", "feature_add", "--mode", "deep", "--run-id", "run-deep-approval"]) == 0
+
+    run_dir = repo / ".research" / "run-deep-approval"
+    plan = run_dir / "approvals" / "approval-plan.json"
+    handoff = run_dir / "handoff.md"
+    assert plan.exists()
+    assert main(["validate", str(plan), "--repo", str(repo)]) == 0
+    data = json.loads(plan.read_text(encoding="utf-8"))
+    assert data["artifact_type"] == "approval_plan"
+    assert any(item["approval_kind"] == "command_execution" and item["approval_status"] == "pending" for item in data["approval_items"])
+    assert any(item["approval_kind"] == "manual_review" and item["approval_status"] == "pending" for item in data["approval_items"])
+    assert all("safety_envelope" in item for item in data["approval_items"])
+
+    frontmatter = yaml.safe_load(handoff.read_text(encoding="utf-8").split("---", 2)[1])
+    assert "approval_plan" in [artifact["artifact_type"] for artifact in frontmatter["artifacts"]]
+    assert any(input_item["path"].endswith("approvals/approval-plan.json") for input_item in frontmatter["inputs"])
+
+
 def test_stop_hook_validates_latest_handoff(tmp_path: Path, monkeypatch, capsys) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

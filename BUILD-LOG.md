@@ -478,3 +478,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The refinement report keeps uncertainty and contestation live; it does not mark challenges resolved without new evidence.
   - Contract check: Every refinement item carries source artifact, claim id, disposition, re-entry targets, rationale, and citations.
   - Reviewer-eye check: This is the durable protocol boundary for multi-round refinement, not a full second mapper/tracer execution loop. The next deeper slice would consume these re-entry targets to decide whether to run another mapper/tracer round.
+
+## 2026-05-01 — Phase D slice: approval plan
+
+- Implemented: `schemas/approval-plan.schema.json` for deep-mode manual approval items covering command execution and refinement escalation.
+- Implemented: `cbm-approval-plan` / `cbm approval-plan`, which reads `verification-map.json` and refinement reports, then writes `approvals/approval-plan.json` with pending approval items and safety envelopes.
+- Implemented: deep `cbm run` now writes the approval plan before handoff, and handoff includes it as an artifact and input.
+- Verification run:
+  - `pytest -q` passed: 25 tests, including approval-plan schema validation, command-execution approvals, manual-review approvals, safety envelope presence, and handoff inclusion.
+- Self-critique:
+  - Drift check: Approval remains a plan artifact; the system does not auto-approve or execute commands.
+  - Contract check: Every approval item records source artifact, action, risk level, status, safety envelope, and rationale.
+  - Reviewer-eye check: This is a file-based manual approval UX, not an interactive approval prompt. It satisfies the deep-mode artifact boundary while preserving explicit human control.

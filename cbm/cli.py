@@ -332,6 +332,7 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "verification_map": "verification-map.schema.json",
         "workflow_trace": "workflow-trace.schema.json",
         "refinement_report": "refinement-report.schema.json",
+        "approval_plan": "approval-plan.schema.json",
     }
     name = mapping.get(artifact_type)
     if not name:
@@ -1674,6 +1675,115 @@ def command_refine(args: argparse.Namespace) -> int:
     return 0
 
 
+def risk_for_envelope(envelope: dict[str, Any]) -> str:
+    if envelope.get("requires_network") or envelope.get("requires_install") or envelope.get("mutates_filesystem"):
+        return "high"
+    if envelope.get("max_duration_seconds", 0) > 120:
+        return "medium"
+    return "low"
+
+
+def command_approval_plan(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    verification_path = paths.run_dir / "verification-map.json"
+    refinement_paths = sorted((paths.run_dir / "refinements").glob("*.json")) if (paths.run_dir / "refinements").exists() else []
+    inputs: list[dict[str, str]] = []
+    approval_items: list[dict[str, Any]] = []
+    source = source_sha(repo)
+    if verification_path.exists():
+        verification_map = read_json(verification_path)
+        source = verification_map["source_sha"]
+        inputs.append({"path": str(verification_path.relative_to(repo)), "sha256": sha256_file(verification_path)})
+        for gate in verification_map.get("ci_gates", []):
+            command = gate.get("command")
+            if not command:
+                continue
+            envelope = command["safety_envelope"]
+            approval_items.append(
+                {
+                    "approval_id": f"apv-{len(approval_items) + 1:04d}",
+                    "source_artifact": str(verification_path.relative_to(repo)),
+                    "source_ref": gate["id"],
+                    "approval_kind": "command_execution",
+                    "action": f"Run gate {gate['id']}: {' '.join(command['argv'])}",
+                    "risk_level": risk_for_envelope(envelope),
+                    "approval_status": "pending",
+                    "safety_envelope": envelope,
+                    "rationale": "Deep mode requires explicit approval before command execution, even when the safety envelope is low risk.",
+                }
+            )
+    for refinement_path in refinement_paths:
+        refinement = read_json(refinement_path)
+        source = refinement["source_sha"]
+        inputs.append({"path": str(refinement_path.relative_to(repo)), "sha256": sha256_file(refinement_path)})
+        for item in refinement["refinements"]:
+            if "manual_review" not in item["reentry_targets"]:
+                continue
+            approval_items.append(
+                {
+                    "approval_id": f"apv-{len(approval_items) + 1:04d}",
+                    "source_artifact": str(refinement_path.relative_to(repo)),
+                    "source_ref": item["item_id"],
+                    "approval_kind": "manual_review",
+                    "action": f"Review refinement item {item['item_id']} before escalating {item['claim_id']}.",
+                    "risk_level": "medium",
+                    "approval_status": "pending",
+                    "safety_envelope": {
+                        "requires_network": False,
+                        "requires_install": False,
+                        "mutates_filesystem": False,
+                        "max_duration_seconds": 1,
+                        "declared_output_paths": [],
+                    },
+                    "rationale": "Manual review is required because this refinement item depends on human adjudication before confidence can increase.",
+                }
+            )
+    if not inputs:
+        print("no verification-map.json or refinement reports found for approval planning", file=sys.stderr)
+        return 1
+    if not approval_items:
+        approval_items.append(
+            {
+                "approval_id": "apv-0001",
+                "source_artifact": inputs[0]["path"],
+                "approval_kind": "manual_review",
+                "action": "Confirm no manual approval items are required for this run.",
+                "risk_level": "low",
+                "approval_status": "not_required",
+                "safety_envelope": {
+                    "requires_network": False,
+                    "requires_install": False,
+                    "mutates_filesystem": False,
+                    "max_duration_seconds": 1,
+                    "declared_output_paths": [],
+                },
+                "rationale": "No runnable gates or manual-review refinement items were present, so approval is recorded as not required.",
+            }
+        )
+    plan_path = paths.run_dir / "approvals" / "approval-plan.json"
+    plan = {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "approval_plan",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "approval-planner@0.1",
+        "source_sha": source,
+        "inputs": inputs,
+        "status": "draft",
+        "approval_items": approval_items,
+        "summary": "Deep-mode approval plan lists command execution and manual review actions that require explicit approval before proceeding.",
+    }
+    errors = validate_data(repo, plan, "approval_plan")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    write_json(plan_path, plan)
+    print(plan_path)
+    return 0
+
+
 def command_validate(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.artifact)
@@ -2764,6 +2874,10 @@ def command_handoff(args: argparse.Namespace) -> int:
     for refinement_path in refinement_paths:
         artifacts.insert(-1, {"path": str(refinement_path.relative_to(repo)), "artifact_type": "refinement_report", "status": "draft", "summary": "Deep-mode refinement disposition report."})
         handoff_inputs.insert(-1, {"path": str(refinement_path.relative_to(repo)), "sha256": sha256_file(refinement_path)})
+    approval_path = paths.run_dir / "approvals" / "approval-plan.json"
+    if approval_path.exists():
+        artifacts.insert(-1, {"path": str(approval_path.relative_to(repo)), "artifact_type": "approval_plan", "status": "draft", "summary": "Deep-mode manual approval plan."})
+        handoff_inputs.insert(-1, {"path": str(approval_path.relative_to(repo)), "sha256": sha256_file(approval_path)})
     handoff = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "handoff",
@@ -2876,6 +2990,7 @@ def command_run(args: argparse.Namespace) -> int:
         commands.append((command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)))
         commands.append((command_trace_workflows, map_args))
         commands.append((command_refine, map_args))
+        commands.append((command_approval_plan, map_args))
     else:
         commands.append((command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)))
     commands.append((command_handoff, map_args))
@@ -2992,6 +3107,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_refine.add_argument("--repo", default=".")
     p_refine.add_argument("--run-id")
     p_refine.set_defaults(func=command_refine)
+    p_approval = sub.add_parser("approval-plan")
+    p_approval.add_argument("--repo", default=".")
+    p_approval.add_argument("--run-id")
+    p_approval.set_defaults(func=command_approval_plan)
     p_validate = sub.add_parser("validate")
     p_validate.add_argument("artifact")
     p_validate.add_argument("--repo", default=".")
@@ -3100,6 +3219,10 @@ def trace_workflows_main() -> int:
 
 def refine_main() -> int:
     return main(["refine", *sys.argv[1:]])
+
+
+def approval_plan_main() -> int:
+    return main(["approval-plan", *sys.argv[1:]])
 
 
 def validate_main() -> int:
