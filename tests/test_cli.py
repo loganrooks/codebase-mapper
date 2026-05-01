@@ -109,6 +109,8 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     frontmatter = yaml.safe_load(handoff.read_text(encoding="utf-8").split("---", 2)[1])
     assert frontmatter["gate_summary"]["schema_validation"]["passed"] == len(frontmatter["artifacts"])
     assert frontmatter["gate_summary"]["schema_validation"]["failed_artifacts"] == []
+    assert frontmatter["gate_summary"]["staleness_check"]["fresh"] == len(frontmatter["inputs"])
+    assert frontmatter["gate_summary"]["staleness_check"]["stale_artifacts"] == []
     assert frontmatter["gate_summary"]["citation_resolution"]["unresolved_count"] == 0
     assert frontmatter["gate_summary"]["ledger_consistency"]["append_only_verified"] is True
     assert frontmatter["gate_summary"]["ledger_consistency"]["entry_count"] >= 3

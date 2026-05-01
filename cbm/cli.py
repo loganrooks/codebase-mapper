@@ -315,6 +315,17 @@ def coverage_caveats(coverage: dict[str, Any]) -> list[str]:
     ]
 
 
+def input_staleness(repo: Path, inputs: list[dict[str, str]]) -> dict[str, Any]:
+    stale_artifacts = []
+    for input_item in inputs:
+        input_path = repo / input_item["path"]
+        if not input_path.exists():
+            stale_artifacts.append(f"missing: {input_item['path']}")
+        elif sha256_file(input_path) != input_item["sha256"]:
+            stale_artifacts.append(f"input hash changed: {input_item['path']}")
+    return {"fresh": len(inputs) - len(stale_artifacts), "stale_artifacts": stale_artifacts}
+
+
 def scope_signature(paths: list[str]) -> str:
     return sha256_text("\n".join(sorted(paths)))
 
@@ -3576,7 +3587,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             "schema_validation": {"passed": len(artifacts) - len(failed_artifacts), "failed_artifacts": failed_artifacts},
             "citation_resolution": {"resolved": 1 if citation_ok else 0, "unresolved_count": 0 if citation_ok else 1, "unresolved_examples": [] if citation_ok else [f"{citation}: {citation_reason}"]},
             "ledger_consistency": {"append_only_verified": ledger_append_only_ok and not missing_ledger_citations, "entry_count": ledger_count(ledger_path)},
-            "staleness_check": {"fresh": 3 if binding else 2, "stale_artifacts": []},
+            "staleness_check": input_staleness(repo, handoff_inputs),
             "skeptic_review": {"artifacts_reviewed": 1, "challenges_logged": challenge_count, "challenges_resolved": 0},
         },
         "contestation_summary": contestation_summary,
