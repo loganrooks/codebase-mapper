@@ -2013,6 +2013,31 @@ def command_verify_citations(args: argparse.Namespace) -> int:
     return 0 if failed == 0 else 1
 
 
+def command_gate_artifact(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    path = Path(args.artifact)
+    if not path.is_absolute():
+        path = repo / path
+    failures: list[str] = []
+    try:
+        data, body = load_artifact_frontmatter(path)
+        artifact_type = infer_artifact_type(path, data)
+        failures.extend(f"schema: {error}" for error in validate_data(repo, data, artifact_type))
+        for citation in sorted(set(extract_citations(data) + extract_citations(body))):
+            ok, reason = resolve_citation(repo, citation)
+            if not ok:
+                failures.append(f"citation: {citation}: {reason}")
+        failures.extend(f"evidence: {error}" for error in check_claim_evidence(data))
+    except Exception as exc:
+        failures.append(str(exc))
+    if failures:
+        for failure in failures:
+            print(f"gate-fail {failure}")
+        return 2
+    print(f"gate-ok {path}")
+    return 0
+
+
 def command_stale(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.artifact)
@@ -3338,6 +3363,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_verify.add_argument("artifact")
     p_verify.add_argument("--repo", default=".")
     p_verify.set_defaults(func=command_verify_citations)
+    p_gate_artifact = sub.add_parser("gate-artifact")
+    p_gate_artifact.add_argument("artifact")
+    p_gate_artifact.add_argument("--repo", default=".")
+    p_gate_artifact.set_defaults(func=command_gate_artifact)
     p_stale = sub.add_parser("stale")
     p_stale.add_argument("artifact")
     p_stale.add_argument("--repo", default=".")
@@ -3454,6 +3483,10 @@ def check_evidence_main() -> int:
 
 def verify_citations_main() -> int:
     return main(["verify-citations", *sys.argv[1:]])
+
+
+def gate_artifact_main() -> int:
+    return main(["gate-artifact", *sys.argv[1:]])
 
 
 def stale_main() -> int:

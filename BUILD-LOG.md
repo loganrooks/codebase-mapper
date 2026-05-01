@@ -595,3 +595,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The Stop hook remains a gate; it does not rewrite artifacts or decide whether failures are acceptable.
   - Contract check: The final platform hook now checks schema, handoff input freshness, and claim-evidence discipline.
   - Reviewer-eye check: This catches post-handoff mutation and evidence-invalid surfaces, but generalized post-write hooks are still not modeled as a separate reusable runner.
+
+## 2026-05-01 — Guardrail slice: reusable artifact gate
+
+- Implemented: `cbm-gate-artifact` / `cbm gate-artifact`, which runs schema validation, citation resolution, and claim-evidence checks through one deterministic command.
+- Verification run:
+  - `pytest -q` passed: 32 tests, including a gate-artifact regression that catches both unresolved citations and invalid evidence on an otherwise JSON-loadable surface map.
+- Self-critique:
+  - Drift check: The command is a gate only; it does not mutate artifacts or interpret failures.
+  - Contract check: This provides the reusable entry point required by the post-artifact-write hook contract.
+  - Reviewer-eye check: Platform adapters still need to call this command at the right lifecycle points; this slice makes that possible without encoding platform syntax.

@@ -315,6 +315,28 @@ def test_check_evidence_enforces_claim_requirements(tmp_path: Path) -> None:
     assert main(["check-evidence", str(invalid_surface), "--repo", str(repo)]) == 2
 
 
+def test_gate_artifact_runs_schema_citation_and_evidence_checks(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-gate-artifact"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    surface = repo / ".research" / run_id / "surface-map.json"
+    assert main(["gate-artifact", str(surface), "--repo", str(repo)]) == 0
+    data = json.loads(surface.read_text(encoding="utf-8"))
+    call_edge = next(edge for edge in data["edges"] if edge["kind"] == "call")
+    call_edge["citations"] = ["missing.py:1@abcdef1"]
+    call_edge["evidence_kinds"] = ["static_structure"]
+    bad_surface = repo / ".research" / run_id / "surface-map.bad-gate.json"
+    bad_surface.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    assert main(["gate-artifact", str(bad_surface), "--repo", str(repo)]) == 2
+
+
 def test_handoff_rejects_evidence_invalid_surface(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
