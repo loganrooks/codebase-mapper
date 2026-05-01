@@ -2647,6 +2647,8 @@ def command_verify(args: argparse.Namespace) -> int:
     citations = artifact_citations(path)
     results = [verify_citation_at_head(repo, citation) for citation in citations]
     data, _ = load_artifact_frontmatter(path)
+    registry_errors = extractor_registry_errors_for_artifact(repo, data)
+    evidence_errors = check_claim_evidence(data, extractors_for_artifact(repo, data))
     contestation = verify_contestation_propagation(repo, data)
     confidence_check = verify_card_confidence(data)
     coverage_check = verify_card_coverage_honesty(data)
@@ -2657,6 +2659,8 @@ def command_verify(args: argparse.Namespace) -> int:
         "artifact_path": str(path.relative_to(repo)) if path.is_relative_to(repo) else str(path),
         "head_sha": source_sha(repo),
         "results": results,
+        "extractor_registry": {"errors": registry_errors},
+        "claim_evidence": {"errors": evidence_errors},
         "contestation_propagation": contestation,
         "card_confidence": confidence_check,
         "coverage_honesty": coverage_check,
@@ -2665,6 +2669,8 @@ def command_verify(args: argparse.Namespace) -> int:
             "needs_review": sum(1 for item in results if item["status"] == "needs_review"),
             "broken": sum(1 for item in results if item["status"] == "broken"),
             "missing_citations": 0 if results else 1,
+            "extractor_registry_errors": len(registry_errors),
+            "claim_evidence_errors": len(evidence_errors),
             "contestation_missing": len(contestation["missing"]),
             "contestation_stale": len(contestation["stale"]),
             "confidence_violations": len(confidence_check["violations"]),
@@ -2677,6 +2683,10 @@ def command_verify(args: argparse.Namespace) -> int:
     write_json(output_path, report)
     for item in results:
         print(f"{item['status']} {item['citation']} {item['reason']}")
+    for error in registry_errors:
+        print(f"extractor_registry_error {error}")
+    for error in evidence_errors:
+        print(f"claim_evidence_error {error}")
     for item in contestation["missing"]:
         print(f"contestation_missing {item['claim_artifact']} {item['claim_id']} {','.join(item['missing_challenge_ids'])}")
     for item in contestation["stale"]:
@@ -2695,6 +2705,8 @@ def command_verify(args: argparse.Namespace) -> int:
         if report["summary"]["needs_review"] == 0
         and report["summary"]["broken"] == 0
         and report["summary"]["missing_citations"] == 0
+        and report["summary"]["extractor_registry_errors"] == 0
+        and report["summary"]["claim_evidence_errors"] == 0
         and report["summary"]["contestation_missing"] == 0
         and report["summary"]["contestation_stale"] == 0
         and report["summary"]["confidence_violations"] == 0

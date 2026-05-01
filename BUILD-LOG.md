@@ -1144,3 +1144,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Claim evidence validation no longer depends on a separately-run registry validation command.
   - Contract check: Registry failures are surfaced through existing command error paths and do not change artifact schemas.
   - Reviewer-eye check: Missing registry files still remain tolerated for legacy or external artifacts; invalid registries fail when present.
+
+## 2026-05-01 — Verify slice: evidence and registry checks
+
+- Implemented: `cbm verify` now includes extractor-registry health and claim-evidence requirement checks in the durable verify report.
+- Implemented: verify summaries now report `extractor_registry_errors` and `claim_evidence_errors`, and the command exits nonzero when either count is nonzero.
+- Verification run:
+  - Focused regressions passed: `pytest -q tests/test_cli.py::test_check_evidence_enforces_claim_requirements` and `pytest -q tests/test_cli.py::test_verify_reports_missing_card_contestation tests/test_cli.py::test_verify_commands_reject_artifacts_without_citations`.
+- Self-critique:
+  - Drift check: The durable verify report is no longer weaker than the artifact gate for evidence-bound artifacts.
+  - Contract check: This adds report fields to the generated `verify_report` artifact, which currently has no dedicated schema.
+  - Reviewer-eye check: Schema validation itself is still handled by `cbm validate` and `cbm gate-artifact`; `cbm verify` remains focused on freshness and semantic guardrails.

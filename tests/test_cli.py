@@ -504,6 +504,10 @@ def test_check_evidence_enforces_claim_requirements(tmp_path: Path) -> None:
     assert main(["validate", str(unsupported_evidence), "--repo", str(repo)]) == 0
     assert main(["check-evidence", str(unsupported_evidence), "--repo", str(repo)]) == 2
     assert main(["gate-artifact", str(unsupported_evidence), "--repo", str(repo)]) == 2
+    report = repo / ".research" / run_id / "verify-report.json"
+    assert main(["verify", str(unsupported_evidence), "--repo", str(repo), "--output", str(report)]) == 2
+    verify_report = json.loads(report.read_text(encoding="utf-8"))
+    assert verify_report["summary"]["claim_evidence_errors"] >= 1
 
     registry = repo / ".research" / run_id / "extractor-registry.json"
     registry_data = json.loads(registry.read_text(encoding="utf-8"))
@@ -512,6 +516,9 @@ def test_check_evidence_enforces_claim_requirements(tmp_path: Path) -> None:
     assert main(["validate", str(surface), "--repo", str(repo)]) == 0
     assert main(["check-evidence", str(surface), "--repo", str(repo)]) == 2
     assert main(["gate-artifact", str(surface), "--repo", str(repo)]) == 2
+    assert main(["verify", str(surface), "--repo", str(repo), "--output", str(report)]) == 2
+    verify_report = json.loads(report.read_text(encoding="utf-8"))
+    assert verify_report["summary"]["extractor_registry_errors"] == 1
 
 
 def test_gate_artifact_runs_schema_citation_and_evidence_checks(tmp_path: Path) -> None:
