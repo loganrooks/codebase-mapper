@@ -627,9 +627,11 @@ def write_ledger_integrity_manifest(ledger_path: Path) -> None:
     write_json(manifest_path, manifest)
 
 
-def verify_ledger_append_only(ledger_path: Path) -> tuple[bool, str]:
+def verify_ledger_append_only(ledger_path: Path, require_manifest: bool = False) -> tuple[bool, str]:
     manifest_path = ledger_integrity_path(ledger_path)
     if not manifest_path.exists():
+        if require_manifest:
+            return False, "integrity manifest is missing"
         return True, "no integrity manifest yet"
     manifest = read_json(manifest_path)
     expected_hashes = manifest.get("line_hashes", [])
@@ -660,7 +662,7 @@ def append_ledger_entry(repo: Path, ledger_path: Path, entry: dict[str, Any]) ->
     errors = validate_ledger_entry(repo, entry)
     if errors:
         raise ValueError("\n".join(errors))
-    ok, reason = verify_ledger_append_only(ledger_path)
+    ok, reason = verify_ledger_append_only(ledger_path, require_manifest=True)
     if not ok:
         raise ValueError(f"ledger append-only verification failed: {reason}")
     append_jsonl(ledger_path, entry)
@@ -668,7 +670,7 @@ def append_ledger_entry(repo: Path, ledger_path: Path, entry: dict[str, Any]) ->
 
 
 def append_uncertainty_entry(uncertainty_path: Path, entry: dict[str, Any]) -> None:
-    ok, reason = verify_ledger_append_only(uncertainty_path)
+    ok, reason = verify_ledger_append_only(uncertainty_path, require_manifest=True)
     if not ok:
         raise ValueError(f"uncertainty register append-only verification failed: {reason}")
     append_jsonl(uncertainty_path, entry)
@@ -3570,7 +3572,7 @@ def command_handoff(args: argparse.Namespace) -> int:
     skeptic_path = skeptic_dir / "surface-map.md"
     ledger_path = paths.run_dir / "evidence-ledger.jsonl"
     uncertainty_path = paths.run_dir / "uncertainty-register.jsonl"
-    uncertainty_append_only_ok, uncertainty_append_only_reason = verify_ledger_append_only(uncertainty_path)
+    uncertainty_append_only_ok, uncertainty_append_only_reason = verify_ledger_append_only(uncertainty_path, require_manifest=True)
     if not uncertainty_append_only_ok:
         print(f"uncertainty register append-only verification failed: {uncertainty_append_only_reason}", file=sys.stderr)
         return 1
@@ -3839,7 +3841,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         handoff_inputs.insert(-1, {"path": str(approval_path.relative_to(repo)), "sha256": sha256_file(approval_path)})
     citation_resolution = artifact_bundle_citation_resolution(repo, artifacts)
     missing_ledger_citations = sorted(citation_resolution["citations"] - ledger_citations(ledger_path))
-    ledger_append_only_ok, ledger_append_only_reason = verify_ledger_append_only(ledger_path)
+    ledger_append_only_ok, ledger_append_only_reason = verify_ledger_append_only(ledger_path, require_manifest=True)
     claim_refs = [(str(surface_path.relative_to(repo)), claim) for claim in all_artifact_claims(surface)]
     for split_path in [paths.run_dir / "authority-map.json", paths.run_dir / "dependency-graph.json"]:
         if split_path.exists():
@@ -4034,11 +4036,11 @@ def command_hook_stop(args: argparse.Namespace) -> int:
             surface = read_json(surface_path)
             errors.extend(check_claim_evidence(surface, extractors_for_artifact(repo, surface)))
         ledger_path = run_dir / "evidence-ledger.jsonl"
-        ledger_append_only_ok, ledger_append_only_reason = verify_ledger_append_only(ledger_path)
+        ledger_append_only_ok, ledger_append_only_reason = verify_ledger_append_only(ledger_path, require_manifest=True)
         if not ledger_append_only_ok:
             errors.append(f"ledger append-only verification failed: {ledger_append_only_reason}")
         uncertainty_path = run_dir / "uncertainty-register.jsonl"
-        uncertainty_append_only_ok, uncertainty_append_only_reason = verify_ledger_append_only(uncertainty_path)
+        uncertainty_append_only_ok, uncertainty_append_only_reason = verify_ledger_append_only(uncertainty_path, require_manifest=True)
         if not uncertainty_append_only_ok:
             errors.append(f"uncertainty register append-only verification failed: {uncertainty_append_only_reason}")
         for artifact in data.get("artifacts", []):

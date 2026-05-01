@@ -916,6 +916,22 @@ def test_ledger_integrity_detects_mutated_existing_line(tmp_path: Path) -> None:
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 1
 
 
+def test_handoff_rejects_missing_ledger_integrity_manifest(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-ledger-sidecar-missing"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    (repo / ".research" / run_id / "evidence-ledger.jsonl.integrity.json").unlink()
+
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 1
+
+
 def test_stop_hook_rejects_mutated_uncertainty_register(tmp_path: Path, monkeypatch, capsys) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
@@ -936,6 +952,24 @@ def test_stop_hook_rejects_mutated_uncertainty_register(tmp_path: Path, monkeypa
     output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert output["continue"] is False
     assert "uncertainty register append-only verification failed" in output["systemMessage"]
+
+
+def test_stop_hook_rejects_missing_uncertainty_integrity_manifest(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+    run_id = "run-uncertainty-sidecar-missing"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+
+    (repo / ".research" / run_id / "uncertainty-register.jsonl.integrity.json").unlink()
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": str(repo)})))
+    assert main(["hook-stop", "--repo", str(repo)]) == 0
+    output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert output["continue"] is False
+    assert "uncertainty register append-only verification failed" in output["systemMessage"]
+    assert "integrity manifest is missing" in output["systemMessage"]
 
 
 def test_stale_detects_changed_input_and_dependent_path(tmp_path: Path) -> None:

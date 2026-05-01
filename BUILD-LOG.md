@@ -1009,3 +1009,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The stop hook now enforces both append-only audit logs instead of only validating handoff/card surfaces.
   - Contract check: This implements the existing hook rejection contract without changing artifact formats.
   - Reviewer-eye check: As with the uncertainty register, this detects changed prior lines when the sidecar exists; separate sidecar deletion hardening remains a future guardrail.
+
+## 2026-05-01 — Guardrail slice: required integrity manifests
+
+- Implemented: append-only verification can now require an integrity manifest, and current-run ledger/register append paths require it after `cbm-init` creates the sidecars.
+- Implemented: handoff and stop-hook gates fail closed when required integrity sidecars are missing, preventing sidecar deletion from resetting append-only history.
+- Verification run:
+  - `pytest -q` passed: 45 tests, including regressions for missing `evidence-ledger.jsonl.integrity.json` before handoff and missing `uncertainty-register.jsonl.integrity.json` at stop-hook time.
+- Self-critique:
+  - Drift check: This closes a bypass in the append-only audit surface without changing the artifact semantics.
+  - Contract check: Bootstrap still creates empty sidecars in `cbm-init`; post-init writes and hooks now treat missing manifests as integrity failures.
+  - Reviewer-eye check: Legacy runs created before sidecars existed may now need a deliberate migration or re-run before appending new audit entries.
