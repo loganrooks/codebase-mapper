@@ -441,3 +441,16 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The acceptance check exercises pack reuse over the same kernel map rather than adding a new mapping path.
   - Contract check: Both cards validate through the existing handoff/card schema path and use the current citation verification flow.
   - Reviewer-eye check: Re-running handoff still refreshes handoff-side Skeptic metadata on the surface map. The important Phase C guarantee is that rebinding itself does not re-run or mutate mapper output.
+
+## 2026-05-01 — Phase C disposition
+
+- Acceptance status: pass for the Phase C roadmap target.
+- Met: bundled `feature_add`, `refactor`, `audit`, and `research_only` packs exist and load through `cbm-bind`.
+- Met: the same mapped run can produce different goal-bound cards by rebinding packs without re-running mappers.
+- Known limitation: generated card prose is still mostly generic; the meaningful difference is currently in selected candidate, card type, goal metadata, dependency reference, and primary-file role.
+- Verification run:
+  - `pytest -q` passed: 22 tests.
+- Self-critique:
+  - Drift check: Phase C stayed at the goal-pack layer and did not contaminate map extraction with goal-specific behavior.
+  - Contract check: Pack outputs continue through existing `goal-binding`, card, citation, and handoff schemas.
+  - Reviewer-eye check: This is sufficient for roadmap acceptance, but external/user-authored packs would need a formal pack schema and stronger duplicate-handoff behavior.
