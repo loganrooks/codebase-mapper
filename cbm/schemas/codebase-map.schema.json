@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/codebase-map.schema.json",
+  "title": "Codebase Map",
+  "description": "Deterministic structural output of cbm-map. Goal-agnostic. No interpretive claims. v1.1 adds coverage and staleness blocks; v1.2 adds optional refreshed_from lineage block.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "inputs",
+    "status",
+    "coverage",
+    "staleness",
+    "repo_root",
+    "files",
+    "languages",
+    "build_systems",
+    "tests",
+    "ci_files",
+    "config_candidates"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "codebase_map" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+    "coverage": { "$ref": "#/$defs/coverage" },
+    "staleness": { "$ref": "#/$defs/staleness" },
+    "refreshed_from": { "$ref": "#/$defs/refreshed_from" },
+
+    "repo_root": { "type": "string" },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "size_bytes", "sha256", "language"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "size_bytes": { "type": "integer", "minimum": 0 },
+          "line_count": { "type": "integer", "minimum": 0 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "language": { "type": "string" },
+          "is_generated": { "type": "boolean" },
+          "generator_hint": { "type": "string" },
+          "vendored": { "type": "boolean" }
+        }
+      }
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "file_count", "byte_count"],
+        "properties": {
+          "name": { "type": "string" },
+          "file_count": { "type": "integer", "minimum": 0 },
+          "byte_count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "build_systems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "config_files"],
+        "properties": {
+          "name": { "type": "string" },
+          "config_files": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "framework_hint"],
+        "properties": {
+          "path": { "type": "string" },
+          "framework_hint": { "type": "string" }
+        }
+      }
+    },
+    "ci_files": { "type": "array", "items": { "type": "string" } },
+    "config_candidates": { "type": "array", "items": { "type": "string" } },
+    "extraction_warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "coverage": {
+      "type": "object",
+      "description": "What scope was actually examined. Distinguishes files examined directly from files inspected via extractor only.",
+      "required": ["scope", "result"],
+      "properties": {
+        "scope": {
+          "type": "object",
+          "required": ["included_globs", "excluded_globs"],
+          "properties": {
+            "included_globs": { "type": "array", "items": { "type": "string" } },
+            "excluded_globs": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "result": {
+          "type": "object",
+          "required": ["files_in_scope", "files_examined_directly", "files_inspected_via_extractor", "files_unread_in_scope"],
+          "properties": {
+            "files_in_scope": { "type": "integer", "minimum": 0 },
+            "files_examined_directly": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Files an agent or human opened and read."
+            },
+            "files_inspected_via_extractor": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Files parsed by deterministic tools without being read; supports static-structure/static-relation claims only."
+            },
+            "files_unread_in_scope": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "staleness": {
+      "type": "object",
+      "description": "Declarative staleness. Input hashes drive artifact-to-artifact staleness; depends_on_paths drives source-file staleness; scope_signature drives scope-drift detection.",
+      "required": ["stale_if_input_hash_changes", "depends_on_paths"],
+      "properties": {
+        "stale_if_input_hash_changes": { "type": "boolean", "default": true },
+        "depends_on_paths": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "scope_signature": {
+          "type": "string",
+          "description": "Hash of the sorted file list matching included_globs at run time. Change is a warning, not staleness."
+        }
+      }
+    },
+    "refreshed_from": {
+      "type": "object",
+      "description": "Lineage block recording that this artifact was derived from a prior artifact via refresh. Absence means the artifact is fresh (Mode 5 = re-run = no refreshed_from). Distinct from inputs[]: inputs[] records what was read to produce this artifact; refreshed_from records that this artifact is a *successor* to a specific prior artifact in the same artifact-type lineage.",
+      "required": ["artifact_path", "source_sha", "refresh_mode"],
+      "properties": {
+        "artifact_path": {
+          "type": "string",
+          "description": "Path to the prior artifact this one was derived from."
+        },
+        "source_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "The source_sha of the prior artifact."
+        },
+        "refresh_mode": {
+          "enum": ["structural", "interpretive"],
+          "description": "Mode 3 (structural) re-runs deterministic kernel; Mode 4 (interpretive) carries forward prior interpretive claims where evidence unchanged."
+        },
+        "refresh_delta_path": {
+          "type": "string",
+          "description": "Path to the refresh-delta artifact recording what carried forward, what changed, what was retracted."
+        }
+      }
+    }
+  }
+}

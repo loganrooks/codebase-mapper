@@ -5,6 +5,7 @@ import io
 import shutil
 import subprocess
 import sys
+from importlib import resources
 from pathlib import Path
 
 import yaml
@@ -34,6 +35,16 @@ def copy_contracts(source_root: Path, repo: Path) -> None:
     target.mkdir()
     for schema in (source_root / "schemas").glob("*.schema.json"):
         target.joinpath(schema.name).write_text(schema.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+def test_package_schema_resources_match_root_schemas() -> None:
+    root_schemas = {path.name: path.read_text(encoding="utf-8") for path in (SOURCE_ROOT / "schemas").glob("*.schema.json")}
+    package_schemas = {
+        item.name: item.read_text(encoding="utf-8")
+        for item in resources.files("cbm").joinpath("schemas").iterdir()
+        if item.name.endswith(".schema.json")
+    }
+    assert package_schemas == root_schemas
 
 
 def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:

@@ -48,7 +48,10 @@ cbm-hook-stop = "cbm.cli:hook_stop_main"
 cbm-hook-start = "cbm.cli:hook_start_main"
 
 [tool.setuptools.package-data]
-cbm = ["goal_packs/*.json", "project_packs/*.json"]
+cbm = ["goal_packs/*.json", "project_packs/*.json", "schemas/*.schema.json"]
+
+[tool.setuptools.packages.find]
+include = ["cbm*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/handoff.schema.json",
+  "title": "Handoff (Frontmatter)",
+  "description": "Final run output. v1.1 adds coverage and contestation summary.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "inputs",
+    "status",
+    "coverage",
+    "mode",
+    "user_goal",
+    "goal_class",
+    "research_only",
+    "gate_summary",
+    "contestation_summary",
+    "artifacts",
+    "open_questions_count",
+    "recommended_next_action"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "handoff" },
+    "run_id": { "type": "string" },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": { "type": "string", "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+    "coverage": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/coverage" },
+
+    "mode": { "enum": ["lightweight", "standard", "deep"] },
+    "user_goal": { "type": "string" },
+    "goal_class": {
+      "enum": [
+        "feature_add",
+        "refactor",
+        "extension_point",
+        "missing_extension_point",
+        "migration",
+        "audit",
+        "research_only",
+        "understand_repo",
+        "other"
+      ]
+    },
+    "research_only": { "type": "boolean" },
+
+    "gate_summary": {
+      "type": "object",
+      "required": [
+        "schema_validation",
+        "citation_resolution",
+        "ledger_consistency",
+        "staleness_check",
+        "skeptic_review"
+      ],
+      "properties": {
+        "schema_validation": {
+          "type": "object",
+          "required": ["passed", "failed_artifacts"],
+          "properties": {
+            "passed": { "type": "integer", "minimum": 0 },
+            "failed_artifacts": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "citation_resolution": {
+          "type": "object",
+          "required": ["resolved", "unresolved_count"],
+          "properties": {
+            "resolved": { "type": "integer", "minimum": 0 },
+            "unresolved_count": { "type": "integer", "minimum": 0 },
+            "unresolved_examples": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "ledger_consistency": {
+          "type": "object",
+          "required": ["append_only_verified", "entry_count"],
+          "properties": {
+            "append_only_verified": { "type": "boolean" },
+            "entry_count": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "staleness_check": {
+          "type": "object",
+          "required": ["fresh", "stale_artifacts"],
+          "properties": {
+            "fresh": { "type": "integer", "minimum": 0 },
+            "stale_artifacts": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "skeptic_review": {
+          "type": "object",
+          "required": ["artifacts_reviewed", "challenges_logged", "challenges_resolved"],
+          "properties": {
+            "artifacts_reviewed": { "type": "integer", "minimum": 0 },
+            "challenges_logged": { "type": "integer", "minimum": 0 },
+            "challenges_resolved": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+
+    "contestation_summary": {
+      "type": "object",
+      "description": "Live contestation across artifacts at handoff time.",
+      "required": [
+        "claims_by_register",
+        "claims_by_status",
+        "open_challenges",
+        "contested_claims",
+        "contradicted_claims"
+      ],
+      "properties": {
+        "claims_by_register": {
+          "type": "object",
+          "required": ["factual", "inferential", "interpretive"],
+          "properties": {
+            "factual": { "type": "integer", "minimum": 0 },
+            "inferential": { "type": "integer", "minimum": 0 },
+            "interpretive": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "claims_by_status": {
+          "type": "object",
+          "required": ["active", "challenged", "contested", "contradicted", "superseded", "retired"],
+          "properties": {
+            "active": { "type": "integer", "minimum": 0 },
+            "challenged": { "type": "integer", "minimum": 0 },
+            "contested": { "type": "integer", "minimum": 0 },
+            "contradicted": { "type": "integer", "minimum": 0 },
+            "superseded": { "type": "integer", "minimum": 0 },
+            "retired": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "open_challenges": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Challenges with status=open at handoff."
+        },
+        "contested_claims": {
+          "type": "array",
+          "description": "Claims with status=contested. Surfaced explicitly so the consumer knows multiple readings are live.",
+          "items": {
+            "type": "object",
+            "required": ["claim_artifact", "claim_id", "challenge_count"],
+            "properties": {
+              "claim_artifact": { "type": "string" },
+              "claim_id": { "type": "string" },
+              "challenge_count": { "type": "integer", "minimum": 1 },
+              "summary": { "type": "string" }
+            }
+          }
+        },
+        "contradicted_claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["claim_artifact", "claim_id"],
+            "properties": {
+              "claim_artifact": { "type": "string" },
+              "claim_id": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "artifact_type", "status"],
+        "properties": {
+          "path": { "type": "string" },
+          "artifact_type": { "type": "string" },
+          "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+          "summary": { "type": "string", "maxLength": 280 }
+        }
+      }
+    },
+
+    "draft_artifacts_excluded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+
+    "open_questions_count": { "type": "integer", "minimum": 0 },
+    "coverage_caveats": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "recommended_next_action": { "type": "string", "minLength": 10 }
+  }
+}

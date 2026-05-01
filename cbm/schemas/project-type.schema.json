@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/project-type.schema.json",
+  "title": "Project Type Report",
+  "description": "Phase 0 project-type detection report backed by bundled project packs.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "inputs",
+    "status",
+    "detections"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "project_type_report" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": { "type": "string", "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+    "detections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "project_type",
+          "display_name",
+          "confidence",
+          "pack_id",
+          "evidence",
+          "extractor_annotations",
+          "authority_hints",
+          "known_blind_spots"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "project_type": { "type": "string", "minLength": 1 },
+          "display_name": { "type": "string", "minLength": 1 },
+          "confidence": { "enum": ["low", "medium", "high"] },
+          "pack_id": { "type": "string", "minLength": 1 },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["path", "reason", "citation"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string" },
+                "reason": { "type": "string", "minLength": 1 },
+                "citation": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/citation" }
+              }
+            }
+          },
+          "extractor_annotations": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "authority_hints": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "known_blind_spots": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

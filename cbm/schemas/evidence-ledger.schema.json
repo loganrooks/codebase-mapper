@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/evidence-ledger.schema.json",
+  "title": "Evidence Ledger Entry",
+  "description": "One line of evidence-ledger.jsonl. Append-only. v1.1 adds challenge/contradiction entry kinds.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "entry_id",
+    "ts",
+    "entry_kind",
+    "agent",
+    "skill_version",
+    "run_id",
+    "source_sha"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "entry_id": {
+      "type": "string",
+      "pattern": "^lg-[0-9]{5,}$"
+    },
+    "ts": { "type": "string", "format": "date-time" },
+    "entry_kind": {
+      "enum": [
+        "citation_introduced",
+        "citation_reused",
+        "claim_promoted",
+        "claim_retracted",
+        "claim_contradicted",
+        "claim_challenged",
+        "challenge_resolved",
+        "skeptic_challenge",
+        "skeptic_acceptance",
+        "uncertainty_logged",
+        "uncertainty_resolved",
+        "artifact_status_change",
+        "command_executed"
+      ]
+    },
+    "agent": { "type": "string" },
+    "skill_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "run_id": { "type": "string" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+
+    "citation": {
+      "type": "string",
+      "pattern": "^[^:@\\s]+:\\d+(-\\d+)?@[0-9a-f]{7,40}$"
+    },
+    "artifact_path": { "type": "string" },
+    "artifact_section": { "type": "string" },
+    "claim_id": { "type": "string" },
+    "claim_register": {
+      "enum": ["factual", "inferential", "interpretive"]
+    },
+    "challenge_id": {
+      "type": "string",
+      "pattern": "^chl-[0-9]{5,}$"
+    },
+    "challenge": { "type": "string" },
+    "competing_evidence": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "resolution": { "type": "string" },
+    "references": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^lg-[0-9]{5,}$" }
+    },
+    "old_status": {
+      "enum": ["draft", "validated", "reviewed", "retired", "active", "challenged", "contested", "contradicted", "superseded"]
+    },
+    "new_status": {
+      "enum": ["draft", "validated", "reviewed", "retired", "active", "challenged", "contested", "contradicted", "superseded"]
+    },
+    "command_id": { "type": "string" },
+    "exit_code": { "type": "integer" },
+    "duration_seconds": { "type": "number", "minimum": 0 },
+    "output_artifact_path": { "type": "string" }
+  },
+
+  "allOf": [
+    {
+      "if": { "properties": { "entry_kind": { "enum": ["citation_introduced", "citation_reused"] } } },
+      "then": { "required": ["citation", "artifact_path", "claim_id"] }
+    },
+    {
+      "if": { "properties": { "entry_kind": { "const": "skeptic_challenge" } } },
+      "then": { "required": ["artifact_path", "claim_id", "challenge"] }
+    },
+    {
+      "if": { "properties": { "entry_kind": { "const": "claim_retracted" } } },
+      "then": { "required": ["artifact_path", "claim_id", "resolution", "references"] }
+    },
+    {
+      "if": { "properties": { "entry_kind": { "const": "claim_contradicted" } } },
+      "then": { "required": ["artifact_path", "claim_id", "challenge", "references"] }
+    },
+    {
+      "if": { "properties": { "entry_kind": { "const": "claim_challenged" } } },
+      "then": { "required": ["artifact_path", "claim_id", "challenge_id", "competing_evidence"] }
+    },
+    {
+      "if": { "properties": { "entry_kind": { "const": "challenge_resolved" } } },
+      "then": { "required": ["challenge_id", "resolution"] }
+    },
+    {
+      "if": { "properties": { "entry_kind": { "const": "artifact_status_change" } } },
+      "then": { "required": ["artifact_path", "old_status", "new_status"] }
+    },
+    {
+      "if": { "properties": { "entry_kind": { "const": "command_executed" } } },
+      "then": { "required": ["command_id", "exit_code", "duration_seconds", "output_artifact_path"] }
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/verification-map.schema.json",
+  "title": "Verification Map",
+  "description": "Standard-mode verification surfaces and declared commands runnable through cbm-run-gate.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "inputs",
+    "status",
+    "coverage",
+    "staleness",
+    "ci_gates"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "verification_map" },
+    "run_id": { "type": "string" },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": { "type": "string", "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+    "coverage": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/coverage" },
+    "staleness": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/staleness" },
+    "ci_gates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ci_gate" }
+    }
+  },
+  "$defs": {
+    "ci_gate": {
+      "type": "object",
+      "required": ["id", "name", "path", "kind", "citations"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "path": { "type": "string" },
+        "kind": { "enum": ["test", "lint", "typecheck", "build", "deploy", "other"] },
+        "citations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/citation" }
+        },
+        "command": {
+          "type": "object",
+          "required": ["runner", "argv", "cwd", "safety_envelope"],
+          "additionalProperties": false,
+          "properties": {
+            "runner": { "type": "string" },
+            "argv": { "type": "array", "items": { "type": "string" } },
+            "cwd": { "type": "string" },
+            "safety_envelope": {
+              "type": "object",
+              "required": ["requires_network", "requires_install", "mutates_filesystem", "max_duration_seconds"],
+              "additionalProperties": false,
+              "properties": {
+                "requires_network": { "type": "boolean" },
+                "requires_install": { "type": "boolean" },
+                "mutates_filesystem": { "type": "boolean" },
+                "declared_output_paths": { "type": "array", "items": { "type": "string" } },
+                "max_duration_seconds": { "type": "integer", "minimum": 1 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

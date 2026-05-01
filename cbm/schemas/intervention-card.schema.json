@@ -1,0 +1,337 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/intervention-card.schema.json",
+  "title": "Intervention Card (Frontmatter)",
+  "description": "Card frontmatter. Body is prose. v1.1 adds claim_register on interpretive fields (leverage), claim_status lifecycle, and dependent_challenges field separate from open_questions.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "inputs",
+    "status",
+    "coverage",
+    "staleness",
+    "id",
+    "goal",
+    "goal_class",
+    "research_only",
+    "surface_type",
+    "surface_kind",
+    "primary_files",
+    "related_dependencies",
+    "affected_workflows",
+    "expected_leverage",
+    "blast_radius",
+    "verification_strategy",
+    "risks",
+    "confidence",
+    "confidence_rationale",
+    "open_questions",
+    "dependent_challenges",
+    "recommended_next_slice",
+    "claim_status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "enum": ["intervention_card", "findings_card"] },
+    "run_id": { "type": "string" },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": { "type": "string", "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+    "coverage": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/coverage" },
+    "staleness": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/staleness" },
+    "refreshed_from": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/refreshed_from" },
+
+    "claim_status": {
+      "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_status",
+      "description": "Lifecycle status of the card itself. challenged/contested means the card's interpretive claims (leverage, surface classification) have competing readings."
+    },
+
+    "id": {
+      "type": "string",
+      "pattern": "^int-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{3}$"
+    },
+    "goal": { "type": "string", "minLength": 1 },
+    "goal_class": {
+      "enum": [
+        "feature_add",
+        "refactor",
+        "extension_point",
+        "missing_extension_point",
+        "migration",
+        "audit",
+        "research_only",
+        "understand_repo",
+        "other"
+      ]
+    },
+    "research_only": { "type": "boolean" },
+
+    "surface_type": {
+      "enum": ["explicit", "implicit", "missing", "virtual"]
+    },
+    "surface_kind": {
+      "enum": [
+        "api_endpoint",
+        "config",
+        "schema",
+        "hook_point",
+        "plugin_registry",
+        "module_boundary",
+        "ci_gate",
+        "test_suite",
+        "doc_contract",
+        "data_contract",
+        "other"
+      ]
+    },
+    "surface_classification_register": {
+      "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_register",
+      "description": "Defaults to interpretive when surface_type=virtual or surface_type=missing; factual when explicit; usually inferential when implicit."
+    },
+
+    "primary_files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "role", "citations"],
+        "properties": {
+          "path": { "type": "string" },
+          "lines": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "role": { "type": "string", "minLength": 1 },
+          "citations": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/citation" }
+          }
+        }
+      }
+    },
+
+    "related_dependencies": {
+      "type": "object",
+      "required": ["certain", "suspected", "advisory", "unknown"],
+      "properties": {
+        "certain": { "type": "array", "items": { "$ref": "#/$defs/edge_ref" } },
+        "suspected": { "type": "array", "items": { "$ref": "#/$defs/edge_ref" } },
+        "advisory": { "type": "array", "items": { "$ref": "#/$defs/edge_ref" } },
+        "unknown": { "type": "array", "items": { "$ref": "#/$defs/edge_ref" } }
+      }
+    },
+
+    "affected_workflows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "citation_or_trace"],
+        "properties": {
+          "name": { "type": "string" },
+          "citation_or_trace": { "type": "string" }
+        }
+      }
+    },
+
+    "expected_leverage": {
+      "type": "object",
+      "description": "Leverage is interpretive by definition. Treated as an interpretive claim with its own status and challenge surface.",
+      "required": ["rating", "rationale", "claim_register", "claim_status"],
+      "properties": {
+        "rating": { "enum": ["low", "medium", "high"] },
+        "rationale": { "type": "string", "minLength": 20 },
+        "claim_register": {
+          "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_register",
+          "description": "Default and recommended value: interpretive. Setting factual or inferential requires explicit cited grounding."
+        },
+        "claim_status": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_status" },
+        "evidence_kinds": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/evidence_kinds" },
+        "challenges": {
+          "type": "array",
+          "items": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/challenge" }
+        }
+      }
+    },
+
+    "blast_radius": {
+      "type": "object",
+      "required": [
+        "hops_evaluated",
+        "certain_count",
+        "suspected_count",
+        "advisory_count",
+        "unknown_count",
+        "unknown_partition_present"
+      ],
+      "properties": {
+        "hops_evaluated": { "type": "integer", "minimum": 1 },
+        "certain_count": { "type": "integer", "minimum": 0 },
+        "suspected_count": { "type": "integer", "minimum": 0 },
+        "advisory_count": { "type": "integer", "minimum": 0 },
+        "unknown_count": { "type": "integer", "minimum": 0 },
+        "unknown_partition_present": { "type": "boolean" },
+        "unknown_partition_rationale": { "type": "string" }
+      },
+      "if": { "properties": { "unknown_partition_present": { "const": false } } },
+      "then": { "required": ["unknown_partition_rationale"] }
+    },
+
+    "verification_strategy": {
+      "type": "object",
+      "required": ["hard_gates", "warning_gates", "advisory_checks", "manual_review"],
+      "properties": {
+        "hard_gates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["description", "implementation"],
+            "properties": {
+              "description": { "type": "string", "minLength": 5 },
+              "implementation": { "type": "string" },
+              "citations": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/citation" }
+              },
+              "command_ref": {
+                "type": "string",
+                "description": "Optional reference to a verification-map ci_gate command id, runnable via cbm-run-gate."
+              }
+            }
+          }
+        },
+        "warning_gates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["description"],
+            "properties": {
+              "description": { "type": "string" },
+              "implementation": { "type": "string" }
+            }
+          }
+        },
+        "advisory_checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["description"],
+            "properties": { "description": { "type": "string" } }
+          }
+        },
+        "manual_review": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["description"],
+            "properties": {
+              "description": { "type": "string" },
+              "reviewer_role": { "type": "string" }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "anyOf": [
+            { "properties": { "hard_gates": { "minItems": 1 } } },
+            { "properties": { "manual_review": { "minItems": 1 } } }
+          ]
+        }
+      ]
+    },
+
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description", "severity"],
+        "properties": {
+          "description": { "type": "string", "minLength": 5 },
+          "severity": { "enum": ["low", "medium", "high"] },
+          "mitigation": { "type": "string" }
+        }
+      }
+    },
+
+    "confidence": { "enum": ["high", "medium", "low"] },
+    "confidence_rationale": {
+      "type": "string",
+      "minLength": 20,
+      "description": "Cites maps, open_questions, or dependent_challenges. A card whose dependencies are challenged or contested cannot be high-confidence."
+    },
+
+    "open_questions": {
+      "type": "array",
+      "description": "Things we don't know. Distinct from dependent_challenges (contested readings of things we do know).",
+      "items": {
+        "type": "object",
+        "required": ["question", "register_id"],
+        "properties": {
+          "question": { "type": "string", "minLength": 5 },
+          "register_id": { "type": "string" }
+        }
+      }
+    },
+
+    "dependent_challenges": {
+      "type": "array",
+      "description": "Claims this card depends on whose claim_status is challenged or contested. The card propagates contestation; high confidence requires zero entries here.",
+      "items": {
+        "type": "object",
+        "required": ["claim_artifact", "claim_id", "challenge_ids", "impact"],
+        "properties": {
+          "claim_artifact": {
+            "type": "string",
+            "description": "Path to the artifact carrying the challenged claim."
+          },
+          "claim_id": { "type": "string" },
+          "challenge_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^chl-[0-9]{5,}$" }
+          },
+          "impact": {
+            "type": "string",
+            "minLength": 10,
+            "description": "How the contestation affects this card."
+          }
+        }
+      }
+    },
+
+    "recommended_next_slice": { "type": "string", "minLength": 10 }
+  },
+
+  "$defs": {
+    "citation": {
+      "type": "string",
+      "pattern": "^[^:@\\s]+:\\d+(-\\d+)?@[0-9a-f]{7,40}$"
+    },
+    "edge_ref": {
+      "type": "string",
+      "pattern": "^(\\.research/.+\\.json#/.+|[^:@\\s]+:\\d+(-\\d+)?@[0-9a-f]{7,40})$"
+    }
+  }
+}

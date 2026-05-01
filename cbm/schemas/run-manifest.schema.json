@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "run-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "backend",
+    "mode",
+    "goal",
+    "goal_class",
+    "status",
+    "producer_registry",
+    "steps"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "run_manifest" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "backend": { "enum": ["deterministic", "external", "codex-cli"] },
+    "mode": { "enum": ["lightweight", "standard", "deep"] },
+    "goal": { "type": "string", "minLength": 1 },
+    "goal_class": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["running", "succeeded", "failed", "refused"] },
+    "refusal_reason": { "type": "string", "minLength": 1 },
+    "producer_registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": {
+          "anyOf": [
+            { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step_id",
+          "command",
+          "artifact_type",
+          "producer_id",
+          "backend",
+          "status",
+          "exit_code"
+        ],
+        "properties": {
+          "step_id": { "type": "string", "minLength": 1 },
+          "command": { "type": "string", "minLength": 1 },
+          "artifact_type": { "type": "string", "minLength": 1 },
+          "producer_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "backend": { "enum": ["deterministic", "external", "codex-cli"] },
+          "status": { "enum": ["planned", "running", "succeeded", "failed"] },
+          "exit_code": {
+            "anyOf": [
+              { "type": "integer", "minimum": 0 },
+              { "type": "null" }
+            ]
+          },
+          "started_at": { "type": "string", "format": "date-time" },
+          "completed_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

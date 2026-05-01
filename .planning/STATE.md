@@ -17,6 +17,7 @@ Current product state:
 - deterministic smoke artifacts exist under `.research/`;
 - a guarded `codex-cli` smoke backend exists and can be tested with a fake executable;
 - the `codex-cli` smoke backend defaults to `gpt-5.4-mini` with medium reasoning for harness tests;
+- CBM schemas are packaged under `cbm/schemas/` so installed validation does not depend on a repo checkout or target-local schema copies;
 - runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
 - no live Codex CLI model subprocess has been run through CBM yet;
 - current deterministic artifacts must not be treated as proof of nuanced codebase understanding.
@@ -115,6 +116,10 @@ Last known full suite after the schema-source benchmark-harness slice: `pytest -
 
 Last known full suite after the Codex CLI smoke model-control slice: `pytest -q` reported `59 passed, 2 warnings`.
 
+Last known full suite after the schema packaging slice: `pytest -q` reported `60 passed, 2 warnings`.
+
+Last known packaging verification: `python3 -m pip wheel . --no-deps -w /tmp/cbm-wheel-check` built `cbm-0.1.0-py3-none-any.whl`; wheel inspection found 19 `cbm/schemas/*.schema.json` entries and no unintended top-level packages beyond `cbm` and dist-info.
+
 This verifies the test suite, not `VISION.md` maturity.
 
 Required next verification:
@@ -128,4 +133,5 @@ Required next verification:
 - guarded Codex CLI backend slice: fake executable regressions passed; full `pytest -q` passed;
 - schema-source benchmark-harness slice: focused no-pollution regression passed; full `pytest -q` passed;
 - Codex CLI smoke model-control slice: focused fake-executable regression passed; full `pytest -q` passed;
+- schema packaging slice: package resource regression passed; wheel build/inspection passed; full `pytest -q` passed;
 - benchmark slice: generated artifacts must validate and show honest producer identity and coverage.

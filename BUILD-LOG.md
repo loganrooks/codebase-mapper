@@ -1334,3 +1334,19 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This controls the cost/profile of harness agents before any live smoke, rather than escalating quality prematurely.
   - Contract check: The fake executable asserts the model and reasoning config argv entries, and the manifest string is asserted.
   - Reviewer-eye check: This verifies command construction, not that the live Codex CLI accepts the selected model in the current account. The live smoke remains approval-sensitive.
+
+## 2026-05-01 — Packaging slice: schemas as package data
+
+- Implemented: CBM schemas are copied under `cbm/schemas/` and declared as package data.
+- Implemented: setuptools package discovery is scoped to `cbm*` so root-level kit directories such as `skills/`, `schemas/`, and `platform/` are not treated as Python packages.
+- Updated schema lookup to prefer `CBM_SCHEMA_DIR`, then package resources, then the source checkout's `schemas/`, then target-local `schemas/` as a legacy fallback.
+- Added regression: package schema resources must exactly match the root schema file contents.
+- Verification run:
+  - Red test first: `pytest -q tests/test_cli.py::test_package_schema_resources_match_root_schemas` initially failed because `cbm/schemas` did not exist.
+  - Focused regressions passed: `pytest -q tests/test_cli.py::test_package_schema_resources_match_root_schemas tests/test_cli.py::test_run_validates_with_cbm_schema_source_without_polluting_target_repo`.
+  - Wheel build initially failed because setuptools discovered multiple top-level packages; adding explicit package discovery fixed it.
+  - Wheel inspection passed: built `cbm-0.1.0-py3-none-any.whl`, found 19 `cbm/schemas/*.schema.json` files, and top-level wheel entries were limited to `cbm` and `cbm-0.1.0.dist-info`.
+- Self-critique:
+  - Drift check: This supports clean external benchmark runs and installed validation, rather than adding new artifact policy.
+  - Contract check: Package data and schema-source behavior are both tested; wheel contents were inspected directly.
+  - Reviewer-eye check: Duplicating root schemas into package data creates drift risk. The content-equality regression is now the guard.
