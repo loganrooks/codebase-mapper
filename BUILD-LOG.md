@@ -375,3 +375,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The review reinforces unknown dependency closure as live contestation rather than pretending the graph is complete.
   - Contract check: Review artifacts are schema-validated and challenge entries are append-only ledger records.
   - Reviewer-eye check: This is deterministic gate skepticism for dependency unknowns only. It is not yet full per-artifact subagent review across every map or multi-perspective adversarial review.
+
+## 2026-05-01 — Phase B slice: standard map review fanout
+
+- Implemented: standard and deep `cbm run` now write Skeptic review artifacts for `authority-map.json`, `dependency-graph.json`, `verification-map.json`, and `synthesis-index.json`.
+- Verification run:
+  - `pytest -q` passed: 19 tests, including standard-mode validation of all four map review artifacts.
+- Self-critique:
+  - Drift check: Review fanout keeps qualitative gate results in artifacts instead of only in handoff prose.
+  - Contract check: Each review artifact validates against `schemas/skeptic-review.schema.json`.
+  - Reviewer-eye check: Only dependency-graph review currently emits a substantive challenge. Authority, verification, and synthesis reviews are explicit no-finding artifacts until richer Skeptic logic is implemented.

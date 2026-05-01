@@ -151,17 +151,23 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     dependency_graph = run_dir / "dependency-graph.json"
     verification_map = run_dir / "verification-map.json"
     synthesis_index = run_dir / "synthesis-index.json"
-    skeptic_review = run_dir / "skeptic-review" / "dependency-graph.md"
+    skeptic_reviews = [
+        run_dir / "skeptic-review" / "authority-map.md",
+        run_dir / "skeptic-review" / "dependency-graph.md",
+        run_dir / "skeptic-review" / "verification-map.md",
+        run_dir / "skeptic-review" / "synthesis-index.md",
+    ]
     assert authority_map.exists()
     assert dependency_graph.exists()
     assert verification_map.exists()
     assert synthesis_index.exists()
-    assert skeptic_review.exists()
+    assert all(review.exists() for review in skeptic_reviews)
     assert main(["validate", str(authority_map), "--repo", str(repo)]) == 0
     assert main(["validate", str(dependency_graph), "--repo", str(repo)]) == 0
     assert main(["validate", str(verification_map), "--repo", str(repo)]) == 0
     assert main(["validate", str(synthesis_index), "--repo", str(repo)]) == 0
-    assert main(["validate", str(skeptic_review), "--repo", str(repo)]) == 0
+    for review in skeptic_reviews:
+        assert main(["validate", str(review), "--repo", str(repo)]) == 0
     authority_data = json.loads(authority_map.read_text(encoding="utf-8"))
     assert authority_data["authorities"]
     dependency_data = json.loads(dependency_graph.read_text(encoding="utf-8"))

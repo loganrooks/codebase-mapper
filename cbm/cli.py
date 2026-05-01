@@ -2447,6 +2447,16 @@ def command_run(args: argparse.Namespace) -> int:
     ]
     if args.mode in {"standard", "deep"}:
         commands.append((command_authority_map, map_args))
+        commands.append(
+            (
+                command_skeptic_review,
+                argparse.Namespace(
+                    repo=str(repo),
+                    run_id=run_id,
+                    artifact=str(repo / ".research" / run_id / "authority-map.json"),
+                ),
+            )
+        )
         commands.append((command_dependency_graph, map_args))
         commands.append(
             (
@@ -2459,7 +2469,27 @@ def command_run(args: argparse.Namespace) -> int:
             )
         )
         commands.append((command_verify_map, map_args))
+        commands.append(
+            (
+                command_skeptic_review,
+                argparse.Namespace(
+                    repo=str(repo),
+                    run_id=run_id,
+                    artifact=str(repo / ".research" / run_id / "verification-map.json"),
+                ),
+            )
+        )
         commands.append((command_synthesis_index, map_args))
+        commands.append(
+            (
+                command_skeptic_review,
+                argparse.Namespace(
+                    repo=str(repo),
+                    run_id=run_id,
+                    artifact=str(repo / ".research" / run_id / "synthesis-index.json"),
+                ),
+            )
+        )
     commands.extend(
         [
             (command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)),
