@@ -1332,6 +1332,59 @@ def command_synthesis_index(args: argparse.Namespace) -> int:
     return 0
 
 
+GOAL_PACKS: dict[str, dict[str, Any]] = {
+    "understand_repo": {
+        "research_only": True,
+        "card_type": "findings_card",
+        "priority": {"import": 0, "call": 1, "authority": 2},
+        "rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces.",
+    },
+    "research_only": {
+        "research_only": True,
+        "card_type": "findings_card",
+        "priority": {"import": 0, "call": 1, "authority": 2},
+        "rationale": "research_only prioritizes readable grounded relations and produces findings cards.",
+    },
+    "feature_add": {
+        "research_only": False,
+        "card_type": "intervention_card",
+        "priority": {"call": 0, "import": 1, "authority": 2},
+        "rationale": "feature_add prioritizes executable call seams before static imports and authorities.",
+    },
+    "refactor": {
+        "research_only": False,
+        "card_type": "intervention_card",
+        "priority": {"call": 0, "import": 1, "authority": 2},
+        "rationale": "refactor prioritizes call and coupling edges because they expose behavior-preserving change boundaries.",
+    },
+    "audit": {
+        "research_only": False,
+        "card_type": "intervention_card",
+        "priority": {"authority:test_suite": 0, "authority:ci_gate": 1, "authority:config": 2, "call": 3, "import": 4, "authority": 5},
+        "rationale": "audit prioritizes verification, CI, and configuration authorities before code relation edges.",
+    },
+}
+
+
+def goal_pack(goal_class: str) -> dict[str, Any]:
+    return GOAL_PACKS.get(
+        goal_class,
+        {
+            "research_only": False,
+            "card_type": "intervention_card",
+            "priority": {"call": 0, "import": 1, "authority": 2},
+            "rationale": "default goal pack prioritizes actionable relation edges before broad authority surfaces.",
+        },
+    )
+
+
+def candidate_priority(candidate: dict[str, Any], pack: dict[str, Any]) -> tuple[int, str, str]:
+    priority = pack["priority"]
+    specific_key = f"authority:{candidate.get('authority_kind')}" if candidate["surface_kind"] == "authority" else candidate["surface_kind"]
+    rank = priority.get(specific_key, priority.get(candidate["surface_kind"], priority.get("authority", 99)))
+    return rank, candidate["path"], candidate["surface_id"]
+
+
 def command_bind(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     paths = run_paths(repo, args.run_id)
@@ -1343,13 +1396,14 @@ def command_bind(args: argparse.Namespace) -> int:
     intake = read_intake(paths.run_dir)
     goal = args.goal or intake["goal"]
     goal_class = args.goal_class or intake["goal_class"]
+    pack = goal_pack(goal_class)
     candidates = []
     for index, edge in enumerate(surface["edges"]):
-        if edge["kind"] != "import" or not edge.get("citations"):
+        if edge["kind"] not in {"import", "call"} or not edge.get("citations"):
             continue
         candidates.append(
             {
-                "rank": len(candidates) + 1,
+                "rank": 0,
                 "surface_ref": f".research/{paths.run_id}/surface-map.json#/edges/{index}",
                 "surface_id": edge["id"],
                 "surface_kind": edge["kind"],
@@ -1357,27 +1411,32 @@ def command_bind(args: argparse.Namespace) -> int:
                 "claim_register": edge["claim_register"],
                 "claim_status": edge["claim_status"],
                 "citations": edge["citations"],
-                "binding_rationale": f"Goal binding selected {edge['id']} because it is a grounded static relation that gives a concrete next reading path for the goal: {goal}",
-                "recommended_card_type": "findings_card" if goal_class in {"understand_repo", "research_only"} else "intervention_card",
+                "binding_rationale": f"{pack['rationale']} Selected {edge['id']} because it is a grounded {edge['kind']} relation for the goal: {goal}",
+                "recommended_card_type": pack["card_type"],
                 "dependent_challenges": [],
             }
         )
     for index, authority in enumerate(surface["authorities"]):
         candidates.append(
             {
-                "rank": len(candidates) + 1,
+                "rank": 0,
                 "surface_ref": f".research/{paths.run_id}/surface-map.json#/authorities/{index}",
                 "surface_id": authority["id"],
-                "surface_kind": authority["kind"],
+                "surface_kind": "authority",
+                "authority_kind": authority["kind"],
                 "path": authority["path"],
                 "claim_register": authority["claim_register"],
                 "claim_status": authority["claim_status"],
                 "citations": authority["citations"],
-                "binding_rationale": f"Goal binding selected {authority['id']} because it is a cited {authority['kind']} surface available for the goal: {goal}",
-                "recommended_card_type": "findings_card" if goal_class in {"understand_repo", "research_only"} else "intervention_card",
+                "binding_rationale": f"{pack['rationale']} Selected {authority['id']} because it is a cited {authority['kind']} authority surface for the goal: {goal}",
+                "recommended_card_type": pack["card_type"],
                 "dependent_challenges": [],
             }
         )
+    candidates.sort(key=lambda candidate: candidate_priority(candidate, pack))
+    for rank, candidate in enumerate(candidates, start=1):
+        candidate["rank"] = rank
+        candidate.pop("authority_kind", None)
     if not candidates:
         print("no bindable candidates found in surface-map.json", file=sys.stderr)
         return 1
@@ -1393,7 +1452,7 @@ def command_bind(args: argparse.Namespace) -> int:
         "status": "draft",
         "goal": goal,
         "goal_class": goal_class,
-        "research_only": goal_class in {"understand_repo", "research_only"},
+        "research_only": pack["research_only"],
         "candidates": candidates,
     }
     errors = validate_data(repo, binding, "goal_binding")

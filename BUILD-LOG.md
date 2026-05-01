@@ -397,3 +397,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This narrows a real dependency unknown without removing the explicit unknown partition.
   - Contract check: Call edges carry `extractor_id`, `static_relation` evidence, citations, and factual register.
   - Reviewer-eye check: The extractor is intentionally shallow. It does not resolve method calls, module attribute calls, alias-heavy flows, decorators, monkeypatching, relative imports, or dynamic dispatch.
+
+## 2026-05-01 — Phase C slice: goal-pack binding
+
+- Implemented: goal-pack ranking in `cbm-bind` for `understand_repo`, `research_only`, `feature_add`, `refactor`, and `audit`.
+- Implemented: call edges are now candidate binding surfaces; `feature_add` and `refactor` prioritize call relations, while `audit` prioritizes test/CI/config authorities.
+- Verification run:
+  - `pytest -q` passed: 20 tests, including a same-run reuse test where `feature_add` and `audit` produce different top-ranked candidates without re-running or modifying the surface map.
+- Self-critique:
+  - Drift check: Goal packs affect only goal binding and card recommendation type, not goal-agnostic maps.
+  - Contract check: `goal-binding.json` remains schema-valid and records the chosen goal class and research-only flag.
+  - Reviewer-eye check: These are minimal ranking packs, not full planner prompt/template packs. They prove pack loading behavior at the binding layer but do not yet generate materially different card bodies.

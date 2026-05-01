@@ -146,6 +146,32 @@ def test_run_orchestrates_phase_a_flow(tmp_path: Path) -> None:
     assert (run_dir / "handoff.md").exists()
 
 
+def test_goal_packs_rank_same_surface_differently(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-goal-packs"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    surface_mtime = (repo / ".research" / run_id / "surface-map.json").stat().st_mtime_ns
+
+    assert main(["bind", "--repo", str(repo), "--run-id", run_id, "--goal", "add greeting behavior", "--goal-class", "feature_add"]) == 0
+    feature_binding = json.loads((repo / ".research" / run_id / "goal-binding.json").read_text(encoding="utf-8"))
+    assert feature_binding["research_only"] is False
+    assert feature_binding["candidates"][0]["surface_kind"] == "call"
+    assert feature_binding["candidates"][0]["recommended_card_type"] == "intervention_card"
+
+    assert main(["bind", "--repo", str(repo), "--run-id", run_id, "--goal", "audit verification posture", "--goal-class", "audit"]) == 0
+    audit_binding = json.loads((repo / ".research" / run_id / "goal-binding.json").read_text(encoding="utf-8"))
+    assert audit_binding["research_only"] is False
+    assert audit_binding["candidates"][0]["surface_kind"] == "authority"
+    assert audit_binding["candidates"][0]["path"] == "tests/test_app.py"
+    assert (repo / ".research" / run_id / "surface-map.json").stat().st_mtime_ns == surface_mtime
+
+
 def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
