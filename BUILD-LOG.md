@@ -454,3 +454,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Phase C stayed at the goal-pack layer and did not contaminate map extraction with goal-specific behavior.
   - Contract check: Pack outputs continue through existing `goal-binding`, card, citation, and handoff schemas.
   - Reviewer-eye check: This is sufficient for roadmap acceptance, but external/user-authored packs would need a formal pack schema and stronger duplicate-handoff behavior.
+
+## 2026-05-01 — Phase D slice: workflow trace artifact
+
+- Implemented: `schemas/workflow-trace.schema.json` for deep-mode workflow traces with inputs, coverage, staleness, trigger, ordered steps, unknowns, and confidence rationale.
+- Implemented: `cbm-trace-workflows` / `cbm trace-workflows`, deriving a low-confidence static trace from `dependency-graph.json` and the current `goal-binding.json`.
+- Implemented: deep `cbm run` now binds the goal before tracing, writes `workflow-traces/trace-0001.json`, and includes workflow traces in handoff artifacts and inputs.
+- Verification run:
+  - `pytest -q` passed: 23 tests, including deep-mode trace schema validation, citation resolution, selected call-step content, and handoff inclusion.
+- Self-critique:
+  - Drift check: The tracer artifact is explicitly low-confidence and static-derived; it does not pretend to observe runtime behavior.
+  - Contract check: Trace steps carry registers, claim status, evidence kinds, citations, and staleness dependencies through a schema-validated artifact.
+  - Reviewer-eye check: This is an artifact boundary, not a full Tracer subagent or runtime instrumentation. It starts Phase D without weakening the evidence model.

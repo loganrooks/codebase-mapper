@@ -330,6 +330,7 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "evidence_ledger_entry": "evidence-ledger.schema.json",
         "refresh_delta": "refresh-delta.schema.json",
         "verification_map": "verification-map.schema.json",
+        "workflow_trace": "workflow-trace.schema.json",
     }
     name = mapping.get(artifact_type)
     if not name:
@@ -1480,6 +1481,108 @@ def command_bind(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_trace_workflows(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    dependency_path = paths.run_dir / "dependency-graph.json"
+    if not dependency_path.exists():
+        print("dependency-graph.json missing; run cbm-dependency-graph first", file=sys.stderr)
+        return 1
+    codebase_map = read_codebase_map(paths.run_dir)
+    dependency_graph = read_json(dependency_path)
+    intake = read_intake(paths.run_dir)
+    binding_path = paths.run_dir / "goal-binding.json"
+    binding = read_json(binding_path) if binding_path.exists() else None
+    selected_candidate = binding["candidates"][0] if binding and binding.get("candidates") else None
+    edges = [edge for edge in dependency_graph["edges"] if edge["kind"] in {"call", "import"} and edge.get("citations")]
+    selected_edge = None
+    if selected_candidate and "/edges/" in selected_candidate["surface_ref"]:
+        selected_id = selected_candidate["surface_id"]
+        selected_edge = next((edge for edge in edges if edge["id"] == selected_id), None)
+    if selected_edge is None and edges:
+        selected_edge = edges[0]
+    if selected_edge is None:
+        print("dependency-graph.json has no citable import or call edge to trace", file=sys.stderr)
+        return 1
+    sha = dependency_graph["source_sha"]
+    citation = selected_edge["citations"][0]
+    goal = binding["goal"] if binding else intake["goal"]
+    goal_class = binding["goal_class"] if binding else intake["goal_class"]
+    relation = selected_edge["kind"]
+    target = selected_edge["to"]["path"]
+    if selected_edge["to"].get("symbol"):
+        target = f"{target}::{selected_edge['to']['symbol']}"
+    trace_path = paths.run_dir / "workflow-traces" / "trace-0001.json"
+    inputs = [{"path": str(dependency_path.relative_to(repo)), "sha256": sha256_file(dependency_path)}]
+    if binding_path.exists():
+        inputs.append({"path": str(binding_path.relative_to(repo)), "sha256": sha256_file(binding_path)})
+    trace = {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "workflow_trace",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "tracer@0.1",
+        "source_sha": sha,
+        "inputs": inputs,
+        "status": "draft",
+        "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1),
+        "staleness": {"stale_if_input_hash_changes": True, "depends_on_paths": [selected_edge["from"]["path"], selected_edge["to"]["path"]]},
+        "goal": goal,
+        "goal_class": goal_class,
+        "workflow_id": "wft-0001",
+        "workflow_name": f"{goal_class} trace through {selected_edge['from']['path']}",
+        "trigger": {
+            "kind": "goal_binding" if binding else "unknown",
+            "description": f"Trace selected from the {relation} relation bound to the goal: {goal}",
+            "claim_register": "inferential",
+            "evidence_kinds": ["static_relation"],
+            "citations": [citation],
+        },
+        "steps": [
+            {
+                "step_id": "step-0001",
+                "order": 1,
+                "path": selected_edge["from"]["path"],
+                "description": f"Observed source side of {relation} relation toward {target}.",
+                "claim_register": selected_edge["claim_register"],
+                "claim_status": selected_edge["claim_status"],
+                "evidence_kinds": selected_edge["evidence_kinds"],
+                "citations": [citation],
+            },
+            {
+                "step_id": "step-0002",
+                "order": 2,
+                "path": selected_edge["to"]["path"],
+                "symbol": selected_edge["to"].get("symbol", ""),
+                "description": f"Observed target side of {relation} relation from {selected_edge['from']['path']}.",
+                "claim_register": "inferential",
+                "claim_status": "active",
+                "evidence_kinds": ["static_relation"],
+                "citations": [citation],
+            },
+        ],
+        "unknowns": [
+            {
+                "description": "This first tracer artifact is derived from static dependency evidence only; it does not execute or observe runtime behavior.",
+                "impact": "Treat ordering and workflow semantics as inferential until a runtime_trace or command_output step is added.",
+            }
+        ],
+        "confidence": "low",
+        "confidence_rationale": "Confidence is low because the trace is a deterministic projection from static relations, not an observed runtime workflow.",
+    }
+    if not trace["steps"][1]["symbol"]:
+        trace["steps"][1].pop("symbol")
+    errors = validate_data(repo, trace, "workflow_trace")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, sha, str(trace_path.relative_to(repo)), trace, "tracer")
+    write_json(trace_path, trace)
+    print(trace_path)
+    return 0
+
+
 def command_validate(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.artifact)
@@ -2562,6 +2665,10 @@ def command_handoff(args: argparse.Namespace) -> int:
     if binding_path.exists():
         artifacts.insert(2, {"path": str(binding_path.relative_to(repo)), "artifact_type": "goal_binding", "status": "draft", "summary": "Goal-specific candidate binding over the surface map."})
         handoff_inputs.insert(1, {"path": str(binding_path.relative_to(repo)), "sha256": sha256_file(binding_path)})
+    trace_paths = sorted((paths.run_dir / "workflow-traces").glob("*.json")) if (paths.run_dir / "workflow-traces").exists() else []
+    for trace_path in trace_paths:
+        artifacts.insert(-1, {"path": str(trace_path.relative_to(repo)), "artifact_type": "workflow_trace", "status": "draft", "summary": "Deep-mode static workflow trace."})
+        handoff_inputs.insert(-1, {"path": str(trace_path.relative_to(repo)), "sha256": sha256_file(trace_path)})
     handoff = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "handoff",
@@ -2670,12 +2777,12 @@ def command_run(args: argparse.Namespace) -> int:
                 ),
             )
         )
-    commands.extend(
-        [
-            (command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)),
-            (command_handoff, map_args),
-        ]
-    )
+    if args.mode == "deep":
+        commands.append((command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)))
+        commands.append((command_trace_workflows, map_args))
+    else:
+        commands.append((command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)))
+    commands.append((command_handoff, map_args))
     for command, ns in commands:
         rc = command(ns)
         if rc != 0:
@@ -2781,6 +2888,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_bind.add_argument("--goal")
     p_bind.add_argument("--goal-class")
     p_bind.set_defaults(func=command_bind)
+    p_trace = sub.add_parser("trace-workflows")
+    p_trace.add_argument("--repo", default=".")
+    p_trace.add_argument("--run-id")
+    p_trace.set_defaults(func=command_trace_workflows)
     p_validate = sub.add_parser("validate")
     p_validate.add_argument("artifact")
     p_validate.add_argument("--repo", default=".")
@@ -2881,6 +2992,10 @@ def skeptic_review_main() -> int:
 
 def bind_main() -> int:
     return main(["bind", *sys.argv[1:]])
+
+
+def trace_workflows_main() -> int:
+    return main(["trace-workflows", *sys.argv[1:]])
 
 
 def validate_main() -> int:

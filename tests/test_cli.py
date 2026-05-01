@@ -275,6 +275,34 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     assert synthesis_data["contestation"]["open_challenges"] >= 1
 
 
+def test_deep_run_writes_workflow_trace(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    assert main(["run", "--repo", str(repo), "--goal", "add greeting behavior", "--goal-class", "feature_add", "--mode", "deep", "--run-id", "run-deep"]) == 0
+
+    run_dir = repo / ".research" / "run-deep"
+    trace = run_dir / "workflow-traces" / "trace-0001.json"
+    handoff = run_dir / "handoff.md"
+    assert trace.exists()
+    assert main(["validate", str(trace), "--repo", str(repo)]) == 0
+    assert main(["verify-citations", str(trace), "--repo", str(repo)]) == 0
+    data = json.loads(trace.read_text(encoding="utf-8"))
+    assert data["artifact_type"] == "workflow_trace"
+    assert data["goal_class"] == "feature_add"
+    assert data["trigger"]["kind"] == "goal_binding"
+    assert data["steps"][0]["path"] == "tests/test_app.py"
+    assert data["steps"][1]["path"] == "src/app.py"
+    assert data["steps"][1]["symbol"] == "hello"
+    assert data["confidence"] == "low"
+
+    frontmatter = yaml.safe_load(handoff.read_text(encoding="utf-8").split("---", 2)[1])
+    assert "workflow_trace" in [artifact["artifact_type"] for artifact in frontmatter["artifacts"]]
+    assert any(input_item["path"].endswith("workflow-traces/trace-0001.json") for input_item in frontmatter["inputs"])
+
+
 def test_stop_hook_validates_latest_handoff(tmp_path: Path, monkeypatch, capsys) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

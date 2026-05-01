@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/workflow-trace.schema.json",
+  "title": "Workflow Trace",
+  "description": "Deep-mode trace of a workflow path through known dependency evidence.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "inputs",
+    "status",
+    "coverage",
+    "staleness",
+    "goal",
+    "goal_class",
+    "workflow_id",
+    "workflow_name",
+    "trigger",
+    "steps",
+    "unknowns",
+    "confidence",
+    "confidence_rationale"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "workflow_trace" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": { "type": "string", "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+    "coverage": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/coverage" },
+    "staleness": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/staleness" },
+    "goal": { "type": "string", "minLength": 1 },
+    "goal_class": {
+      "enum": [
+        "feature_add",
+        "refactor",
+        "extension_point",
+        "missing_extension_point",
+        "migration",
+        "audit",
+        "research_only",
+        "understand_repo",
+        "other"
+      ]
+    },
+    "workflow_id": { "type": "string", "pattern": "^wft-[0-9]{4}$" },
+    "workflow_name": { "type": "string", "minLength": 1 },
+    "trigger": {
+      "type": "object",
+      "required": ["kind", "description", "claim_register", "evidence_kinds", "citations"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["goal_binding", "entrypoint", "test", "unknown"] },
+        "description": { "type": "string", "minLength": 1 },
+        "claim_register": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_register" },
+        "evidence_kinds": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/evidence_kinds" },
+        "citations": {
+          "type": "array",
+          "items": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/citation" }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "step_id",
+          "order",
+          "path",
+          "description",
+          "claim_register",
+          "claim_status",
+          "evidence_kinds",
+          "citations"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "step_id": { "type": "string", "pattern": "^step-[0-9]{4}$" },
+          "order": { "type": "integer", "minimum": 1 },
+          "path": { "type": "string" },
+          "symbol": { "type": "string" },
+          "description": { "type": "string", "minLength": 1 },
+          "claim_register": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_register" },
+          "claim_status": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_status" },
+          "evidence_kinds": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/evidence_kinds" },
+          "citations": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/citation" }
+          }
+        }
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description", "impact"],
+        "additionalProperties": false,
+        "properties": {
+          "description": { "type": "string", "minLength": 1 },
+          "impact": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "confidence": { "enum": ["low", "medium", "high"] },
+    "confidence_rationale": { "type": "string", "minLength": 20 }
+  }
+}
