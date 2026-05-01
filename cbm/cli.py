@@ -4027,6 +4027,17 @@ def command_hook_stop(args: argparse.Namespace) -> int:
     repo = Path(payload.get("cwd") or args.repo).resolve()
     run_dir = hook_run_dir(repo, args.run_id)
     if not run_dir:
+        if args.run_id:
+            print(
+                json.dumps(
+                    {
+                        "continue": False,
+                        "stopReason": f"CBM run {args.run_id} was explicitly requested but does not exist.",
+                        "systemMessage": f"CBM stop-hook gate failed: run {args.run_id} not found.",
+                    }
+                )
+            )
+            return 0
         detail = f"run {args.run_id} not found" if args.run_id else "no .research run found"
         print(json.dumps({"continue": True, "systemMessage": f"CBM: {detail} for stop-hook validation."}))
         return 0
@@ -4088,6 +4099,17 @@ def command_hook_start(args: argparse.Namespace) -> int:
     repo = Path(payload.get("cwd") or args.repo).resolve()
     run_dir = hook_run_dir(repo, args.run_id)
     if not run_dir:
+        if args.run_id:
+            print(
+                json.dumps(
+                    {
+                        "continue": False,
+                        "stopReason": f"CBM run {args.run_id} was explicitly requested but does not exist.",
+                        "systemMessage": f"CBM start-hook gate failed: run {args.run_id} not found.",
+                    }
+                )
+            )
+            return 0
         detail = f"run {args.run_id} not found" if args.run_id else "no .research run found"
         print(json.dumps({"continue": True, "systemMessage": f"CBM: {detail} for start-hook freshness validation."}))
         return 0

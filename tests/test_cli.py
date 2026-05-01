@@ -946,6 +946,25 @@ def test_hooks_can_validate_explicit_run_id(tmp_path: Path, monkeypatch, capsys)
     assert "run-explicit-new" in output["systemMessage"]
 
 
+def test_hooks_reject_missing_explicit_run_id(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": str(repo)})))
+    assert main(["hook-start", "--repo", str(repo), "--run-id", "run-missing"]) == 0
+    output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert output["continue"] is False
+    assert "run-missing" in output["stopReason"]
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": str(repo)})))
+    assert main(["hook-stop", "--repo", str(repo), "--run-id", "run-missing"]) == 0
+    output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert output["continue"] is False
+    assert "run-missing" in output["stopReason"]
+
+
 def test_ledger_integrity_detects_mutated_existing_line(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

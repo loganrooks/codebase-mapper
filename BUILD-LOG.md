@@ -1041,3 +1041,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Explicit run selection makes recovery/debug gates more precise without changing default platform hook behavior.
   - Contract check: Existing platform adapters can keep omitting `--run-id`; the option is additive and defaults to latest-run behavior.
   - Reviewer-eye check: The hook still treats a missing explicit run as non-blocking informational output; stricter missing-run behavior may be desirable for scripted CI use.
+
+## 2026-05-01 — Hook slice: missing explicit run fails closed
+
+- Implemented: `cbm hook-start --run-id <id>` and `cbm hook-stop --run-id <id>` now return blocking hook responses when the explicitly requested run directory does not exist.
+- Verification run:
+  - `pytest -q` passed: 48 tests, including a regression that checks both start and stop hooks reject a missing explicit run id.
+- Self-critique:
+  - Drift check: Explicit recovery/CI-style validation now fails closed instead of silently falling back to a no-op informational path.
+  - Contract check: Default no-run behavior remains non-blocking for freshly initialized repositories with no `.research` data.
+  - Reviewer-eye check: The platform adapters still do not pass `--run-id`; this is an operator/scripting hardening, not a change to normal Codex hook invocation.
