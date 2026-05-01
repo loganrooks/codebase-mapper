@@ -731,3 +731,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Handoff no longer relies only on schema validation for cards; it verifies the contestation discipline before finalizing the bundle.
   - Contract check: The integration reuses the same propagation checker as `verify` and `gate-artifact`.
   - Reviewer-eye check: The handoff check currently covers card contestation propagation, while broader full-run gate orchestration remains split across existing command boundaries.
+
+## 2026-05-01 — Gate slice: contested card confidence
+
+- Implemented: `cbm-verify`, `cbm-gate-artifact`, and `cbm-handoff` now reject findings/intervention cards that claim `confidence: high` while carrying non-empty `dependent_challenges`.
+- Implemented: verify reports now include `card_confidence` details and `summary.confidence_violations`.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including a tampered card that keeps live dependent challenges while inflating confidence to high.
+- Self-critique:
+  - Drift check: The gate now enforces the vision rule that contestation must visibly lower card confidence instead of being hidden behind a high-confidence label.
+  - Contract check: This makes an existing schema description executable without changing the schema.
+  - Reviewer-eye check: The rule is intentionally coarse: it only prohibits high confidence with dependent challenges; it does not yet calibrate low versus medium.
