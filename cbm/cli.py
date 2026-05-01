@@ -2952,6 +2952,11 @@ def command_handoff(args: argparse.Namespace) -> int:
         for error in errors:
             print(error, file=sys.stderr)
         return 1
+    evidence_errors = check_claim_evidence(surface)
+    if evidence_errors:
+        for error in evidence_errors:
+            print(f"evidence-fail {error}", file=sys.stderr)
+        return 1
     write_json(surface_path, surface)
     skeptic_path.write_text(
         "---\n"

@@ -575,3 +575,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The gate strengthens the existing evidence discipline instead of adding new interpretive claims.
   - Contract check: The deterministic check covers import, call, runtime workflow, test-exercises, config-contract, config/routing/policy authority, and interpretive-rationale requirements.
   - Reviewer-eye check: This is not yet wired into every post-write hook invocation, but the command exists and has a regression test for a schema-valid evidence violation.
+
+## 2026-05-01 — Guardrail slice: handoff evidence gate
+
+- Implemented: `cbm-handoff` now runs the claim-evidence check against `surface-map.json` before writing handoff artifacts.
+- Verification run:
+  - `pytest -q` passed: 30 tests, including a handoff regression that mutates a call edge to invalid evidence and confirms handoff fails.
+- Self-critique:
+  - Drift check: This makes the existing handoff gate stricter without changing artifact semantics.
+  - Contract check: A final handoff can no longer proceed from a surface map that violates the claim-evidence table.
+  - Reviewer-eye check: The post-write hook contract still needs a broader generalized hook runner; this slice covers the final handoff boundary.
