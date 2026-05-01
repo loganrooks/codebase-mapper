@@ -461,6 +461,15 @@ def test_check_evidence_enforces_claim_requirements(tmp_path: Path) -> None:
     assert main(["validate", str(invalid_surface), "--repo", str(repo)]) == 0
     assert main(["check-evidence", str(invalid_surface), "--repo", str(repo)]) == 2
 
+    data = json.loads(surface.read_text(encoding="utf-8"))
+    import_edge = next(edge for edge in data["edges"] if edge["kind"] == "import")
+    import_edge["extractor_id"] = "ext-unregistered-v1"
+    invalid_extractor = repo / ".research" / run_id / "surface-map.invalid-extractor.json"
+    invalid_extractor.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    assert main(["validate", str(invalid_extractor), "--repo", str(repo)]) == 0
+    assert main(["check-evidence", str(invalid_extractor), "--repo", str(repo)]) == 2
+    assert main(["gate-artifact", str(invalid_extractor), "--repo", str(repo)]) == 2
+
 
 def test_gate_artifact_runs_schema_citation_and_evidence_checks(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)

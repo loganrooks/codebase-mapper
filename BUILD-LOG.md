@@ -955,3 +955,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Extractor blind spots now have a dedicated mechanical gate instead of relying on generic schema validation alone.
   - Contract check: This closes the command named in `docs/contracts.md` without changing artifact shape.
   - Reviewer-eye check: The command validates extractor declarations, not whether the blind-spot prose is sufficiently specific or empirically complete.
+
+## 2026-05-01 — Evidence slice: registered extractor references
+
+- Implemented: claim-evidence validation now checks edge `extractor_id` values against the run's `extractor-registry.json` when a registry is available.
+- Implemented: `cbm check-evidence`, `cbm gate-artifact`, challenge resolution, handoff, and stop-hook evidence checks now use registry-aware validation.
+- Verification run:
+  - `pytest -q` passed: 41 tests, including a regression where a schema-valid surface map with `extractor_id: ext-unregistered-v1` fails both `check-evidence` and `gate-artifact`.
+- Self-critique:
+  - Drift check: Claims can no longer cite arbitrary extractor ids while bypassing the registry/blind-spot discipline.
+  - Contract check: This enforces existing registry references without schema changes.
+  - Reviewer-eye check: The check requires existence in the registry, but does not yet compare each extractor's declared evidence kinds against the claim's evidence kinds.
