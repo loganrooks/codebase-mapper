@@ -191,10 +191,11 @@ def test_handoff_emits_goal_pack_card_type(tmp_path: Path) -> None:
     assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
     assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
     assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    run_dir = repo / ".research" / run_id
+    surface_map = run_dir / "surface-map.json"
     assert main(["bind", "--repo", str(repo), "--run-id", run_id, "--goal", "add greeting behavior", "--goal-class", "feature_add"]) == 0
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
 
-    run_dir = repo / ".research" / run_id
     card = run_dir / "interventions" / "int-0001.md"
     handoff = run_dir / "handoff.md"
     assert card.exists()
@@ -219,6 +220,16 @@ def test_handoff_emits_goal_pack_card_type(tmp_path: Path) -> None:
     assert "intervention_card" in artifact_types
     assert "findings_card" not in artifact_types
     assert any(input_item["path"].endswith("interventions/int-0001.md") for input_item in frontmatter["inputs"])
+
+    surface_mtime_after_feature = surface_map.stat().st_mtime_ns
+    assert main(["bind", "--repo", str(repo), "--run-id", run_id, "--goal", "audit verification posture", "--goal-class", "audit"]) == 0
+    assert surface_map.stat().st_mtime_ns == surface_mtime_after_feature
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
+    audit_frontmatter = yaml.safe_load(card.read_text(encoding="utf-8").split("---", 2)[1])
+    assert audit_frontmatter["goal"] == "audit verification posture"
+    assert audit_frontmatter["goal_class"] == "audit"
+    assert audit_frontmatter["primary_files"][0]["path"] == "tests/test_app.py"
+    assert audit_frontmatter["primary_files"][0]["role"] != card_frontmatter["primary_files"][0]["role"]
 
 
 def test_standard_run_writes_verification_map(tmp_path: Path) -> None:

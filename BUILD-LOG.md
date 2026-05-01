@@ -431,3 +431,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Pack-specific ranking data moved out of the kernel while the deterministic binding algorithm stayed in the kernel.
   - Contract check: The loader enforces required pack fields, boolean research mode, allowed card types, priority map shape, and rationale presence.
   - Reviewer-eye check: Pack validation is intentionally local and lightweight, not yet a published JSON schema. That is acceptable for Phase C because these are bundled kernel packs, but external pack loading would need a formal schema.
+
+## 2026-05-01 — Phase C acceptance check
+
+- Verified: one mapped run can bind `feature_add`, emit a call-edge intervention card, then rebind `audit` without changing the surface map and emit a different audit-oriented card.
+- Verification run:
+  - `pytest -q` passed: 22 tests, including the same-run pack rebinding card check.
+- Self-critique:
+  - Drift check: The acceptance check exercises pack reuse over the same kernel map rather than adding a new mapping path.
+  - Contract check: Both cards validate through the existing handoff/card schema path and use the current citation verification flow.
+  - Reviewer-eye check: Re-running handoff still refreshes handoff-side Skeptic metadata on the surface map. The important Phase C guarantee is that rebinding itself does not re-run or mutate mapper output.
