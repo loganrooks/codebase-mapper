@@ -55,6 +55,11 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert surface_map.exists()
     assert main(["validate", str(codebase_map), "--repo", str(repo)]) == 0
     assert main(["validate", str(surface_map), "--repo", str(repo)]) == 0
+    initial_surface = json.loads(surface_map.read_text(encoding="utf-8"))
+    import_edges = [edge for edge in initial_surface["edges"] if edge["kind"] == "import"]
+    assert import_edges
+    assert import_edges[0]["extractor_id"] == "ext-python-imports-v1"
+    assert import_edges[0]["evidence_kinds"] == ["static_relation"]
 
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
     card = run_dir / "findings" / "int-0001.md"

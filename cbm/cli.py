@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import fnmatch
 import hashlib
 import json
@@ -160,6 +161,59 @@ def detect_configs(files: list[dict[str, Any]]) -> list[str]:
     return [item["path"] for item in files if item["path"].endswith(markers)]
 
 
+def resolve_python_module(repo: Path, module: str) -> str | None:
+    if not module:
+        return None
+    candidate = repo.joinpath(*module.split("."))
+    file_candidate = candidate.with_suffix(".py")
+    package_candidate = candidate / "__init__.py"
+    if file_candidate.exists():
+        return file_candidate.relative_to(repo).as_posix()
+    if package_candidate.exists():
+        return package_candidate.relative_to(repo).as_posix()
+    return None
+
+
+def extract_python_import_edges(repo: Path, files: list[dict[str, Any]], sha: str) -> list[dict[str, Any]]:
+    edges: list[dict[str, Any]] = []
+    python_files = [item["path"] for item in files if item["language"] == "python"]
+    for rel in python_files:
+        path = repo / rel
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            modules: list[str] = []
+            if isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                modules = [node.module]
+            for module in modules:
+                target = resolve_python_module(repo, module)
+                if not target:
+                    continue
+                citation = citation_for(repo, rel, sha, getattr(node, "lineno", 1))
+                if not citation:
+                    continue
+                edges.append(
+                    {
+                        "id": f"edge-import-{len(edges) + 1:03d}",
+                        "kind": "import",
+                        "from": {"path": rel},
+                        "to": {"path": target},
+                        "citations": [citation],
+                        "extractor_id": "ext-python-imports-v1",
+                        "claim_register": "factual",
+                        "claim_status": "active",
+                        "evidence_kinds": ["static_relation"],
+                        "corroboration_count": 1,
+                        "confidence": "high",
+                    }
+                )
+    return edges
+
+
 def coverage_block(file_count: int, examined: int = 0) -> dict[str, Any]:
     inspected = file_count
     return {
@@ -251,23 +305,20 @@ def resolve_citation(repo: Path, citation: str) -> tuple[bool, str]:
     end = int(match.group("end") or start)
     if start < 1 or end < start:
         return False, "invalid line range"
-    path = repo / rel
-    if not path.exists() or not path.is_file():
-        return False, "file not found"
     sha = match.group("sha")
     try:
-        git(repo, "cat-file", "-e", f"{sha}:./{rel}")
+        content = git(repo, "show", f"{sha}:./{rel}")
     except subprocess.CalledProcessError:
         return False, "path does not exist at cited sha"
-    lines = path.read_text(encoding="utf-8").splitlines()
+    lines = content.splitlines()
     if end > len(lines):
-        return False, f"line range exceeds current file length ({len(lines)})"
+        return False, f"line range exceeds cited file length ({len(lines)})"
     return True, "ok"
 
 
 def citation_for(repo: Path, rel: str, sha: str, line: int = 1) -> str | None:
     path = repo / rel
-    if not path.exists() or not path.is_file() or not path_exists_at_sha(repo, rel, sha):
+    if not path.exists() or not path.is_file() or not path_matches_sha(repo, rel, sha):
         return None
     count = line_count(path)
     if count < line:
@@ -281,6 +332,22 @@ def path_exists_at_sha(repo: Path, rel: str, sha: str) -> bool:
         return True
     except subprocess.CalledProcessError:
         return False
+
+
+def path_matches_sha(repo: Path, rel: str, sha: str) -> bool:
+    path = repo / rel
+    if not path.exists() or not path.is_file():
+        return False
+    try:
+        content = subprocess.run(
+            ["git", "-C", str(repo), "show", f"{sha}:./{rel}"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        ).stdout
+    except subprocess.CalledProcessError:
+        return False
+    return path.read_bytes() == content
 
 
 def append_jsonl(path: Path, entry: dict[str, Any]) -> None:
@@ -385,6 +452,20 @@ def command_init(args: argparse.Namespace) -> int:
                     {
                         "description": "Uses path naming conventions and can miss framework-specific generated tests.",
                         "category": "metaprogramming",
+                    }
+                ],
+            },
+            {
+                "id": "ext-python-imports-v1",
+                "kind": "ast",
+                "version": "1.0",
+                "language_or_format": "python",
+                "deterministic": True,
+                "produces_evidence_kinds": ["static_relation"],
+                "known_blind_spots": [
+                    {
+                        "description": "Does not resolve relative imports, dynamic imports, importlib calls, or sys.path mutations.",
+                        "category": "dynamic_dispatch",
                     }
                 ],
             },
@@ -531,7 +612,8 @@ def build_surface_map(repo: Path, paths: RunPaths) -> dict[str, Any]:
             }
         )
     rel_file, _ = first_citable_file(repo, codebase_map, sha)
-    edges = [
+    edges = extract_python_import_edges(repo, codebase_map["files"], sha)
+    edges.append(
         {
             "id": "edge-unknown-001",
             "kind": "unknown",
@@ -542,9 +624,9 @@ def build_surface_map(repo: Path, paths: RunPaths) -> dict[str, Any]:
             "evidence_kinds": ["static_structure"],
             "corroboration_count": 1,
             "confidence": "low",
-            "rationale": "Phase A does not yet extract import/call/runtime edges, so dependency closure remains unknown.",
+            "rationale": "Phase A extracts direct Python imports only; call edges, runtime workflows, relative imports, and dynamic loading remain unknown.",
         }
-    ]
+    )
     tests = []
     for test in codebase_map["tests"]:
         citation = citation_for(repo, test["path"], sha)
@@ -584,7 +666,7 @@ def build_surface_map(repo: Path, paths: RunPaths) -> dict[str, Any]:
         },
         "unknowns": {
             "edge_unknowns_present": True,
-            "summary": "Phase A intentionally preserves unknown dependency edges until import/call/runtime extraction is implemented.",
+            "summary": "Phase A preserves unknown dependency edges for call edges, runtime workflows, relative imports, and dynamic loading not covered by the Python import extractor.",
         },
     }
 
@@ -739,7 +821,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "source_sha": sha,
         "artifact_path": str(surface_path.relative_to(repo)),
         "claim_id": "edge-unknown-001",
-        "challenge": "Surface map is schema-valid but weak: Phase A has no import/call/runtime extraction, so dependency closure cannot support high-confidence planning.",
+        "challenge": "Surface map is schema-valid but weak: Phase A only extracts direct Python imports, so calls, runtime workflows, relative imports, and dynamic loading cannot support high-confidence planning.",
     }
     errors = validate_ledger_entry(repo, skeptic_entry)
     if errors:
@@ -754,7 +836,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             "challenges_claim_id": "edge-unknown-001",
             "raised_by": "skeptic@0.1",
             "raised_at": now,
-            "competing_reading": "The draft surface map should be treated as structurally incomplete until import, call, or runtime workflow extractors replace the unknown dependency edge with grounded relations.",
+            "competing_reading": "The draft surface map should be treated as structurally incomplete until call, runtime workflow, relative import, and dynamic loading extraction replace the unknown dependency edge with grounded relations.",
             "competing_evidence": [citation],
             "interpretive_axis": "completeness",
             "relation_to_original": "scope_dispute",
@@ -783,7 +865,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             },
             sort_keys=False,
         )
-        + "---\n# Skeptic Review\n\nFinding: `edge-unknown-001` keeps dependency closure unknown because Phase A does not extract import, call, or runtime workflow edges. This prevents high-confidence planning from the draft surface map alone.\n",
+        + "---\n# Skeptic Review\n\nFinding: `edge-unknown-001` keeps dependency closure unknown because Phase A only extracts direct Python imports. It still misses calls, runtime workflows, relative imports, and dynamic loading. This prevents high-confidence planning from the draft surface map alone.\n",
         encoding="utf-8",
     )
     card_frontmatter = {
@@ -840,7 +922,7 @@ def command_handoff(args: argparse.Namespace) -> int:
                 "impact": "Unknown dependency closure means this card can guide the next reading slice but should not be used as a high-confidence intervention plan.",
             }
         ],
-        "recommended_next_slice": "Read the cited authority file and implement import/call extraction for its language before promoting this card beyond draft.",
+        "recommended_next_slice": "Read the cited authority file and implement call or runtime workflow extraction before promoting this card beyond draft.",
         "claim_status": "active",
     }
     card_errors = validate_data(repo, card_frontmatter, "findings_card")
@@ -892,7 +974,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "artifacts": artifacts,
         "open_questions_count": 1,
         "coverage_caveats": ["Phase A surface mapping is deterministic and has not performed language-level import/call extraction."],
-        "recommended_next_action": "Implement language-level import/call extraction so the unknown dependency edge can be replaced with grounded relations.",
+        "recommended_next_action": "Implement call and runtime workflow extraction so the unknown dependency edge can be narrowed with grounded relations.",
     }
     errors = validate_data(repo, handoff, "handoff")
     if errors:
