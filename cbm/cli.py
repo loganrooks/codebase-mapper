@@ -1397,7 +1397,7 @@ def command_verify_map(args: argparse.Namespace) -> int:
 def challenged_claim_refs(artifact_path: Path, repo: Path, claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
     refs = []
     for claim in claims:
-        challenges = claim.get("challenges", [])
+        challenges = live_challenges(claim)
         if claim.get("claim_status") in {"challenged", "contested"} and challenges:
             refs.append(
                 {
@@ -2171,7 +2171,7 @@ def contestation_summary_for_claim_refs(claim_refs: list[tuple[str, dict[str, An
         status = claim.get("claim_status", "active")
         if status in statuses:
             statuses[status] += 1
-        challenges = claim.get("challenges", [])
+        challenges = live_challenges(claim)
         open_challenges += sum(1 for challenge in challenges if challenge.get("status") == "open")
         if status == "contested":
             contested_claims.append(
@@ -3344,7 +3344,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             split_data = read_json(split_path)
             claim_refs.extend((str(split_path.relative_to(repo)), claim) for claim in all_artifact_claims(split_data))
     contestation_summary = contestation_summary_for_claim_refs(claim_refs)
-    challenge_count = sum(len(claim.get("challenges", [])) for _, claim in claim_refs)
+    challenge_count = sum(len(live_challenges(claim)) for _, claim in claim_refs)
     handoff = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "handoff",

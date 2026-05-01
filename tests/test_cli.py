@@ -330,6 +330,48 @@ def test_synthesis_index_includes_surface_challenges(tmp_path: Path) -> None:
         )
         == 0
     )
+    challenged = json.loads(surface.read_text(encoding="utf-8"))
+    challenged_edge = next(edge for edge in challenged["edges"] if edge["id"] == import_edge["id"])
+    withdrawn_challenge_id = challenged_edge["challenges"][0]["challenge_id"]
+    assert (
+        main(
+            [
+                "challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--claim-id",
+                import_edge["id"],
+                "--competing-reading",
+                "The same surface import may indicate a second live runtime interpretation.",
+                "--evidence",
+                import_edge["citations"][0],
+                "--rationale",
+                "A second reviewer wants a live competing reading preserved.",
+            ]
+        )
+        == 0
+    )
+    challenged = json.loads(surface.read_text(encoding="utf-8"))
+    challenged_edge = next(edge for edge in challenged["edges"] if edge["id"] == import_edge["id"])
+    live_challenge_id = challenged_edge["challenges"][1]["challenge_id"]
+    assert (
+        main(
+            [
+                "resolve-challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--challenge-id",
+                withdrawn_challenge_id,
+                "--status",
+                "withdrawn",
+                "--resolution",
+                "The first reviewer withdrew this reading; the second challenge remains live.",
+            ]
+        )
+        == 0
+    )
     assert main(["authority-map", "--repo", str(repo), "--run-id", run_id]) == 0
     assert main(["dependency-graph", "--repo", str(repo), "--run-id", run_id]) == 0
     assert main(["verify-map", "--repo", str(repo), "--run-id", run_id]) == 0
@@ -341,6 +383,12 @@ def test_synthesis_index_includes_surface_challenges(tmp_path: Path) -> None:
         item["artifact_path"].endswith("surface-map.json") and item["claim_id"] == import_edge["id"]
         for item in challenged_claims
     )
+    surface_claim = next(
+        item
+        for item in challenged_claims
+        if item["artifact_path"].endswith("surface-map.json") and item["claim_id"] == import_edge["id"]
+    )
+    assert surface_claim["challenge_ids"] == [live_challenge_id]
 
 
 def test_check_evidence_enforces_claim_requirements(tmp_path: Path) -> None:

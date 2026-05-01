@@ -690,3 +690,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Synthesis now preserves contestation introduced before split maps exist instead of losing it between surface mapping and handoff.
   - Contract check: The change reuses the existing `contestation.challenged_claims` structure without changing the schema.
   - Reviewer-eye check: Workflow-trace and refinement report contestation still need a distinct representation because those artifacts do not expose the same challenge-bearing claim shape.
+
+## 2026-05-01 — Contestation slice: live challenge counting
+
+- Implemented: synthesis challenged-claim references, handoff contestation summaries, and handoff Skeptic challenge counts now use the shared live challenge status set instead of counting withdrawn or resolved challenge history.
+- Verification run:
+  - `pytest -q` passed: 35 tests, including a mixed-status surface challenge where synthesis carries only the still-live challenge id.
+- Self-critique:
+  - Drift check: Historical challenge records remain in the artifact and ledger, but live summaries now describe only unresolved contestation.
+  - Contract check: This changes counting semantics without schema changes; the existing summary descriptions already frame these fields as live/open contestation.
+  - Reviewer-eye check: `open_challenges` still counts only `status=open`, while accepted alternatives/replacements make a claim live through `challenged_claims` and claim status rather than increasing the open count.
