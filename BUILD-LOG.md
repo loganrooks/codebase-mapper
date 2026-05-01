@@ -351,3 +351,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The graph carries unknown dependency closure as structured content rather than hiding it behind a successful run.
   - Contract check: Non-unknown edges still require citations, extracted relation edges require extractor ids, and challenged/contested claims require challenges.
   - Reviewer-eye check: This graph is mechanically split from the combined surface map. It does not yet add richer call/runtime dependency extraction beyond existing Python import edges and the explicit unknown edge.
+
+## 2026-05-01 — Phase B slice: synthesis-index artifact
+
+- Implemented: `schemas/synthesis-index.schema.json` for the standard-mode synthesis boundary across surface, authority, dependency, and verification artifacts.
+- Implemented: `cbm-synthesis-index` / `cbm synthesis-index`, producing `synthesis-index.json` with input artifact hashes, claim counts, artifact references, and contestation summary.
+- Implemented: standard and deep `cbm run` now generate `synthesis-index.json`.
+- Verification run:
+  - `pytest -q` passed: 18 tests, including direct synthesis-index generation, schema validation, contestation propagation from a challenged dependency edge, and standard-mode run artifact creation.
+- Self-critique:
+  - Drift check: The index keeps synthesis as an artifact on disk rather than a chat-only summary.
+  - Contract check: The schema records inputs and hashes for every indexed artifact, plus challenged claim references.
+  - Reviewer-eye check: This is deterministic indexing over existing maps, not full agentic synthesis or uncertainty reconciliation. It creates the validated boundary that a richer Synthesizer can later replace.

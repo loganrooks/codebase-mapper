@@ -150,12 +150,15 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     authority_map = run_dir / "authority-map.json"
     dependency_graph = run_dir / "dependency-graph.json"
     verification_map = run_dir / "verification-map.json"
+    synthesis_index = run_dir / "synthesis-index.json"
     assert authority_map.exists()
     assert dependency_graph.exists()
     assert verification_map.exists()
+    assert synthesis_index.exists()
     assert main(["validate", str(authority_map), "--repo", str(repo)]) == 0
     assert main(["validate", str(dependency_graph), "--repo", str(repo)]) == 0
     assert main(["validate", str(verification_map), "--repo", str(repo)]) == 0
+    assert main(["validate", str(synthesis_index), "--repo", str(repo)]) == 0
     authority_data = json.loads(authority_map.read_text(encoding="utf-8"))
     assert authority_data["authorities"]
     dependency_data = json.loads(dependency_graph.read_text(encoding="utf-8"))
@@ -163,6 +166,9 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     data = json.loads(verification_map.read_text(encoding="utf-8"))
     assert data["ci_gates"]
     assert data["ci_gates"][0]["command"]["safety_envelope"]["requires_network"] is False
+    synthesis_data = json.loads(synthesis_index.read_text(encoding="utf-8"))
+    assert synthesis_data["claim_counts"]["authorities"] == len(authority_data["authorities"])
+    assert synthesis_data["claim_counts"]["dependencies"] == len(dependency_data["edges"])
 
 
 def test_stop_hook_validates_latest_handoff(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -530,6 +536,35 @@ def test_dependency_graph_command_splits_surface_edges(tmp_path: Path) -> None:
     assert data["partition_counts"]["certain"] >= 1
     assert data["partition_counts"]["unknown"] >= 1
     assert any(edge["kind"] == "unknown" for edge in data["edges"])
+
+
+def test_synthesis_index_connects_standard_maps(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-synthesis-index"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["authority-map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["dependency-graph", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["verify-map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["synthesis-index", "--repo", str(repo), "--run-id", run_id]) == 0
+    synthesis_index = repo / ".research" / run_id / "synthesis-index.json"
+    assert main(["validate", str(synthesis_index), "--repo", str(repo)]) == 0
+    data = json.loads(synthesis_index.read_text(encoding="utf-8"))
+    assert data["artifact_type"] == "synthesis_index"
+    assert {artifact["artifact_type"] for artifact in data["artifacts"]} == {
+        "surface_map",
+        "authority_map",
+        "dependency_graph",
+        "verification_map",
+    }
+    assert data["contestation"]["open_challenges"] == 1
+    assert data["contestation"]["challenged_claims"][0]["claim_id"] == "edge-unknown-001"
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:

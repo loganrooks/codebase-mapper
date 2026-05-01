@@ -248,6 +248,7 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "extractor_registry": "extractor-registry.schema.json",
         "authority_map": "authority-map.schema.json",
         "dependency_graph": "dependency-graph.schema.json",
+        "synthesis_index": "synthesis-index.schema.json",
         "goal_binding": "goal-binding.schema.json",
         "handoff": "handoff.schema.json",
         "intervention_card": "intervention-card.schema.json",
@@ -1027,6 +1028,96 @@ def command_verify_map(args: argparse.Namespace) -> int:
     )
     write_json(verification_path, verification_map)
     print(verification_path)
+    return 0
+
+
+def challenged_claim_refs(artifact_path: Path, repo: Path, claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    refs = []
+    for claim in claims:
+        challenges = claim.get("challenges", [])
+        if claim.get("claim_status") in {"challenged", "contested"} and challenges:
+            refs.append(
+                {
+                    "artifact_path": str(artifact_path.relative_to(repo)),
+                    "claim_id": claim["id"],
+                    "challenge_ids": [challenge["challenge_id"] for challenge in challenges],
+                }
+            )
+    return refs
+
+
+def build_synthesis_index(repo: Path, paths: RunPaths) -> dict[str, Any]:
+    surface_path = paths.run_dir / "surface-map.json"
+    authority_path = paths.run_dir / "authority-map.json"
+    dependency_path = paths.run_dir / "dependency-graph.json"
+    verification_path = paths.run_dir / "verification-map.json"
+    surface = read_json(surface_path)
+    authority_map = read_json(authority_path)
+    dependency_graph = read_json(dependency_path)
+    verification_map = read_json(verification_path)
+    challenged = []
+    challenged.extend(challenged_claim_refs(authority_path, repo, authority_map["authorities"]))
+    challenged.extend(challenged_claim_refs(dependency_path, repo, dependency_graph["edges"]))
+    inputs = [
+        {"path": str(path.relative_to(repo)), "sha256": sha256_file(path)}
+        for path in [surface_path, authority_path, dependency_path, verification_path]
+    ]
+    artifacts = [
+        {"path": item["path"], "artifact_type": artifact_type}
+        for item, artifact_type in zip(
+            inputs,
+            ["surface_map", "authority_map", "dependency_graph", "verification_map"],
+            strict=True,
+        )
+    ]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "synthesis_index",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "synthesizer@0.1",
+        "source_sha": surface["source_sha"],
+        "inputs": inputs,
+        "status": "draft",
+        "coverage": surface["coverage"],
+        "staleness": {
+            "stale_if_input_hash_changes": True,
+            "depends_on_paths": sorted(
+                set(authority_map["staleness"]["depends_on_paths"])
+                | set(dependency_graph["staleness"]["depends_on_paths"])
+                | set(verification_map["staleness"]["depends_on_paths"])
+            ),
+            "scope_signature": surface["staleness"]["scope_signature"],
+        },
+        "summary": (
+            f"Synthesis index connects {len(authority_map['authorities'])} authorities, "
+            f"{len(dependency_graph['edges'])} dependency edges, and {len(verification_map['ci_gates'])} verification gates."
+        ),
+        "claim_counts": {
+            "authorities": len(authority_map["authorities"]),
+            "dependencies": len(dependency_graph["edges"]),
+            "verification_gates": len(verification_map["ci_gates"]),
+        },
+        "contestation": {
+            "open_challenges": sum(len(item["challenge_ids"]) for item in challenged),
+            "challenged_claims": challenged,
+        },
+        "artifacts": artifacts,
+    }
+
+
+def command_synthesis_index(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    synthesis_index = build_synthesis_index(repo, paths)
+    errors = validate_data(repo, synthesis_index, "synthesis_index")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    index_path = paths.run_dir / "synthesis-index.json"
+    write_json(index_path, synthesis_index)
+    print(index_path)
     return 0
 
 
@@ -2234,6 +2325,7 @@ def command_run(args: argparse.Namespace) -> int:
         commands.append((command_authority_map, map_args))
         commands.append((command_dependency_graph, map_args))
         commands.append((command_verify_map, map_args))
+        commands.append((command_synthesis_index, map_args))
     commands.extend(
         [
             (command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)),
@@ -2330,6 +2422,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_verify_map.add_argument("--repo", default=".")
     p_verify_map.add_argument("--run-id")
     p_verify_map.set_defaults(func=command_verify_map)
+    p_synthesis_index = sub.add_parser("synthesis-index")
+    p_synthesis_index.add_argument("--repo", default=".")
+    p_synthesis_index.add_argument("--run-id")
+    p_synthesis_index.set_defaults(func=command_synthesis_index)
     p_bind = sub.add_parser("bind")
     p_bind.add_argument("--repo", default=".")
     p_bind.add_argument("--run-id")
@@ -2424,6 +2520,10 @@ def dependency_graph_main() -> int:
 
 def verify_map_main() -> int:
     return main(["verify-map", *sys.argv[1:]])
+
+
+def synthesis_index_main() -> int:
+    return main(["synthesis-index", *sys.argv[1:]])
 
 
 def bind_main() -> int:
