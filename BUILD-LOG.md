@@ -231,6 +231,17 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Contract check: Mode 1 produces no artifact; Mode 2 writes a transient verify report and leaves the original artifact unchanged.
   - Reviewer-eye check: The verify report is schema-shaped but currently has no dedicated schema, because the kit names `verify_report` as transient without shipping a schema.
 
+## 2026-05-01 — Phase B slice: corpus status
+
+- Implemented: `cbm-corpus-status` / `cbm corpus-status`, which walks `.research/`, classifies artifacts as `fresh`, `stale`, `pinned`, or `broken`, and writes a machine-readable `corpus-status.json` manifest.
+- Verification run:
+  - `pytest -q` passed: 8 tests, including a corpus-status test that first reports fresh artifacts, then commits a cited-file change and reports stale-but-historically-valid artifacts.
+  - Smoke run: `python3 -m cbm corpus-status --repo . --output .research/corpus-status-smoke.json` completed and wrote the manifest. Existing local smoke runs are a mix of fresh, stale, and pinned artifacts because the branch has advanced through multiple implementation commits.
+- Self-critique:
+  - Drift check: The command inventories artifact freshness without rewriting any run artifacts.
+  - Contract check: It distinguishes current freshness from historical validity by retaining `historical_valid` per artifact.
+  - Reviewer-eye check: This walks the current flattened `.research/<run_id>/` layout, not the recommended future `.research/runs/<run_id>/` layout. It uses recursive discovery, so it should tolerate either layout later.
+
 ## 2026-05-01 — Skeptic challenge target fix
 
 - Audit finding: once Python import extraction exists, `cbm-handoff` must not assume the unknown edge is `surface.edges[0]`. A current-head smoke showed the Skeptic challenge was attached to the first edge by index, which could incorrectly challenge a factual import edge.

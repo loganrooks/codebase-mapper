@@ -220,6 +220,30 @@ def test_validate_fresh_and_verify_track_head_movement(tmp_path: Path) -> None:
     assert verify_report["summary"]["broken"] == 1
 
 
+def test_corpus_status_writes_manifest(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-corpus"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    manifest = repo / ".research" / "corpus-status.json"
+    assert main(["corpus-status", "--repo", str(repo), "--output", str(manifest)]) == 0
+    status = json.loads(manifest.read_text(encoding="utf-8"))
+    assert status["summary"]["fresh"] >= 1
+    assert any(item["artifact_type"] == "goal_binding" for item in status["artifacts"])
+
+    (repo / "tests" / "test_app.py").write_text("from src.app import hello\n\n# changed for corpus status\n", encoding="utf-8")
+    git(repo, "add", "tests/test_app.py")
+    git(repo, "commit", "-m", "move head for corpus status")
+    assert main(["corpus-status", "--repo", str(repo), "--output", str(manifest)]) == 0
+    status = json.loads(manifest.read_text(encoding="utf-8"))
+    assert status["summary"]["stale"] >= 1
+    stale_items = [item for item in status["artifacts"] if item["freshness"] == "stale"]
+    assert all(item["historical_valid"] for item in stale_items)
+
+
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

@@ -1050,6 +1050,80 @@ def command_verify(args: argparse.Namespace) -> int:
     return 0 if report["summary"]["needs_review"] == 0 and report["summary"]["broken"] == 0 else 2
 
 
+def iter_research_artifacts(repo: Path) -> Iterable[Path]:
+    research = repo / ".research"
+    if not research.exists():
+        return []
+    return (
+        path
+        for path in sorted(research.rglob("*"))
+        if path.is_file()
+        and path.suffix in {".json", ".md"}
+        and not path.name.endswith(".integrity.json")
+        and path.name != "verify-report.json"
+        and path.name != "corpus-status.json"
+    )
+
+
+def artifact_status_against_head(repo: Path, artifact: Path) -> dict[str, Any] | None:
+    try:
+        data, body = load_artifact_frontmatter(artifact)
+    except Exception:
+        return None
+    if not isinstance(data, dict) or "artifact_type" not in data:
+        return None
+    citations = sorted(set(extract_citations(data) + extract_citations(body)))
+    verify_results = [verify_citation_at_head(repo, citation) for citation in citations]
+    summary = {
+        "still_grounded": sum(1 for item in verify_results if item["status"] == "still_grounded"),
+        "needs_review": sum(1 for item in verify_results if item["status"] == "needs_review"),
+        "broken": sum(1 for item in verify_results if item["status"] == "broken"),
+    }
+    if not citations:
+        freshness = "fresh" if data.get("source_sha") == source_sha(repo) else "pinned"
+    elif summary["broken"]:
+        freshness = "broken"
+    elif summary["needs_review"]:
+        freshness = "stale"
+    else:
+        freshness = "fresh"
+    return {
+        "path": str(artifact.relative_to(repo)),
+        "artifact_type": data.get("artifact_type"),
+        "source_sha": data.get("source_sha"),
+        "freshness": freshness,
+        "historical_valid": all(resolve_citation(repo, citation)[0] for citation in citations),
+        "citation_summary": summary,
+    }
+
+
+def command_corpus_status(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    artifacts = [status for path in iter_research_artifacts(repo) if (status := artifact_status_against_head(repo, path))]
+    summary = {
+        "fresh": sum(1 for item in artifacts if item["freshness"] == "fresh"),
+        "stale": sum(1 for item in artifacts if item["freshness"] == "stale"),
+        "pinned": sum(1 for item in artifacts if item["freshness"] == "pinned"),
+        "broken": sum(1 for item in artifacts if item["freshness"] == "broken"),
+    }
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "corpus_status",
+        "produced_at": utc_now(),
+        "head_sha": source_sha(repo),
+        "summary": summary,
+        "artifacts": artifacts,
+    }
+    output_path = Path(args.output) if args.output else repo / ".research" / "corpus-status.json"
+    if not output_path.is_absolute():
+        output_path = repo / output_path
+    write_json(output_path, manifest)
+    for item in artifacts:
+        print(f"{item['freshness']} {item['path']}")
+    print(output_path)
+    return 0 if summary["broken"] == 0 else 2
+
+
 def read_intake(run_dir: Path) -> dict[str, Any]:
     return read_json(run_dir / "intake.json")
 
@@ -1486,6 +1560,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_verify_fresh.add_argument("--repo", default=".")
     p_verify_fresh.add_argument("--output")
     p_verify_fresh.set_defaults(func=command_verify)
+    p_corpus_status = sub.add_parser("corpus-status")
+    p_corpus_status.add_argument("--repo", default=".")
+    p_corpus_status.add_argument("--output")
+    p_corpus_status.set_defaults(func=command_corpus_status)
     p_handoff = sub.add_parser("handoff")
     p_handoff.add_argument("--repo", default=".")
     p_handoff.add_argument("--run-id")
@@ -1542,6 +1620,10 @@ def validate_fresh_main() -> int:
 
 def verify_main() -> int:
     return main(["verify", *sys.argv[1:]])
+
+
+def corpus_status_main() -> int:
+    return main(["corpus-status", *sys.argv[1:]])
 
 
 def handoff_main() -> int:
