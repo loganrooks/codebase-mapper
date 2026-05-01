@@ -564,3 +564,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Platform work stayed outside schemas, skills, and CLI contracts.
   - Contract check: The docs require the same CLI, schemas, artifacts, skills, and citation format across platforms.
   - Reviewer-eye check: This is not a fully verified Claude Code adapter. It records the port boundary and the required verification checklist while leaving exact syntax to a docs-verified adapter pass.
+
+## 2026-05-01 — Guardrail slice: claim-evidence check
+
+- Implemented: `cbm-check-evidence` / `cbm check-evidence`, enforcing the claim-evidence requirements table for authorities and dependency edges.
+- Fixed: manifest files discovered by structure alone are no longer overclaimed as `authority.config`; build manifests become `authority.build`, and other uncorroborated config-like files become `authority.other`.
+- Verification run:
+  - `pytest -q` passed: 29 tests, including a regression where schema validation passes but `cbm check-evidence` rejects an import edge missing `static_relation` evidence.
+- Self-critique:
+  - Drift check: The gate strengthens the existing evidence discipline instead of adding new interpretive claims.
+  - Contract check: The deterministic check covers import, call, runtime workflow, test-exercises, config-contract, config/routing/policy authority, and interpretive-rationale requirements.
+  - Reviewer-eye check: This is not yet wired into every post-write hook invocation, but the command exists and has a regression test for a schema-valid evidence violation.

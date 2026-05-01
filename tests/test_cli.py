@@ -293,6 +293,28 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     assert synthesis_data["contestation"]["open_challenges"] >= 1
 
 
+def test_check_evidence_enforces_claim_requirements(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-evidence-check"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    surface = repo / ".research" / run_id / "surface-map.json"
+    assert main(["check-evidence", str(surface), "--repo", str(repo)]) == 0
+    data = json.loads(surface.read_text(encoding="utf-8"))
+    import_edge = next(edge for edge in data["edges"] if edge["kind"] == "import")
+    import_edge["evidence_kinds"] = ["static_structure"]
+    invalid_surface = repo / ".research" / run_id / "surface-map.invalid-evidence.json"
+    invalid_surface.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    assert main(["validate", str(invalid_surface), "--repo", str(repo)]) == 0
+    assert main(["check-evidence", str(invalid_surface), "--repo", str(repo)]) == 2
+
+
 def test_deep_run_writes_workflow_trace(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

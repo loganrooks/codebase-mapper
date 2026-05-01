@@ -368,6 +368,61 @@ def validate_data(repo: Path, data: Any, artifact_type: str) -> list[str]:
     return [f"{'/'.join(str(p) for p in error.absolute_path) or '<root>'}: {error.message}" for error in validator.iter_errors(data)]
 
 
+def has_any_evidence(claim: dict[str, Any], allowed: set[str]) -> bool:
+    return bool(set(claim.get("evidence_kinds", [])) & allowed)
+
+
+def check_claim_evidence(data: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+
+    def check_interpretive(claim: dict[str, Any], ref: str) -> None:
+        if claim.get("claim_register") == "interpretive":
+            if not claim.get("rationale"):
+                errors.append(f"{ref}: interpretive claim requires rationale")
+            if not claim.get("evidence_kinds"):
+                errors.append(f"{ref}: interpretive claim requires at least one evidence_kind")
+
+    def check_authority(authority: dict[str, Any], ref: str) -> None:
+        check_interpretive(authority, ref)
+        kind = authority.get("kind")
+        if kind == "config":
+            if not has_any_evidence(authority, {"static_relation"}):
+                errors.append(f"{ref}: authority.config requires static_relation evidence")
+            if authority.get("corroboration_count", 0) < 2:
+                errors.append(f"{ref}: authority.config requires corroboration_count >= 2")
+        elif kind == "routing":
+            if not has_any_evidence(authority, {"static_relation", "runtime_trace"}):
+                errors.append(f"{ref}: authority.routing requires static_relation or runtime_trace evidence")
+        elif kind == "policy":
+            if not has_any_evidence(authority, {"static_relation", "maintainer_statement"}):
+                errors.append(f"{ref}: authority.policy requires static_relation or maintainer_statement evidence")
+
+    def check_edge(edge: dict[str, Any], ref: str) -> None:
+        check_interpretive(edge, ref)
+        kind = edge.get("kind")
+        evidence = set(edge.get("evidence_kinds", []))
+        if kind in {"import", "call"} and "static_relation" not in evidence:
+            errors.append(f"{ref}: edge.{kind} requires static_relation evidence")
+        elif kind == "runtime_workflow":
+            if not evidence & {"runtime_trace", "command_output"}:
+                errors.append(f"{ref}: edge.runtime_workflow requires runtime_trace or command_output evidence")
+            if evidence == {"static_structure"}:
+                errors.append(f"{ref}: edge.runtime_workflow cannot rely on static_structure alone")
+        elif kind == "test_exercises" and not evidence & {"static_relation", "command_output"}:
+            errors.append(f"{ref}: edge.test_exercises requires static_relation or command_output evidence")
+        elif kind == "config_contract":
+            if "static_relation" not in evidence:
+                errors.append(f"{ref}: edge.config_contract requires static_relation evidence")
+            if edge.get("corroboration_count", 0) < 2:
+                errors.append(f"{ref}: edge.config_contract requires corroboration_count >= 2")
+
+    for index, authority in enumerate(data.get("authorities", [])):
+        check_authority(authority, f"authorities/{index}/{authority.get('id', '<unknown>')}")
+    for index, edge in enumerate(data.get("edges", [])):
+        check_edge(edge, f"edges/{index}/{edge.get('id', '<unknown>')}")
+    return errors
+
+
 def extract_citations(value: Any) -> list[str]:
     citations: list[str] = []
     if isinstance(value, str):
@@ -876,8 +931,10 @@ def authority_kind_for(path: str) -> tuple[str, str]:
         return "ci_gate", "config"
     if path.startswith("tests/") or "/test_" in path or path.endswith("_test.py"):
         return "test_suite", "test"
+    if path in {"pyproject.toml", "setup.py", "requirements.txt", "package.json", "pnpm-lock.yaml", "yarn.lock", "Cargo.toml", "go.mod"}:
+        return "build", "config"
     if path.endswith((".toml", ".yaml", ".yml", ".json", ".ini", ".cfg")):
-        return "config", "config"
+        return "other", "config"
     if path.endswith((".md", ".markdown")):
         return "doc_contract", "doc"
     return "other", "code"
@@ -1921,6 +1978,21 @@ def command_validate(args: argparse.Namespace) -> int:
             print(error, file=sys.stderr)
         return 1
     print(f"valid {path}")
+    return 0
+
+
+def command_check_evidence(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    path = Path(args.artifact)
+    if not path.is_absolute():
+        path = repo / path
+    data, _ = load_artifact_frontmatter(path)
+    errors = check_claim_evidence(data)
+    if errors:
+        for error in errors:
+            print(f"evidence-fail {error}")
+        return 2
+    print(f"evidence-ok {path}")
     return 0
 
 
@@ -3243,6 +3315,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_validate.add_argument("artifact")
     p_validate.add_argument("--repo", default=".")
     p_validate.set_defaults(func=command_validate)
+    p_check_evidence = sub.add_parser("check-evidence")
+    p_check_evidence.add_argument("artifact")
+    p_check_evidence.add_argument("--repo", default=".")
+    p_check_evidence.set_defaults(func=command_check_evidence)
     p_verify = sub.add_parser("verify-citations")
     p_verify.add_argument("artifact")
     p_verify.add_argument("--repo", default=".")
@@ -3355,6 +3431,10 @@ def approval_plan_main() -> int:
 
 def validate_main() -> int:
     return main(["validate", *sys.argv[1:]])
+
+
+def check_evidence_main() -> int:
+    return main(["check-evidence", *sys.argv[1:]])
 
 
 def verify_citations_main() -> int:
