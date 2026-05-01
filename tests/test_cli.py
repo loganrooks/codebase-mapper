@@ -828,6 +828,19 @@ def test_verify_reports_missing_card_contestation(tmp_path: Path) -> None:
     text = card.read_text(encoding="utf-8")
     _, frontmatter, body = text.split("---", 2)
     card_data = yaml.safe_load(frontmatter)
+    for item in card_data["dependent_challenges"]:
+        if item["claim_id"] == import_edge["id"]:
+            item["challenge_ids"].append("chl-99999")
+    card.write_text("---\n" + yaml.safe_dump(card_data, sort_keys=False) + "---" + body, encoding="utf-8")
+    assert main(["gate-artifact", str(card), "--repo", str(repo)]) == 2
+    assert main(["verify", str(card), "--repo", str(repo), "--output", str(report)]) == 2
+    verify_report = json.loads(report.read_text(encoding="utf-8"))
+    assert verify_report["summary"]["contestation_stale"] == 1
+    assert verify_report["contestation_propagation"]["stale"][0]["stale_challenge_ids"] == ["chl-99999"]
+
+    card.write_text(text, encoding="utf-8")
+    _, frontmatter, body = text.split("---", 2)
+    card_data = yaml.safe_load(frontmatter)
     card_data["confidence"] = "high"
     card.write_text("---\n" + yaml.safe_dump(card_data, sort_keys=False) + "---" + body, encoding="utf-8")
     assert main(["gate-artifact", str(card), "--repo", str(repo)]) == 2

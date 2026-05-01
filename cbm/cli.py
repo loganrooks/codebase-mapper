@@ -2037,7 +2037,9 @@ def command_gate_artifact(args: argparse.Namespace) -> int:
                 f"{item['claim_artifact']} {item['claim_id']} {','.join(item['missing_challenge_ids'])}"
             )
         for item in contestation["stale"]:
-            failures.append(f"contestation: stale dependent challenge {item['claim_artifact']} {item['claim_id']}")
+            stale_ids = ",".join(item.get("stale_challenge_ids", []))
+            suffix = f" {stale_ids}" if stale_ids else ""
+            failures.append(f"contestation: stale dependent challenge {item['claim_artifact']} {item['claim_id']}{suffix}")
         confidence_check = verify_card_confidence(data)
         for item in confidence_check["violations"]:
             failures.append(f"confidence: {item['field']}: {item['reason']}")
@@ -2379,6 +2381,7 @@ def verify_contestation_propagation(repo: Path, data: dict[str, Any]) -> dict[st
         if isinstance(values, list):
             refs.extend(value for value in values if isinstance(value, str))
     missing = []
+    stale = []
     expected_keys = set()
     for ref in refs:
         referenced = referenced_claim(repo, ref)
@@ -2399,7 +2402,15 @@ def verify_contestation_propagation(repo: Path, data: dict[str, Any]) -> dict[st
                         "missing_challenge_ids": missing_ids,
                     }
                 )
-    stale = []
+            stale_ids = sorted(actual_ids - live_ids)
+            if stale_ids:
+                stale.append(
+                    {
+                        "claim_artifact": artifact_ref,
+                        "claim_id": claim["id"],
+                        "stale_challenge_ids": stale_ids,
+                    }
+                )
     for claim_artifact, claim_id in dependent_by_claim:
         if (claim_artifact, claim_id) not in expected_keys:
             stale.append({"claim_artifact": claim_artifact, "claim_id": claim_id})
@@ -2457,7 +2468,9 @@ def command_verify(args: argparse.Namespace) -> int:
     for item in contestation["missing"]:
         print(f"contestation_missing {item['claim_artifact']} {item['claim_id']} {','.join(item['missing_challenge_ids'])}")
     for item in contestation["stale"]:
-        print(f"contestation_stale {item['claim_artifact']} {item['claim_id']}")
+        stale_ids = ",".join(item.get("stale_challenge_ids", []))
+        suffix = f" {stale_ids}" if stale_ids else ""
+        print(f"contestation_stale {item['claim_artifact']} {item['claim_id']}{suffix}")
     for item in confidence_check["violations"]:
         print(f"confidence_violation {item['field']} {item['reason']}")
     if not results:
@@ -3410,7 +3423,9 @@ def command_handoff(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
         for item in card_contestation["stale"]:
-            print(f"card-gate-fail stale dependent challenge {item['claim_artifact']} {item['claim_id']}", file=sys.stderr)
+            stale_ids = ",".join(item.get("stale_challenge_ids", []))
+            suffix = f" {stale_ids}" if stale_ids else ""
+            print(f"card-gate-fail stale dependent challenge {item['claim_artifact']} {item['claim_id']}{suffix}", file=sys.stderr)
         return 1
     if card_confidence_check["violations"]:
         for item in card_confidence_check["violations"]:

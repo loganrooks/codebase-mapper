@@ -742,3 +742,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The gate now enforces the vision rule that contestation must visibly lower card confidence instead of being hidden behind a high-confidence label.
   - Contract check: This makes an existing schema description executable without changing the schema.
   - Reviewer-eye check: The rule is intentionally coarse: it only prohibits high confidence with dependent challenges; it does not yet calibrate low versus medium.
+
+## 2026-05-01 — Verify slice: stale dependent challenge ids
+
+- Implemented: card contestation propagation audit now rejects stale `dependent_challenges` ids when a card cites a dependency claim but carries challenge ids that are not live on that claim.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including a tampered card with an extra stale challenge id in an otherwise valid dependent challenge entry.
+- Self-critique:
+  - Drift check: The card now carries current live disputes rather than historical or invented challenge ids.
+  - Contract check: Stale challenge ids are reported through the existing `contestation_propagation.stale` report field.
+  - Reviewer-eye check: This still validates against currently referenced artifacts only; if the referenced artifact itself is stale, freshness verification remains a separate gate.
