@@ -1001,6 +1001,7 @@ def test_structural_refresh_emits_successor_and_delta(tmp_path: Path) -> None:
     assert main(["validate", str(delta), "--repo", str(repo)]) == 0
     delta_data = json.loads(delta.read_text(encoding="utf-8"))
     assert any(item["successor_claim_id"] == "file:src/new_module.py" for item in delta_data["newly_added"])
+    assert any(item["register_id"] == "unc-00001" and item["post_refresh_status"] == "still_open" for item in delta_data["open_questions_reconciled"])
     successor_data = json.loads(successor.read_text(encoding="utf-8"))
     assert successor_data["refreshed_from"]["refresh_delta_path"].endswith(delta.name)
 
@@ -1037,6 +1038,7 @@ def test_interpretive_refresh_emits_successor_surface_and_delta(tmp_path: Path) 
     assert any(item["claim_id"] == "edge-import-001" for item in delta_data["updated"])
     assert any(item["successor_claim_id"].startswith("edge-import-") for item in delta_data["newly_added"])
     assert any(item["challenge_id"] == "chl-00001" and item["post_refresh_status"] == "still_active" for item in delta_data["challenges_carried_forward"])
+    assert any(item["register_id"] == "unc-00001" and item["post_refresh_status"] == "still_open" for item in delta_data["open_questions_reconciled"])
 
 
 def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path: Path) -> None:

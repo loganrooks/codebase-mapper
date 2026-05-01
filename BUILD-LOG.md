@@ -899,3 +899,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Reader mode now preserves dispute visibility for matched claims, aligning consultation with the system's contestation discipline.
   - Contract check: The metadata is additive in the consultation artifact and reuses existing claim/challenge fields.
   - Reviewer-eye check: Challenge metadata is claim-text matched; broader artifact-level disputes are intentionally not attached to unrelated query hits.
+
+## 2026-05-01 — Refresh slice: open question reconciliation
+
+- Implemented: structural and interpretive refresh deltas now populate `open_questions_reconciled` from open entries in the run's `uncertainty-register.jsonl`.
+- Implemented: unresolved questions are explicitly marked `still_open` with refresh-mode-specific rationale instead of being silently omitted from the delta.
+- Verification run:
+  - `pytest -q` passed: 37 tests, including structural and interpretive refresh regressions that validate `unc-00001` appears as `still_open` in the refresh delta.
+- Self-critique:
+  - Drift check: Refresh now carries known unknowns through time rather than treating trajectory as only file and claim diffs.
+  - Contract check: This uses the existing `refresh-delta.schema.json` `open_questions_reconciled` field without schema changes.
+  - Reviewer-eye check: The current implementation conservatively marks open questions as still open; it does not attempt to prove resolution during deterministic refresh.

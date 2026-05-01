@@ -2669,6 +2669,25 @@ def file_map_by_path(codebase_map: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {item["path"]: item for item in codebase_map.get("files", [])}
 
 
+def open_questions_reconciled(paths: RunPaths, rationale: str) -> list[dict[str, Any]]:
+    register_path = paths.run_dir / "uncertainty-register.jsonl"
+    reconciled = []
+    for entry in read_jsonl(register_path):
+        if entry.get("status") != "open":
+            continue
+        register_id = entry.get("entry_id")
+        if not register_id:
+            continue
+        reconciled.append(
+            {
+                "register_id": register_id,
+                "post_refresh_status": "still_open",
+                "rationale": rationale,
+            }
+        )
+    return reconciled
+
+
 def structural_refresh_delta(
     repo: Path,
     paths: RunPaths,
@@ -2738,7 +2757,10 @@ def structural_refresh_delta(
         ],
         "newly_contested": [],
         "challenges_carried_forward": [],
-        "open_questions_reconciled": [],
+        "open_questions_reconciled": open_questions_reconciled(
+            paths,
+            "Structural refresh updates file inventory only; existing open questions remain open until an interpretive refresh or reviewer resolves them.",
+        ),
         "downstream_invalidation": downstream,
     }
 
@@ -2899,7 +2921,10 @@ def interpretive_refresh_delta(
         "newly_added": newly_added,
         "newly_contested": [],
         "challenges_carried_forward": challenges_carried_forward,
-        "open_questions_reconciled": [],
+        "open_questions_reconciled": open_questions_reconciled(
+            paths,
+            "Interpretive refresh did not resolve this open question automatically; it remains available for later review.",
+        ),
         "downstream_invalidation": downstream,
     }
 
