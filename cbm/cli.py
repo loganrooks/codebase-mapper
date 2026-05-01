@@ -2032,6 +2032,27 @@ def command_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_extractor_registry(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    if args.registry:
+        path = Path(args.registry)
+        if not path.is_absolute():
+            path = repo / path
+    else:
+        path = run_paths(repo, args.run_id).run_dir / "extractor-registry.json"
+    data = read_json(path)
+    errors = validate_data(repo, data, "extractor_registry")
+    for index, extractor in enumerate(data.get("extractors", [])):
+        if not extractor.get("known_blind_spots"):
+            errors.append(f"extractors/{index}/{extractor.get('id', '<unknown>')}: known_blind_spots must be non-empty")
+    if errors:
+        for error in errors:
+            print(f"registry-fail {error}")
+        return 2
+    print(f"valid extractor registry {path}")
+    return 0
+
+
 def command_check_evidence(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.artifact)
@@ -4090,6 +4111,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_validate.add_argument("artifact")
     p_validate.add_argument("--repo", default=".")
     p_validate.set_defaults(func=command_validate)
+    p_extractor_registry = sub.add_parser("extractor-registry")
+    p_extractor_registry_sub = p_extractor_registry.add_subparsers(dest="extractor_registry_command", required=True)
+    p_extractor_registry_validate = p_extractor_registry_sub.add_parser("validate")
+    p_extractor_registry_validate.add_argument("registry", nargs="?")
+    p_extractor_registry_validate.add_argument("--repo", default=".")
+    p_extractor_registry_validate.add_argument("--run-id")
+    p_extractor_registry_validate.set_defaults(func=command_extractor_registry)
     p_check_evidence = sub.add_parser("check-evidence")
     p_check_evidence.add_argument("artifact")
     p_check_evidence.add_argument("--repo", default=".")
@@ -4232,6 +4260,10 @@ def approval_plan_main() -> int:
 
 def validate_main() -> int:
     return main(["validate", *sys.argv[1:]])
+
+
+def extractor_registry_main() -> int:
+    return main(["extractor-registry", *sys.argv[1:]])
 
 
 def check_evidence_main() -> int:

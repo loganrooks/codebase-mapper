@@ -221,8 +221,28 @@ def test_project_packs_load_from_package_data() -> None:
 
 def test_hook_console_scripts_are_declared() -> None:
     pyproject = (SOURCE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'cbm-extractor-registry = "cbm.cli:extractor_registry_main"' in pyproject
     assert 'cbm-hook-start = "cbm.cli:hook_start_main"' in pyproject
     assert 'cbm-hook-stop = "cbm.cli:hook_stop_main"' in pyproject
+
+
+def test_extractor_registry_validate_command_enforces_blind_spots(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-registry-validate"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    registry = repo / ".research" / run_id / "extractor-registry.json"
+    assert main(["extractor-registry", "validate", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["extractor-registry", "validate", str(registry), "--repo", str(repo)]) == 0
+
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    data["extractors"][0]["known_blind_spots"] = []
+    bad_registry = repo / ".research" / run_id / "extractor-registry.bad.json"
+    bad_registry.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    assert main(["extractor-registry", "validate", str(bad_registry), "--repo", str(repo)]) == 2
 
 
 def test_handoff_emits_goal_pack_card_type(tmp_path: Path) -> None:

@@ -944,3 +944,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The session-start freshness gate is now reachable from platform glue rather than existing only as an internal subcommand.
   - Contract check: Platform docs preserve the kernel boundary: adapters call `python3 -m cbm hook-start` and do not reimplement freshness policy.
   - Reviewer-eye check: The Codex hook event name remains adapter syntax; non-Codex adapters must still verify their own lifecycle hook syntax before production use.
+
+## 2026-05-01 — Registry slice: extractor validation command
+
+- Implemented: `cbm extractor-registry validate [registry]` and the `cbm-extractor-registry` console-script alias.
+- Implemented: the command validates the registry schema and explicitly rejects extractors with empty `known_blind_spots`.
+- Verification run:
+  - `pytest -q` passed: 41 tests, including a registry validation regression that accepts the initialized registry and rejects a tampered registry with empty blind spots.
+- Self-critique:
+  - Drift check: Extractor blind spots now have a dedicated mechanical gate instead of relying on generic schema validation alone.
+  - Contract check: This closes the command named in `docs/contracts.md` without changing artifact shape.
+  - Reviewer-eye check: The command validates extractor declarations, not whether the blind-spot prose is sufficiently specific or empirically complete.
