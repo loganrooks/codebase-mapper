@@ -1103,3 +1103,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Reviewers can now see missing citation failures from the corpus summary without scanning every artifact entry.
   - Contract check: The field is additive in the generated corpus-status manifest.
   - Reviewer-eye check: This is still a summary counter; detailed remediation remains in the per-artifact `citation_summary`.
+
+## 2026-05-01 — Handoff slice: schema failures block completion
+
+- Implemented: `cbm-handoff` now exits nonzero when any listed handoff artifact fails schema validation, while still writing the handoff summary that records the failed artifact.
+- Verification run:
+  - Focused regression passed: `pytest -q tests/test_cli.py::test_handoff_rejects_schema_invalid_listed_artifact`.
+- Self-critique:
+  - Drift check: Final handoff completion now matches the schema-validation-in-CI guardrail instead of merely documenting a failed artifact.
+  - Contract check: No schema shape changed; `gate_summary.schema_validation.failed_artifacts` remains the durable audit surface.
+  - Reviewer-eye check: The command still writes a failed-run handoff artifact before returning nonzero, which is deliberate for asynchronous review.

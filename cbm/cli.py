@@ -3948,6 +3948,9 @@ def command_handoff(args: argparse.Namespace) -> int:
         encoding="utf-8",
     )
     print(paths.run_dir / "handoff.md")
+    if failed_artifacts:
+        print("artifact schema validation failed: " + "; ".join(failed_artifacts), file=sys.stderr)
+        return 1
     if not ledger_append_only_ok:
         print(f"ledger append-only verification failed: {ledger_append_only_reason}", file=sys.stderr)
         return 1

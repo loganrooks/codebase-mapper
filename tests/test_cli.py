@@ -621,6 +621,30 @@ def test_handoff_rejects_evidence_invalid_surface(tmp_path: Path) -> None:
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 1
 
 
+def test_handoff_rejects_schema_invalid_listed_artifact(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-handoff-listed-artifact-schema-check"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["bind", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    project_type = repo / ".research" / run_id / "project-type.json"
+    data = json.loads(project_type.read_text(encoding="utf-8"))
+    data["artifact_type"] = "not_project_type_report"
+    project_type.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 1
+    handoff_frontmatter = yaml.safe_load((repo / ".research" / run_id / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    failed = handoff_frontmatter["gate_summary"]["schema_validation"]["failed_artifacts"]
+    assert len(failed) == 1
+    assert failed[0].endswith("project-type.json: artifact_type: 'project_type_report' was expected")
+
+
 def test_handoff_summarizes_human_challenges(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
