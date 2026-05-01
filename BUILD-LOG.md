@@ -813,3 +813,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Handoff staleness summary now reflects real input hashes instead of a mode-era hardcoded count.
   - Contract check: The summary stays within the existing `staleness_check` schema.
   - Reviewer-eye check: This checks handoff input hashes at generation time; post-handoff mutation is still enforced by `cbm hook-stop`.
+
+## 2026-05-01 — Handoff slice: skeptic review count
+
+- Implemented: `cbm-handoff` now derives `gate_summary.skeptic_review.artifacts_reviewed` from the actual skeptic review artifacts listed in the handoff.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including a standard-mode assertion that the reviewed count equals the number of listed `skeptic_review` artifacts.
+- Self-critique:
+  - Drift check: Standard/deep handoffs no longer underreport reviewed artifacts as one when multiple review artifacts exist.
+  - Contract check: This stays within the existing handoff gate summary schema.
+  - Reviewer-eye check: The count proves review artifact presence, not the qualitative adequacy of each Skeptic finding.

@@ -3558,6 +3558,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             claim_refs.extend((str(split_path.relative_to(repo)), claim) for claim in all_artifact_claims(split_data))
     contestation_summary = contestation_summary_for_claim_refs(claim_refs)
     challenge_count = sum(len(live_challenges(claim)) for _, claim in claim_refs)
+    skeptic_artifacts_reviewed = sum(1 for artifact in artifacts if artifact["artifact_type"] == "skeptic_review")
     failed_artifacts = []
     for artifact in artifacts:
         artifact_path = repo / artifact["path"]
@@ -3588,7 +3589,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             "citation_resolution": {"resolved": 1 if citation_ok else 0, "unresolved_count": 0 if citation_ok else 1, "unresolved_examples": [] if citation_ok else [f"{citation}: {citation_reason}"]},
             "ledger_consistency": {"append_only_verified": ledger_append_only_ok and not missing_ledger_citations, "entry_count": ledger_count(ledger_path)},
             "staleness_check": input_staleness(repo, handoff_inputs),
-            "skeptic_review": {"artifacts_reviewed": 1, "challenges_logged": challenge_count, "challenges_resolved": 0},
+            "skeptic_review": {"artifacts_reviewed": skeptic_artifacts_reviewed, "challenges_logged": challenge_count, "challenges_resolved": 0},
         },
         "contestation_summary": contestation_summary,
         "artifacts": artifacts,

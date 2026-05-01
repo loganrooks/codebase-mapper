@@ -302,6 +302,9 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     assert handoff_frontmatter["contestation_summary"]["open_challenges"] >= 2
     assert handoff_frontmatter["contestation_summary"]["claims_by_status"]["challenged"] >= 2
     assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] >= 2
+    assert handoff_frontmatter["gate_summary"]["skeptic_review"]["artifacts_reviewed"] == len(
+        [artifact for artifact in handoff_frontmatter["artifacts"] if artifact["artifact_type"] == "skeptic_review"]
+    )
 
 
 def test_synthesis_index_includes_surface_challenges(tmp_path: Path) -> None:
