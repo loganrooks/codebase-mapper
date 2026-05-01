@@ -468,10 +468,15 @@ def test_handoff_summarizes_human_challenges(tmp_path: Path) -> None:
         == 0
     )
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
-    frontmatter = yaml.safe_load((repo / ".research" / run_id / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    run_dir = repo / ".research" / run_id
+    frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
     assert frontmatter["contestation_summary"]["open_challenges"] == 2
     assert frontmatter["contestation_summary"]["claims_by_status"]["challenged"] == 2
     assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 2
+    card_frontmatter = yaml.safe_load((run_dir / "findings" / "int-0001.md").read_text(encoding="utf-8").split("---", 2)[1])
+    dependent_claim_ids = {item["claim_id"] for item in card_frontmatter["dependent_challenges"]}
+    assert import_edge["id"] in dependent_claim_ids
+    assert "edge-unknown-001" in dependent_claim_ids
 
 
 def test_deep_run_writes_workflow_trace(tmp_path: Path) -> None:

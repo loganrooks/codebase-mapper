@@ -649,3 +649,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Handoff reports live contestation; it does not resolve or collapse competing readings.
   - Contract check: Counts derive from claim registers, claim statuses, and challenge statuses in the artifact itself.
   - Reviewer-eye check: The summary currently covers surface-map claims. Cross-artifact contestation from split maps should be folded in later.
+
+## 2026-05-01 — Card slice: selected-surface challenge propagation
+
+- Implemented: generated cards now include `dependent_challenges` for the selected goal-binding surface when that selected authority or relation has live challenges.
+- Verification run:
+  - `pytest -q` passed: 34 tests, including a card regression where a challenged import edge appears alongside the unknown-edge challenge.
+- Self-critique:
+  - Drift check: Cards preserve contestation instead of raising confidence or silently selecting one reading.
+  - Contract check: The card continues using the existing `dependent_challenges` schema field.
+  - Reviewer-eye check: The card still does not recompute confidence from the number or severity of selected-surface challenges; it preserves the dependency so a reviewer can see it.

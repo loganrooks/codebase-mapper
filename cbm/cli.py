@@ -3200,6 +3200,25 @@ def command_handoff(args: argparse.Namespace) -> int:
         + "---\n# Skeptic Review\n\nFinding: `edge-unknown-001` keeps dependency closure unknown because Phase A only extracts direct Python imports. It still misses calls, runtime workflows, relative imports, and dynamic loading. This prevents high-confidence planning from the draft surface map alone.\n",
         encoding="utf-8",
     )
+    dependent_challenges = [
+        {
+            "claim_artifact": f".research/{paths.run_id}/surface-map.json",
+            "claim_id": "edge-unknown-001",
+            "challenge_ids": ["chl-00001"],
+            "impact": "Unknown dependency closure means this card can guide the next reading slice but should not be used as a high-confidence intervention plan.",
+        }
+    ]
+    selected_claim = relation_edge if relation_edge else primary_authority
+    selected_challenges = selected_claim.get("challenges", [])
+    if selected_claim.get("id") != "edge-unknown-001" and selected_challenges:
+        dependent_challenges.append(
+            {
+                "claim_artifact": f".research/{paths.run_id}/surface-map.json",
+                "claim_id": selected_claim["id"],
+                "challenge_ids": [challenge["challenge_id"] for challenge in selected_challenges],
+                "impact": "The selected goal-binding surface has live contestation, so downstream planning must preserve the competing reading.",
+            }
+        )
     card_inputs = [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}]
     if binding_path.exists():
         card_inputs.append({"path": str(binding_path.relative_to(repo)), "sha256": sha256_file(binding_path)})
@@ -3249,14 +3268,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "confidence": "low",
         "confidence_rationale": "Confidence is low because the Skeptic logged an unresolved challenge against the draft surface map's unknown dependency closure.",
         "open_questions": [{"question": "Which code surface actually matters most for the user's goal?", "register_id": "unc-00001"}],
-        "dependent_challenges": [
-            {
-                "claim_artifact": f".research/{paths.run_id}/surface-map.json",
-                "claim_id": "edge-unknown-001",
-                "challenge_ids": ["chl-00001"],
-                "impact": "Unknown dependency closure means this card can guide the next reading slice but should not be used as a high-confidence intervention plan.",
-            }
-        ],
+        "dependent_challenges": dependent_challenges,
         "recommended_next_slice": recommended_next_slice,
         "claim_status": "active",
     }
