@@ -763,3 +763,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Card role claims now have at least count-level coverage support rather than relying on schema shape alone.
   - Contract check: This enforces existing coverage fields without schema changes.
   - Reviewer-eye check: The maturity criterion asks for path-level traceability to `files_examined_directly`; the current schema stores counts, not examined paths, so this is a partial gate until coverage evidence becomes path-aware.
+
+## 2026-05-01 — Gate slice: coverage count consistency
+
+- Implemented: `cbm-verify` and `cbm-gate-artifact` now reject artifacts whose `coverage.result.files_unread_in_scope` does not match `files_in_scope - files_examined_directly`.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including a tampered card with inconsistent coverage counts.
+- Self-critique:
+  - Drift check: Coverage summaries now have a basic arithmetic invariant instead of trusting self-reported counts blindly.
+  - Contract check: The gate uses existing coverage fields shared by schemas; no schema changes were needed.
+  - Reviewer-eye check: This still does not prove which specific paths were directly examined, only that the reported counts are internally coherent.

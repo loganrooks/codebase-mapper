@@ -2435,12 +2435,26 @@ def verify_card_confidence(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def verify_card_coverage_honesty(data: dict[str, Any]) -> dict[str, Any]:
-    if data.get("artifact_type") not in {"findings_card", "intervention_card"}:
+    coverage = data.get("coverage")
+    if not isinstance(coverage, dict):
         return {"checked": False, "violations": []}
-    result = data.get("coverage", {}).get("result", {})
-    examined = result.get("files_examined_directly", 0)
-    primary_files = data.get("primary_files", [])
+    result = coverage.get("result", {})
     violations = []
+    files_in_scope = result.get("files_in_scope")
+    examined = result.get("files_examined_directly", 0)
+    unread = result.get("files_unread_in_scope")
+    if isinstance(files_in_scope, int) and isinstance(examined, int) and isinstance(unread, int):
+        expected_unread = max(files_in_scope - examined, 0)
+        if unread != expected_unread:
+            violations.append(
+                {
+                    "field": "coverage.result.files_unread_in_scope",
+                    "reason": f"expected {expected_unread} from files_in_scope={files_in_scope} and files_examined_directly={examined}",
+                }
+            )
+    if data.get("artifact_type") not in {"findings_card", "intervention_card"}:
+        return {"checked": True, "violations": violations}
+    primary_files = data.get("primary_files", [])
     if len(primary_files) > examined:
         violations.append(
             {
