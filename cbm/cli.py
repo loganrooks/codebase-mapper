@@ -433,6 +433,50 @@ def extractors_for_artifact(repo: Path, data: dict[str, Any]) -> dict[str, dict[
     return {extractor["id"]: extractor for extractor in registry.get("extractors", [])}
 
 
+def extractor_registry_validation_errors(repo: Path, data: dict[str, Any]) -> list[str]:
+    errors = validate_data(repo, data, "extractor_registry")
+    seen_extractor_ids: dict[str, int] = {}
+    for index, extractor in enumerate(data.get("extractors", [])):
+        extractor_id = extractor.get("id", "<unknown>")
+        if extractor_id in seen_extractor_ids:
+            errors.append(f"extractors/{index}/{extractor_id}: duplicate id first declared at extractors/{seen_extractor_ids[extractor_id]}")
+        else:
+            seen_extractor_ids[extractor_id] = index
+        if not extractor.get("known_blind_spots"):
+            errors.append(f"extractors/{index}/{extractor_id}: known_blind_spots must be non-empty")
+    seen_annotation_keys: dict[tuple[str, str], int] = {}
+    for index, annotation in enumerate(data.get("project_pack_annotations", [])):
+        project_type = annotation.get("project_type", "<unknown>")
+        pack_id = annotation.get("pack_id", "<unknown>")
+        annotation_key = (project_type, pack_id)
+        if annotation_key in seen_annotation_keys:
+            errors.append(
+                f"project_pack_annotations/{index}/{project_type}/{pack_id}: "
+                f"duplicate annotation first declared at project_pack_annotations/{seen_annotation_keys[annotation_key]}"
+            )
+        else:
+            seen_annotation_keys[annotation_key] = index
+        if not annotation.get("extractor_annotations"):
+            errors.append(f"project_pack_annotations/{index}/{project_type}: extractor_annotations must be non-empty")
+        if not annotation.get("known_blind_spots"):
+            errors.append(f"project_pack_annotations/{index}/{project_type}: known_blind_spots must be non-empty")
+    return errors
+
+
+def extractor_registry_errors_for_artifact(repo: Path, data: dict[str, Any]) -> list[str]:
+    run_id = data.get("run_id")
+    if not run_id:
+        return []
+    registry_path = repo / ".research" / run_id / "extractor-registry.json"
+    if not registry_path.exists():
+        return []
+    try:
+        registry = read_json(registry_path)
+    except Exception as exc:
+        return [f"{registry_path.relative_to(repo)}: {exc}"]
+    return [f"{registry_path.relative_to(repo)}: {error}" for error in extractor_registry_validation_errors(repo, registry)]
+
+
 def check_claim_evidence(data: dict[str, Any], extractors: dict[str, dict[str, Any]] | None = None) -> list[str]:
     errors: list[str] = []
 
@@ -2080,32 +2124,7 @@ def command_extractor_registry(args: argparse.Namespace) -> int:
     else:
         path = run_paths(repo, args.run_id).run_dir / "extractor-registry.json"
     data = read_json(path)
-    errors = validate_data(repo, data, "extractor_registry")
-    seen_extractor_ids: dict[str, int] = {}
-    for index, extractor in enumerate(data.get("extractors", [])):
-        extractor_id = extractor.get("id", "<unknown>")
-        if extractor_id in seen_extractor_ids:
-            errors.append(f"extractors/{index}/{extractor_id}: duplicate id first declared at extractors/{seen_extractor_ids[extractor_id]}")
-        else:
-            seen_extractor_ids[extractor_id] = index
-        if not extractor.get("known_blind_spots"):
-            errors.append(f"extractors/{index}/{extractor_id}: known_blind_spots must be non-empty")
-    seen_annotation_keys: dict[tuple[str, str], int] = {}
-    for index, annotation in enumerate(data.get("project_pack_annotations", [])):
-        project_type = annotation.get("project_type", "<unknown>")
-        pack_id = annotation.get("pack_id", "<unknown>")
-        annotation_key = (project_type, pack_id)
-        if annotation_key in seen_annotation_keys:
-            errors.append(
-                f"project_pack_annotations/{index}/{project_type}/{pack_id}: "
-                f"duplicate annotation first declared at project_pack_annotations/{seen_annotation_keys[annotation_key]}"
-            )
-        else:
-            seen_annotation_keys[annotation_key] = index
-        if not annotation.get("extractor_annotations"):
-            errors.append(f"project_pack_annotations/{index}/{project_type}: extractor_annotations must be non-empty")
-        if not annotation.get("known_blind_spots"):
-            errors.append(f"project_pack_annotations/{index}/{project_type}: known_blind_spots must be non-empty")
+    errors = extractor_registry_validation_errors(repo, data)
     if errors:
         for error in errors:
             print(f"registry-fail {error}")
@@ -2120,7 +2139,8 @@ def command_check_evidence(args: argparse.Namespace) -> int:
     if not path.is_absolute():
         path = repo / path
     data, _ = load_artifact_frontmatter(path)
-    errors = check_claim_evidence(data, extractors_for_artifact(repo, data))
+    errors = extractor_registry_errors_for_artifact(repo, data)
+    errors.extend(check_claim_evidence(data, extractors_for_artifact(repo, data)))
     if errors:
         for error in errors:
             print(f"evidence-fail {error}")
@@ -2160,6 +2180,7 @@ def artifact_gate_failures(repo: Path, path: Path) -> list[str]:
             ok, reason = resolve_citation(repo, citation)
             if not ok:
                 failures.append(f"citation: {citation}: {reason}")
+        failures.extend(f"extractor-registry: {error}" for error in extractor_registry_errors_for_artifact(repo, data))
         failures.extend(f"evidence: {error}" for error in check_claim_evidence(data, extractors_for_artifact(repo, data)))
         contestation = verify_contestation_propagation(repo, data)
         for item in contestation["missing"]:
@@ -2256,6 +2277,7 @@ def command_challenge(args: argparse.Namespace) -> int:
     claim.setdefault("challenges", []).append(challenge)
     claim["claim_status"] = "contested" if len(claim["challenges"]) > 1 else "challenged"
     errors = validate_data(repo, data, artifact_type)
+    errors.extend(extractor_registry_errors_for_artifact(repo, data))
     errors.extend(check_claim_evidence(data, extractors_for_artifact(repo, data)))
     if errors:
         for error in errors:
@@ -2371,6 +2393,7 @@ def command_resolve_challenge(args: argparse.Namespace) -> int:
     challenge["status"] = args.status
     update_claim_status_from_challenges(claim)
     errors = validate_data(repo, data, artifact_type)
+    errors.extend(extractor_registry_errors_for_artifact(repo, data))
     errors.extend(check_claim_evidence(data, extractors_for_artifact(repo, data)))
     if errors:
         for error in errors:
@@ -3724,7 +3747,8 @@ def command_handoff(args: argparse.Namespace) -> int:
         for error in errors:
             print(error, file=sys.stderr)
         return 1
-    evidence_errors = check_claim_evidence(surface, extractors_for_artifact(repo, surface))
+    evidence_errors = extractor_registry_errors_for_artifact(repo, surface)
+    evidence_errors.extend(check_claim_evidence(surface, extractors_for_artifact(repo, surface)))
     if evidence_errors:
         for error in evidence_errors:
             print(f"evidence-fail {error}", file=sys.stderr)
@@ -4124,6 +4148,7 @@ def command_hook_stop(args: argparse.Namespace) -> int:
         surface_path = run_dir / "surface-map.json"
         if surface_path.exists():
             surface = read_json(surface_path)
+            errors.extend(extractor_registry_errors_for_artifact(repo, surface))
             errors.extend(check_claim_evidence(surface, extractors_for_artifact(repo, surface)))
         errors.extend(append_only_integrity_errors(run_dir))
         for artifact in data.get("artifacts", []):

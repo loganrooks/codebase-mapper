@@ -505,6 +505,14 @@ def test_check_evidence_enforces_claim_requirements(tmp_path: Path) -> None:
     assert main(["check-evidence", str(unsupported_evidence), "--repo", str(repo)]) == 2
     assert main(["gate-artifact", str(unsupported_evidence), "--repo", str(repo)]) == 2
 
+    registry = repo / ".research" / run_id / "extractor-registry.json"
+    registry_data = json.loads(registry.read_text(encoding="utf-8"))
+    registry_data["extractors"][1]["id"] = registry_data["extractors"][0]["id"]
+    registry.write_text(json.dumps(registry_data, indent=2), encoding="utf-8")
+    assert main(["validate", str(surface), "--repo", str(repo)]) == 0
+    assert main(["check-evidence", str(surface), "--repo", str(repo)]) == 2
+    assert main(["gate-artifact", str(surface), "--repo", str(repo)]) == 2
+
 
 def test_gate_artifact_runs_schema_citation_and_evidence_checks(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)

@@ -1133,3 +1133,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Project-pack annotations now stay one-to-one with the pack identity they document.
   - Contract check: This uses existing `project_type` and `pack_id` fields and does not require a schema edit.
   - Reviewer-eye check: The command still validates annotation presence and identity only; it does not judge annotation quality.
+
+## 2026-05-01 — Registry slice: gates validate registry health
+
+- Implemented: artifact evidence gates now validate the run's `extractor-registry.json` before trusting extractor lookups.
+- Implemented: `check-evidence`, `gate-artifact`, challenge mutation paths, handoff, and stop-hook evidence checks now fail on invalid or duplicate-bearing registries.
+- Verification run:
+  - Focused regressions passed: `pytest -q tests/test_cli.py::test_check_evidence_enforces_claim_requirements tests/test_cli.py::test_extractor_registry_validate_command_enforces_blind_spots`.
+- Self-critique:
+  - Drift check: Claim evidence validation no longer depends on a separately-run registry validation command.
+  - Contract check: Registry failures are surfaced through existing command error paths and do not change artifact schemas.
+  - Reviewer-eye check: Missing registry files still remain tolerated for legacy or external artifacts; invalid registries fail when present.
