@@ -81,6 +81,34 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert frontmatter["contestation_summary"]["claims_by_register"]["interpretive"] >= 1
     reviewed_surface = json.loads(surface_map.read_text(encoding="utf-8"))
     assert reviewed_surface["edges"][0]["claim_status"] == "challenged"
+    ledger_entries = [
+        json.loads(line)
+        for line in (run_dir / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    ledger_citations = {entry.get("citation") for entry in ledger_entries if entry.get("citation")}
+    surface_citations = {
+        citation
+        for edge in reviewed_surface["edges"]
+        for citation in edge.get("citations", [])
+    }
+    assert surface_citations <= ledger_citations
+
+
+def test_run_orchestrates_phase_a_flow(tmp_path: Path) -> None:
+    source_root = Path(__file__).resolve().parents[1]
+    repo = make_repo(tmp_path)
+    copy_contracts(source_root, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", "run-orchestrated"]) == 0
+
+    run_dir = repo / ".research" / "run-orchestrated"
+    assert (run_dir / "codebase-map.json").exists()
+    assert (run_dir / "surface-map.json").exists()
+    assert (run_dir / "findings" / "int-0001.md").exists()
+    assert (run_dir / "handoff.md").exists()
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:

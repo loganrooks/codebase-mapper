@@ -356,6 +356,12 @@ def append_jsonl(path: Path, entry: dict[str, Any]) -> None:
         fh.write(json.dumps(entry, sort_keys=False) + "\n")
 
 
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
 def ledger_count(path: Path) -> int:
     if not path.exists():
         return 0
@@ -369,6 +375,60 @@ def next_ledger_id(path: Path) -> str:
 
 def validate_ledger_entry(repo: Path, entry: dict[str, Any]) -> list[str]:
     return validate_data(repo, entry, "evidence_ledger_entry")
+
+
+def append_ledger_entry(repo: Path, ledger_path: Path, entry: dict[str, Any]) -> None:
+    errors = validate_ledger_entry(repo, entry)
+    if errors:
+        raise ValueError("\n".join(errors))
+    append_jsonl(ledger_path, entry)
+
+
+def ledger_citations(path: Path) -> set[str]:
+    return {
+        entry["citation"]
+        for entry in read_jsonl(path)
+        if entry.get("entry_kind") in {"citation_introduced", "citation_reused"} and entry.get("citation")
+    }
+
+
+def citation_claim_pairs(data: Any, default_claim_id: str = "artifact") -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    if isinstance(data, dict):
+        claim_id = str(data.get("id") or data.get("claim_id") or default_claim_id)
+        for key, value in data.items():
+            if key in {"citations", "competing_evidence"} and isinstance(value, list):
+                for item in value:
+                    if isinstance(item, str) and CITATION_RE.fullmatch(item):
+                        pairs.append((item, claim_id))
+            pairs.extend(citation_claim_pairs(value, claim_id))
+    elif isinstance(data, list):
+        for item in data:
+            pairs.extend(citation_claim_pairs(item, default_claim_id))
+    return pairs
+
+
+def append_citation_entries(repo: Path, ledger_path: Path, run_id: str, sha: str, artifact_path: str, data: Any, agent: str) -> None:
+    seen = ledger_citations(ledger_path)
+    now = utc_now()
+    for citation, claim_id in citation_claim_pairs(data):
+        if citation in seen:
+            continue
+        entry = {
+            "schema_version": SCHEMA_VERSION,
+            "entry_id": next_ledger_id(ledger_path),
+            "ts": now,
+            "entry_kind": "citation_introduced",
+            "agent": agent,
+            "skill_version": "0.1",
+            "run_id": run_id,
+            "source_sha": sha,
+            "citation": citation,
+            "artifact_path": artifact_path,
+            "claim_id": claim_id,
+        }
+        append_ledger_entry(repo, ledger_path, entry)
+        seen.add(citation)
 
 
 def run_paths(repo: Path, run_id: str | None) -> RunPaths:
@@ -680,8 +740,10 @@ def command_surface(args: argparse.Namespace) -> int:
         for error in errors:
             print(error, file=sys.stderr)
         return 1
-    write_json(paths.run_dir / "surface-map.json", surface)
-    print(paths.run_dir / "surface-map.json")
+    surface_path = paths.run_dir / "surface-map.json"
+    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, surface["source_sha"], str(surface_path.relative_to(repo)), surface, "surface-mapper")
+    write_json(surface_path, surface)
+    print(surface_path)
     return 0
 
 
@@ -747,6 +809,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             for error in errors:
                 print(error, file=sys.stderr)
             return 1
+        append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, surface["source_sha"], str(surface_path.relative_to(repo)), surface, "surface-mapper")
         write_json(surface_path, surface)
     surface = read_json(surface_path)
     primary_authority = surface["authorities"][0]
@@ -775,12 +838,11 @@ def command_handoff(args: argparse.Namespace) -> int:
         "claim_id": "primary-file-structural",
         "claim_register": "factual",
     }
-    errors = validate_ledger_entry(repo, citation_entry)
-    if errors:
-        for error in errors:
-            print(error, file=sys.stderr)
+    try:
+        append_ledger_entry(repo, ledger_path, citation_entry)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
         return 1
-    append_jsonl(ledger_path, citation_entry)
     uncertainty = {
         "schema_version": SCHEMA_VERSION,
         "entry_id": "unc-00001",
@@ -804,12 +866,11 @@ def command_handoff(args: argparse.Namespace) -> int:
         "artifact_path": str(uncertainty_path.relative_to(repo)),
         "claim_id": "unc-00001",
     }
-    errors = validate_ledger_entry(repo, uncertainty_entry)
-    if errors:
-        for error in errors:
-            print(error, file=sys.stderr)
+    try:
+        append_ledger_entry(repo, ledger_path, uncertainty_entry)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
         return 1
-    append_jsonl(ledger_path, uncertainty_entry)
     skeptic_entry = {
         "schema_version": SCHEMA_VERSION,
         "entry_id": next_ledger_id(ledger_path),
@@ -823,12 +884,11 @@ def command_handoff(args: argparse.Namespace) -> int:
         "claim_id": "edge-unknown-001",
         "challenge": "Surface map is schema-valid but weak: Phase A only extracts direct Python imports, so calls, runtime workflows, relative imports, and dynamic loading cannot support high-confidence planning.",
     }
-    errors = validate_ledger_entry(repo, skeptic_entry)
-    if errors:
-        for error in errors:
-            print(error, file=sys.stderr)
+    try:
+        append_ledger_entry(repo, ledger_path, skeptic_entry)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
         return 1
-    append_jsonl(ledger_path, skeptic_entry)
     surface["edges"][0]["claim_status"] = "challenged"
     surface["edges"][0]["challenges"] = [
         {
@@ -932,7 +992,10 @@ def command_handoff(args: argparse.Namespace) -> int:
         return 1
     card_body = "\n# Phase A Structural Finding\n\nThis generated card proves the mechanical gates are wired: schema validation and citation resolution operate on an evidence-bound artifact.\n"
     card_path.write_text("---\n" + yaml.safe_dump(card_frontmatter, sort_keys=False) + "---\n" + card_body, encoding="utf-8")
+    append_citation_entries(repo, ledger_path, paths.run_id, sha, str(card_path.relative_to(repo)), card_frontmatter, "intervention-planner")
     citation_ok, citation_reason = resolve_citation(repo, citation)
+    required_citations = set(extract_citations(surface) + extract_citations(card_frontmatter))
+    missing_ledger_citations = sorted(required_citations - ledger_citations(ledger_path))
     artifacts = [
         {"path": str((paths.run_dir / "codebase-map.json").relative_to(repo)), "artifact_type": "codebase_map", "status": "draft", "summary": "Deterministic structural file inventory."},
         {"path": str(surface_path.relative_to(repo)), "artifact_type": "surface_map", "status": "draft", "summary": "Draft deterministic surface map with explicit unknown dependency edge."},
@@ -960,7 +1023,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "gate_summary": {
             "schema_validation": {"passed": 3, "failed_artifacts": []},
             "citation_resolution": {"resolved": 1 if citation_ok else 0, "unresolved_count": 0 if citation_ok else 1, "unresolved_examples": [] if citation_ok else [f"{citation}: {citation_reason}"]},
-            "ledger_consistency": {"append_only_verified": True, "entry_count": ledger_count(ledger_path)},
+            "ledger_consistency": {"append_only_verified": not missing_ledger_citations, "entry_count": ledger_count(ledger_path)},
             "staleness_check": {"fresh": 2, "stale_artifacts": []},
             "skeptic_review": {"artifacts_reviewed": 1, "challenges_logged": 1, "challenges_resolved": 0},
         },
@@ -987,7 +1050,28 @@ def command_handoff(args: argparse.Namespace) -> int:
         encoding="utf-8",
     )
     print(paths.run_dir / "handoff.md")
+    if missing_ledger_citations:
+        print("missing ledger citations: " + ", ".join(missing_ledger_citations), file=sys.stderr)
+        return 1
     return 0 if citation_ok else 1
+
+
+def command_run(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    run_id = args.run_id or f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{source_sha(repo)}"
+    init_args = argparse.Namespace(repo=str(repo), goal=args.goal, goal_class=args.goal_class, mode=args.mode, run_id=run_id)
+    map_args = argparse.Namespace(repo=str(repo), run_id=run_id)
+    for command, ns in (
+        (command_init, init_args),
+        (command_map, map_args),
+        (command_surface, map_args),
+        (command_handoff, map_args),
+    ):
+        rc = command(ns)
+        if rc != 0:
+            return rc
+    print(repo / ".research" / run_id)
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1020,6 +1104,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_handoff.add_argument("--repo", default=".")
     p_handoff.add_argument("--run-id")
     p_handoff.set_defaults(func=command_handoff)
+    p_run = sub.add_parser("run")
+    p_run.add_argument("--repo", default=".")
+    p_run.add_argument("--goal", required=True)
+    p_run.add_argument("--goal-class", default="understand_repo")
+    p_run.add_argument("--mode", default="lightweight", choices=["lightweight", "standard", "deep"])
+    p_run.add_argument("--run-id")
+    p_run.set_defaults(func=command_run)
     return parser
 
 
@@ -1050,3 +1141,7 @@ def verify_citations_main() -> int:
 
 def handoff_main() -> int:
     return main(["handoff", *sys.argv[1:]])
+
+
+def run_main() -> int:
+    return main(["run", *sys.argv[1:]])
