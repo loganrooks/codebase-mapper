@@ -655,6 +655,10 @@ def test_tracer_skill_is_shipped() -> None:
 def test_platform_portability_docs_are_shipped() -> None:
     assert (SOURCE_ROOT / "platform" / "PORTABILITY.md").exists()
     assert (SOURCE_ROOT / "platform" / "codex" / "hooks.json").exists()
+    live_hooks = json.loads((SOURCE_ROOT / ".codex" / "hooks.json").read_text(encoding="utf-8"))
+    live_hook_commands = json.dumps(live_hooks)
+    assert "python3 -m cbm hook-start" in live_hook_commands
+    assert "python3 -m cbm hook-stop" in live_hook_commands
     hooks = json.loads((SOURCE_ROOT / "platform" / "codex" / "hooks.json").read_text(encoding="utf-8"))
     hook_commands = json.dumps(hooks)
     assert "python3 -m cbm hook-start" in hook_commands

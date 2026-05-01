@@ -937,8 +937,9 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
 
 - Implemented: console-script aliases `cbm-hook-start` and `cbm-hook-stop` for lifecycle hook entry points.
 - Implemented: Codex adapter config/docs now include the session-start freshness hook alongside the stop hook; Claude Code and portability docs list the same required lifecycle semantics.
+- Implemented: the live `.codex/hooks.json` mirrors the Codex adapter template so local Codex runs execute the same start/stop lifecycle gates.
 - Verification run:
-  - `pytest -q` passed: 40 tests, including portability checks for `hook-start` in Codex hooks/docs, Claude adapter docs, portability checklist, and console-script declarations.
+  - `pytest -q` passed: 40 tests, including portability checks for `hook-start` in live `.codex/hooks.json`, Codex hooks/docs, Claude adapter docs, portability checklist, and console-script declarations.
 - Self-critique:
   - Drift check: The session-start freshness gate is now reachable from platform glue rather than existing only as an internal subcommand.
   - Contract check: Platform docs preserve the kernel boundary: adapters call `python3 -m cbm hook-start` and do not reimplement freshness policy.
