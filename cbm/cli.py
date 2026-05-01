@@ -2152,13 +2152,13 @@ def update_claim_status_from_challenges(claim: dict[str, Any]) -> None:
         claim["claim_status"] = "challenged"
 
 
-def contestation_summary_for_claims(claims: list[dict[str, Any]], artifact_path: str) -> dict[str, Any]:
+def contestation_summary_for_claim_refs(claim_refs: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
     registers = {"factual": 0, "inferential": 0, "interpretive": 0}
     statuses = {"active": 0, "challenged": 0, "contested": 0, "contradicted": 0, "superseded": 0, "retired": 0}
     open_challenges = 0
     contested_claims = []
     contradicted_claims = []
-    for claim in claims:
+    for artifact_path, claim in claim_refs:
         register = claim.get("claim_register")
         if register in registers:
             registers[register] += 1
@@ -2185,6 +2185,10 @@ def contestation_summary_for_claims(claims: list[dict[str, Any]], artifact_path:
         "contested_claims": contested_claims,
         "contradicted_claims": contradicted_claims,
     }
+
+
+def contestation_summary_for_claims(claims: list[dict[str, Any]], artifact_path: str) -> dict[str, Any]:
+    return contestation_summary_for_claim_refs([(artifact_path, claim) for claim in claims])
 
 
 def command_resolve_challenge(args: argparse.Namespace) -> int:
@@ -3319,9 +3323,13 @@ def command_handoff(args: argparse.Namespace) -> int:
     if approval_path.exists():
         artifacts.insert(-1, {"path": str(approval_path.relative_to(repo)), "artifact_type": "approval_plan", "status": "draft", "summary": "Deep-mode manual approval plan."})
         handoff_inputs.insert(-1, {"path": str(approval_path.relative_to(repo)), "sha256": sha256_file(approval_path)})
-    surface_claims = all_artifact_claims(surface)
-    contestation_summary = contestation_summary_for_claims(surface_claims, str(surface_path.relative_to(repo)))
-    challenge_count = sum(len(claim.get("challenges", [])) for claim in surface_claims)
+    claim_refs = [(str(surface_path.relative_to(repo)), claim) for claim in all_artifact_claims(surface)]
+    for split_path in [paths.run_dir / "authority-map.json", paths.run_dir / "dependency-graph.json"]:
+        if split_path.exists():
+            split_data = read_json(split_path)
+            claim_refs.extend((str(split_path.relative_to(repo)), claim) for claim in all_artifact_claims(split_data))
+    contestation_summary = contestation_summary_for_claim_refs(claim_refs)
+    challenge_count = sum(len(claim.get("challenges", [])) for _, claim in claim_refs)
     handoff = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "handoff",

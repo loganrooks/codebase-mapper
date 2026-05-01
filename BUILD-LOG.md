@@ -659,3 +659,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Cards preserve contestation instead of raising confidence or silently selecting one reading.
   - Contract check: The card continues using the existing `dependent_challenges` schema field.
   - Reviewer-eye check: The card still does not recompute confidence from the number or severity of selected-surface challenges; it preserves the dependency so a reviewer can see it.
+
+## 2026-05-01 — Handoff slice: split-map contestation
+
+- Implemented: `cbm-handoff` now includes claims from `authority-map.json` and `dependency-graph.json` in `contestation_summary` when those split maps exist.
+- Verification run:
+  - `pytest -q` passed: 34 tests, including a standard-mode handoff check that counts both surface and dependency-graph challenges.
+- Self-critique:
+  - Drift check: The handoff now reports contestation across maps without trying to adjudicate it.
+  - Contract check: Summary counts derive from each artifact's claim statuses and challenge lists.
+  - Reviewer-eye check: Verification-map, workflow-trace, and refinement-report contestation are not yet folded into this summary because they do not expose the same authority/edge claim shape.

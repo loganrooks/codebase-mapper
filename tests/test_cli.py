@@ -291,6 +291,10 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     assert synthesis_data["claim_counts"]["authorities"] == len(authority_data["authorities"])
     assert synthesis_data["claim_counts"]["dependencies"] == len(dependency_data["edges"])
     assert synthesis_data["contestation"]["open_challenges"] >= 1
+    handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    assert handoff_frontmatter["contestation_summary"]["open_challenges"] >= 2
+    assert handoff_frontmatter["contestation_summary"]["claims_by_status"]["challenged"] >= 2
+    assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] >= 2
 
 
 def test_check_evidence_enforces_claim_requirements(tmp_path: Path) -> None:
