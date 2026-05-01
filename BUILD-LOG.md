@@ -1238,3 +1238,18 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This is lifecycle plumbing, not a claim that runtime agents exist.
   - Contract check: New durable artifacts have schemas and validation tests.
   - Reviewer-eye check: The registry is still static and command-run only; standalone subcommands do not yet dispatch through it. That is acceptable for the recovery slice but must be addressed before treating the registry as the full orchestration layer.
+
+## 2026-05-01 — Recovery spike: Codex CLI isolation controls
+
+- Created `.planning/spikes/2026-05-01-codex-cli-isolation.md`.
+- Evidence gathered from local CLI help/version only: `command -v codex`, `codex --version`, `codex --help`, `codex exec --help`, `codex exec review --help`, `codex debug --help`, and `codex debug prompt-input --help`.
+- Observed `codex-cli 0.128.0`.
+- Finding: `codex exec` exposes useful isolation controls including `--ephemeral`, `--ignore-user-config`, `--ignore-rules`, `--output-schema`, `--json`, `-C`, `--add-dir`, sandbox selection, approval policy, model/profile/config overrides.
+- Decision: Do not wire a `codex_cli` backend yet. The CLI surface is promising, but a live model subprocess smoke is still required before using Codex CLI for Skeptic.
+- Boundary: No paid/live model subprocess was run in this spike.
+- Verification run:
+  - `git diff --check -- .planning/spikes/2026-05-01-codex-cli-isolation.md .planning/CURRENT-PLAN.md .planning/STATE.md BUILD-LOG.md` passed.
+- Self-critique:
+  - Drift check: This keeps Codex CLI as a candidate backend rather than silently assuming it satisfies runtime-agent isolation.
+  - Contract check: Planning artifact only; no runtime schema or code changed.
+  - Reviewer-eye check: Help output is weaker evidence than a live subprocess transcript. The next backend slice must include a bounded live smoke or remain unwired.

@@ -52,7 +52,8 @@ Important examples:
 - `f98605d` `docs: install recovery governance gate`
 - `5d47a7a` `feat: add recovery loop status preflight`
 - `ebf43d7` `feat: label deterministic artifacts honestly`
-- pending producer-registry slice: `cbm run --backend deterministic|external`, `producer-registry.json`, and `run-manifest.json`
+- `5368a33` `feat: add run producer manifest`
+- pending Codex isolation spike artifact: local CLI capability check for future `codex_cli` backend
 
 ## Active Architecture Decision
 
@@ -60,7 +61,7 @@ Accepted default for recovery:
 
 CBM should own the run lifecycle through a producer registry. A producer entry chooses whether an artifact is produced by the deterministic baseline, an external host-agent handoff, or a CLI-launched agent backend. Parent-side CBM validation remains mandatory after each produced artifact.
 
-Codex CLI subprocesses are a candidate backend, not an assumption. The Skeptic role may use Codex subprocesses only if an isolation spike shows they satisfy the isolated-context requirement in `RUNTIME-CONSTITUTION.md`.
+Codex CLI subprocesses are a candidate backend, not an assumption. The local CLI capability spike shows useful isolation controls exist, but the Skeptic role may use Codex subprocesses only after a live smoke proves model-visible isolation and output-schema behavior.
 
 Hooks remain optional adapter glue. They are not the deployment model and not the correctness mechanism.
 
@@ -96,4 +97,5 @@ Required next verification:
 - planning reset: `git diff --check -- .planning AGENTS.md VISION.md docs/architecture.md docs/roadmap.md BUILD-LOG.md`;
 - provenance/coverage slice: focused regressions passed; full `pytest -q` passed;
 - producer-registry/run-manifest slice: focused regressions passed; full `pytest -q` passed;
+- Codex isolation spike: local CLI help/version evidence recorded; no live model subprocess was run;
 - benchmark slice: generated artifacts must validate and show honest producer identity and coverage.
