@@ -29,8 +29,8 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 6. Add recovery checkpoint artifact. Status: completed in `f98605d`; checkpoint remains pending.
 7. Commit the planning/governance reset. Status: completed in `f98605d`.
 8. Add minimal `cbm-loop-status` preflight. Status: completed in `5d47a7a`.
-9. Fix false provenance and coverage honesty in code. Status: completed in pending commit.
-10. Add `cbm run --backend deterministic|external` and `run-manifest.json`. Status: pending.
+9. Fix false provenance and coverage honesty in code. Status: completed in `ebf43d7`.
+10. Add `cbm run --backend deterministic|external` and `run-manifest.json`. Status: completed in pending commit.
 11. Spike Codex CLI isolation and document the result. Status: pending.
 12. Pin and run the first external benchmark baseline. Status: pending.
 

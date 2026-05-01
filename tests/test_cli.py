@@ -194,6 +194,70 @@ def test_run_orchestrates_phase_a_flow(tmp_path: Path) -> None:
     assert (run_dir / "handoff.md").exists()
 
 
+def test_run_backend_deterministic_writes_manifest_and_producer_registry(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-backend-manifest"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--backend", "deterministic", "--run-id", run_id]) == 0
+
+    run_dir = repo / ".research" / run_id
+    producer_registry = run_dir / "producer-registry.json"
+    run_manifest = run_dir / "run-manifest.json"
+    assert producer_registry.exists()
+    assert run_manifest.exists()
+    assert main(["validate", str(producer_registry), "--repo", str(repo)]) == 0
+    assert main(["validate", str(run_manifest), "--repo", str(repo)]) == 0
+    registry_data = json.loads(producer_registry.read_text(encoding="utf-8"))
+    manifest_data = json.loads(run_manifest.read_text(encoding="utf-8"))
+    assert registry_data["backend"] == "deterministic"
+    assert any(
+        item["artifact_type"] == "surface_map"
+        and item["producer_id"] == "cbm-baseline-surface@0.1"
+        and item["execution_contract"] == "deterministic_baseline"
+        for item in registry_data["producers"]
+    )
+    assert any(
+        item["artifact_type"] == "skeptic_review"
+        and item["producer_id"] == "dev-fixture-skeptic@0.1"
+        and item["execution_contract"] == "dev_fixture"
+        for item in registry_data["producers"]
+    )
+    assert manifest_data["backend"] == "deterministic"
+    assert manifest_data["status"] == "succeeded"
+    assert manifest_data["producer_registry"]["sha256"] == sha256_file(producer_registry)
+    assert [step["step_id"] for step in manifest_data["steps"]] == ["init", "map", "surface", "bind", "handoff"]
+    assert all(step["status"] == "succeeded" and step["exit_code"] == 0 for step in manifest_data["steps"])
+
+
+def test_run_backend_external_refuses_without_fake_agent_outputs(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-external-refused"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--backend", "external", "--run-id", run_id]) == 2
+
+    run_dir = repo / ".research" / run_id
+    producer_registry = run_dir / "producer-registry.json"
+    run_manifest = run_dir / "run-manifest.json"
+    assert producer_registry.exists()
+    assert run_manifest.exists()
+    assert not (run_dir / "surface-map.json").exists()
+    assert main(["validate", str(producer_registry), "--repo", str(repo)]) == 0
+    assert main(["validate", str(run_manifest), "--repo", str(repo)]) == 0
+    registry_data = json.loads(producer_registry.read_text(encoding="utf-8"))
+    manifest_data = json.loads(run_manifest.read_text(encoding="utf-8"))
+    assert registry_data["backend"] == "external"
+    assert all(item["execution_contract"] == "external_agent" for item in registry_data["producers"])
+    assert manifest_data["backend"] == "external"
+    assert manifest_data["status"] == "refused"
+    assert manifest_data["steps"] == []
+
+
 def test_goal_packs_rank_same_surface_differently(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

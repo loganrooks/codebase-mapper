@@ -215,6 +215,12 @@ A starter registry shipped at `cbm-init` should include at minimum:
 
 Each must declare its blind spots specifically. Generic disclaimers ("might miss things") fail validation.
 
+## Producer registry and run manifest
+
+`producer-registry.json` records which producer backend is responsible for each artifact type in a run. Deterministic runs use explicit `cbm-baseline-*` or `dev-fixture-*` producer IDs. External-agent producer IDs are declared only when `--backend external` is selected, and that backend currently refuses rather than fabricating outputs.
+
+`run-manifest.json` records the selected backend, mode, goal, producer registry hash, and each run step's status and exit code. It is lifecycle evidence for `cbm run`; it is not a substitute for validating the artifacts produced by those steps.
+
 ## What the contracts do not commit to
 
 - AST tooling per language (tree-sitter, language-server-protocol, language-native — implementer's choice).

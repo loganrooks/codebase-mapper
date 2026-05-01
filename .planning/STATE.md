@@ -51,7 +51,8 @@ Important examples:
 - `692e9ef` `docs: preserve pre-reset reuse refresh work`
 - `f98605d` `docs: install recovery governance gate`
 - `5d47a7a` `feat: add recovery loop status preflight`
-- pending false-provenance slice: deterministic/dev-fixture producer labels and direct-examination coverage correction
+- `ebf43d7` `feat: label deterministic artifacts honestly`
+- pending producer-registry slice: `cbm run --backend deterministic|external`, `producer-registry.json`, and `run-manifest.json`
 
 ## Active Architecture Decision
 
@@ -86,10 +87,13 @@ No Phase B+ pass claim is allowed until a real agent-produced artifact passes ex
 
 Last known full suite after the false-provenance recovery slice: `pytest -q` reported `53 passed, 2 warnings`.
 
+Last known full suite after the producer-registry/run-manifest slice: `pytest -q` reported `55 passed, 2 warnings`.
+
 This verifies the test suite, not `VISION.md` maturity.
 
 Required next verification:
 
 - planning reset: `git diff --check -- .planning AGENTS.md VISION.md docs/architecture.md docs/roadmap.md BUILD-LOG.md`;
 - provenance/coverage slice: focused regressions passed; full `pytest -q` passed;
+- producer-registry/run-manifest slice: focused regressions passed; full `pytest -q` passed;
 - benchmark slice: generated artifacts must validate and show honest producer identity and coverage.

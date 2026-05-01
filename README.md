@@ -101,6 +101,8 @@ schemas/
   evidence-ledger.schema.json        append-only run log (with challenge entry kinds)
   handoff.schema.json                final run output (with contestation summary)
   extractor-registry.schema.json     typed extractor catalogue with declared blind spots
+  producer-registry.schema.json      producer/backend catalogue for a run
+  run-manifest.schema.json           run lifecycle, backend, and step outcomes
   refresh-delta.schema.json          v1.2: trajectory artifact for refresh runs
 skills/
   surface-mapping.md                 produces surface-map.json; v1.2 differential refresh mode
@@ -113,7 +115,7 @@ examples/
   intervention-card-example.md       findings card with leverage challenge + dependent_challenges
 ```
 
-That's twenty-two files total. The split of the original `AGENTS.md` into a dev-agent `AGENTS.md` and a runtime `RUNTIME-CONSTITUTION.md` is the operational change in this v1.2 amendment — schemas and runtime behavior are unchanged from v1.2's earlier release.
+The split of the original `AGENTS.md` into a dev-agent `AGENTS.md` and a runtime `RUNTIME-CONSTITUTION.md` is the operational change in this v1.2 amendment.
 
 ## What's deferred
 

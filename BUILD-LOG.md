@@ -1221,3 +1221,20 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This removes the most misleading deterministic substitutes while preserving explicit unknowns for later runtime-agent work.
   - Contract check: Existing schema producer patterns are preserved; schema enum values for reentry targets remain domain roles such as `tracer`, not producer labels.
   - Reviewer-eye check: Producer labels are still hard-coded, not registry-backed. The next architectural step remains producer-registry and run-manifest work rather than more validators.
+
+## 2026-05-01 — Recovery slice: producer registry and run manifest
+
+- Implemented: `cbm run --backend deterministic|external`.
+- Implemented: deterministic runs write `producer-registry.json` and `run-manifest.json`.
+- Implemented: the run manifest records backend, mode, goal, producer registry hash, step IDs, producer IDs, step status, and exit codes.
+- Implemented: external backend selection writes a producer registry and refused run manifest, then exits nonzero instead of producing fake external-agent artifacts.
+- Added schemas for `producer_registry` and `run_manifest`, and updated contracts/README orientation.
+- Rationale: The recovery plan requires CBM to own the run lifecycle explicitly before adding real external/Codex agent backends.
+- Verification run:
+  - Recovery preflight passed via module entry point: `python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category producer-registry` exited 0 and emitted the existing `jsonschema.RefResolver` deprecation warning.
+  - Focused regressions passed: `pytest -q tests/test_cli.py::test_run_backend_deterministic_writes_manifest_and_producer_registry tests/test_cli.py::test_run_backend_external_refuses_without_fake_agent_outputs tests/test_cli.py::test_run_orchestrates_phase_a_flow`.
+  - Full suite passed: `pytest -q` reported 55 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Self-critique:
+  - Drift check: This is lifecycle plumbing, not a claim that runtime agents exist.
+  - Contract check: New durable artifacts have schemas and validation tests.
+  - Reviewer-eye check: The registry is still static and command-run only; standalone subcommands do not yet dispatch through it. That is acceptable for the recovery slice but must be addressed before treating the registry as the full orchestration layer.

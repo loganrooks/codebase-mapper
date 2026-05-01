@@ -48,6 +48,23 @@ RECOVERY_ALLOWED_WORK_CATEGORIES = {
     "codex-isolation",
     "loop-status",
 }
+DETERMINISTIC_PRODUCERS = {
+    "project_type_report": "cbm-baseline-project-type@0.1",
+    "codebase_map": "cbm-baseline-map@0.1",
+    "surface_map": "cbm-baseline-surface@0.1",
+    "authority_map": "cbm-baseline-authority@0.1",
+    "dependency_graph": "cbm-baseline-dependency@0.1",
+    "verification_map": "cbm-baseline-verification@0.1",
+    "synthesis_index": "cbm-baseline-synthesis@0.1",
+    "goal_binding": "cbm-baseline-bind@0.1",
+    "workflow_trace": "dev-fixture-tracer@0.1",
+    "refinement_report": "dev-fixture-refinement@0.1",
+    "approval_plan": "dev-fixture-approval@0.1",
+    "skeptic_review": "dev-fixture-skeptic@0.1",
+    "findings_card": "dev-fixture-planner@0.1",
+    "intervention_card": "dev-fixture-planner@0.1",
+    "handoff": "cbm-baseline-handoff@0.1",
+}
 
 
 @dataclass(frozen=True)
@@ -400,6 +417,8 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "refinement_report": "refinement-report.schema.json",
         "approval_plan": "approval-plan.schema.json",
         "project_type_report": "project-type.schema.json",
+        "producer_registry": "producer-registry.schema.json",
+        "run_manifest": "run-manifest.schema.json",
     }
     name = mapping.get(artifact_type)
     if not name:
@@ -795,6 +814,79 @@ def run_paths(repo: Path, run_id: str | None) -> RunPaths:
     return RunPaths(repo=repo, run_id=rid, run_dir=repo / ".research" / rid)
 
 
+def producer_execution_contract(producer_id: str) -> str:
+    if producer_id.startswith("cbm-baseline-"):
+        return "deterministic_baseline"
+    if producer_id.startswith("dev-fixture-"):
+        return "dev_fixture"
+    return "external_agent"
+
+
+def build_producer_registry(backend: str) -> dict[str, Any]:
+    producers = []
+    if backend == "deterministic":
+        for artifact_type, producer_id in DETERMINISTIC_PRODUCERS.items():
+            producers.append(
+                {
+                    "artifact_type": artifact_type,
+                    "producer_id": producer_id,
+                    "backend": "deterministic",
+                    "execution_contract": producer_execution_contract(producer_id),
+                }
+            )
+    else:
+        for artifact_type in sorted(DETERMINISTIC_PRODUCERS):
+            producers.append(
+                {
+                    "artifact_type": artifact_type,
+                    "producer_id": f"external-{artifact_type.replace('_', '-')}@0.1",
+                    "backend": "external",
+                    "execution_contract": "external_agent",
+                }
+            )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "producer_registry",
+        "backend": backend,
+        "producers": producers,
+    }
+
+
+def run_manifest_step(step_id: str, command: str, artifact_type: str, producer_id: str) -> dict[str, Any]:
+    return {
+        "step_id": step_id,
+        "command": command,
+        "artifact_type": artifact_type,
+        "producer_id": producer_id,
+        "backend": "deterministic",
+        "status": "planned",
+        "exit_code": None,
+    }
+
+
+def build_run_manifest(args: argparse.Namespace, repo: Path, run_id: str, status: str, steps: list[dict[str, Any]]) -> dict[str, Any]:
+    registry_path = repo / ".research" / run_id / "producer-registry.json"
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "run_manifest",
+        "run_id": run_id,
+        "produced_at": utc_now(),
+        "backend": args.backend,
+        "mode": args.mode,
+        "goal": args.goal,
+        "goal_class": args.goal_class,
+        "status": status,
+        "producer_registry": {
+            "path": str(registry_path.relative_to(repo)),
+            "sha256": sha256_file(registry_path) if registry_path.exists() else None,
+        },
+        "steps": steps,
+    }
+    if status == "refused":
+        manifest["refusal_reason"] = "external backend is declared but no external producer runner is configured"
+    return manifest
+
+
 def command_init(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     sha = source_sha(repo)
@@ -812,6 +904,7 @@ def command_init(args: argparse.Namespace) -> int:
         "goal": args.goal,
         "goal_class": args.goal_class,
         "mode": args.mode,
+        "backend": getattr(args, "backend", "deterministic"),
         "research_only": args.goal_class in {"understand_repo", "research_only"},
     }
     state = {
@@ -820,6 +913,7 @@ def command_init(args: argparse.Namespace) -> int:
         "run_id": run_id,
         "source_sha": sha,
         "mode": args.mode,
+        "backend": getattr(args, "backend", "deterministic"),
         "status": "initialized",
         "created_at": now,
     }
@@ -911,6 +1005,7 @@ def command_init(args: argparse.Namespace) -> int:
     write_json(paths.run_dir / "intake.json", intake)
     write_json(paths.run_dir / "state.json", state)
     write_json(paths.run_dir / "extractor-registry.json", registry)
+    write_json(paths.run_dir / "producer-registry.json", build_producer_registry(getattr(args, "backend", "deterministic")))
     write_json(paths.run_dir / "project-type.json", project_type_report)
     (paths.run_dir / "evidence-ledger.jsonl").touch()
     write_ledger_integrity_manifest(paths.run_dir / "evidence-ledger.jsonl")
@@ -3958,17 +4053,26 @@ def command_handoff(args: argparse.Namespace) -> int:
 def command_run(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     run_id = args.run_id or f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{source_sha(repo)}"
-    init_args = argparse.Namespace(repo=str(repo), goal=args.goal, goal_class=args.goal_class, mode=args.mode, run_id=run_id)
+    paths = run_paths(repo, run_id)
+    paths.run_dir.mkdir(parents=True, exist_ok=True)
+    write_json(paths.run_dir / "producer-registry.json", build_producer_registry(args.backend))
+    if args.backend == "external":
+        manifest = build_run_manifest(args, repo, run_id, "refused", [])
+        write_json(paths.run_dir / "run-manifest.json", manifest)
+        print("external backend is declared but no external producer runner is configured", file=sys.stderr)
+        return 2
+    init_args = argparse.Namespace(repo=str(repo), goal=args.goal, goal_class=args.goal_class, mode=args.mode, run_id=run_id, backend=args.backend)
     map_args = argparse.Namespace(repo=str(repo), run_id=run_id)
     commands = [
-        (command_init, init_args),
-        (command_map, map_args),
-        (command_surface, map_args),
+        (run_manifest_step("init", "init", "project_type_report", DETERMINISTIC_PRODUCERS["project_type_report"]), command_init, init_args),
+        (run_manifest_step("map", "map", "codebase_map", DETERMINISTIC_PRODUCERS["codebase_map"]), command_map, map_args),
+        (run_manifest_step("surface", "surface", "surface_map", DETERMINISTIC_PRODUCERS["surface_map"]), command_surface, map_args),
     ]
     if args.mode in {"standard", "deep"}:
-        commands.append((command_authority_map, map_args))
+        commands.append((run_manifest_step("authority-map", "authority-map", "authority_map", DETERMINISTIC_PRODUCERS["authority_map"]), command_authority_map, map_args))
         commands.append(
             (
+                run_manifest_step("skeptic-review-authority-map", "skeptic-review", "skeptic_review", DETERMINISTIC_PRODUCERS["skeptic_review"]),
                 command_skeptic_review,
                 argparse.Namespace(
                     repo=str(repo),
@@ -3977,9 +4081,10 @@ def command_run(args: argparse.Namespace) -> int:
                 ),
             )
         )
-        commands.append((command_dependency_graph, map_args))
+        commands.append((run_manifest_step("dependency-graph", "dependency-graph", "dependency_graph", DETERMINISTIC_PRODUCERS["dependency_graph"]), command_dependency_graph, map_args))
         commands.append(
             (
+                run_manifest_step("skeptic-review-dependency-graph", "skeptic-review", "skeptic_review", DETERMINISTIC_PRODUCERS["skeptic_review"]),
                 command_skeptic_review,
                 argparse.Namespace(
                     repo=str(repo),
@@ -3988,9 +4093,10 @@ def command_run(args: argparse.Namespace) -> int:
                 ),
             )
         )
-        commands.append((command_verify_map, map_args))
+        commands.append((run_manifest_step("verify-map", "verify-map", "verification_map", DETERMINISTIC_PRODUCERS["verification_map"]), command_verify_map, map_args))
         commands.append(
             (
+                run_manifest_step("skeptic-review-verification-map", "skeptic-review", "skeptic_review", DETERMINISTIC_PRODUCERS["skeptic_review"]),
                 command_skeptic_review,
                 argparse.Namespace(
                     repo=str(repo),
@@ -3999,9 +4105,10 @@ def command_run(args: argparse.Namespace) -> int:
                 ),
             )
         )
-        commands.append((command_synthesis_index, map_args))
+        commands.append((run_manifest_step("synthesis-index", "synthesis-index", "synthesis_index", DETERMINISTIC_PRODUCERS["synthesis_index"]), command_synthesis_index, map_args))
         commands.append(
             (
+                run_manifest_step("skeptic-review-synthesis-index", "skeptic-review", "skeptic_review", DETERMINISTIC_PRODUCERS["skeptic_review"]),
                 command_skeptic_review,
                 argparse.Namespace(
                     repo=str(repo),
@@ -4011,17 +4118,27 @@ def command_run(args: argparse.Namespace) -> int:
             )
         )
     if args.mode == "deep":
-        commands.append((command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)))
-        commands.append((command_trace_workflows, map_args))
-        commands.append((command_refine, map_args))
-        commands.append((command_approval_plan, map_args))
+        commands.append((run_manifest_step("bind", "bind", "goal_binding", DETERMINISTIC_PRODUCERS["goal_binding"]), command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)))
+        commands.append((run_manifest_step("trace-workflows", "trace-workflows", "workflow_trace", DETERMINISTIC_PRODUCERS["workflow_trace"]), command_trace_workflows, map_args))
+        commands.append((run_manifest_step("refine", "refine", "refinement_report", DETERMINISTIC_PRODUCERS["refinement_report"]), command_refine, map_args))
+        commands.append((run_manifest_step("approval-plan", "approval-plan", "approval_plan", DETERMINISTIC_PRODUCERS["approval_plan"]), command_approval_plan, map_args))
     else:
-        commands.append((command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)))
-    commands.append((command_handoff, map_args))
-    for command, ns in commands:
+        commands.append((run_manifest_step("bind", "bind", "goal_binding", DETERMINISTIC_PRODUCERS["goal_binding"]), command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)))
+    commands.append((run_manifest_step("handoff", "handoff", "handoff", DETERMINISTIC_PRODUCERS["handoff"]), command_handoff, map_args))
+    steps = [step for step, _, _ in commands]
+    write_json(paths.run_dir / "run-manifest.json", build_run_manifest(args, repo, run_id, "running", steps))
+    for step, command, ns in commands:
+        step["status"] = "running"
+        step["started_at"] = utc_now()
+        write_json(paths.run_dir / "run-manifest.json", build_run_manifest(args, repo, run_id, "running", steps))
         rc = command(ns)
+        step["exit_code"] = rc
+        step["completed_at"] = utc_now()
+        step["status"] = "succeeded" if rc == 0 else "failed"
+        write_json(paths.run_dir / "run-manifest.json", build_run_manifest(args, repo, run_id, "running" if rc == 0 else "failed", steps))
         if rc != 0:
             return rc
+    write_json(paths.run_dir / "run-manifest.json", build_run_manifest(args, repo, run_id, "succeeded", steps))
     print(repo / ".research" / run_id)
     return 0
 
@@ -4294,6 +4411,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--goal", required=True)
     p_init.add_argument("--goal-class", default="understand_repo")
     p_init.add_argument("--mode", default="lightweight", choices=["lightweight", "standard", "deep"])
+    p_init.add_argument("--backend", default="deterministic", choices=["deterministic", "external"])
     p_init.add_argument("--run-id")
     p_init.set_defaults(func=command_init)
     p_map = sub.add_parser("map")
@@ -4430,6 +4548,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--goal", required=True)
     p_run.add_argument("--goal-class", default="understand_repo")
     p_run.add_argument("--mode", default="lightweight", choices=["lightweight", "standard", "deep"])
+    p_run.add_argument("--backend", default="deterministic", choices=["deterministic", "external"])
     p_run.add_argument("--run-id")
     p_run.set_defaults(func=command_run)
     p_loop_status = sub.add_parser("loop-status")
