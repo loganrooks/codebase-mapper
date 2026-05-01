@@ -813,8 +813,24 @@ def command_handoff(args: argparse.Namespace) -> int:
         write_json(surface_path, surface)
     surface = read_json(surface_path)
     primary_authority = surface["authorities"][0]
-    rel_file = primary_authority["path"]
-    citation = primary_authority["citations"][0]
+    import_edge_index = next((index for index, edge in enumerate(surface["edges"]) if edge["kind"] == "import"), None)
+    import_edge = surface["edges"][import_edge_index] if import_edge_index is not None else None
+    if import_edge:
+        rel_file = import_edge["from"]["path"]
+        citation = import_edge["citations"][0]
+        primary_role = f"Imports {import_edge['to']['path']}; this grounded static relation is the first concrete reading path for the goal."
+        certain_dependencies = [f".research/{paths.run_id}/surface-map.json#/edges/{import_edge_index}", citation]
+        leverage_rating = "medium"
+        leverage_rationale = "A local import edge gives a concrete, citation-backed relation to read next; leverage is bounded by the unresolved unknown dependency edge."
+        recommended_next_slice = f"Read {import_edge['from']['path']} and {import_edge['to']['path']} around the cited import, then decide whether this relation represents setup, test coverage, or runtime coupling."
+    else:
+        rel_file = primary_authority["path"]
+        citation = primary_authority["citations"][0]
+        primary_role = f"Draft surface authority {primary_authority['id']} identified by Phase A surface mapping."
+        certain_dependencies = [citation]
+        leverage_rating = "medium" if primary_authority["kind"] in {"config", "test_suite", "ci_gate"} else "low"
+        leverage_rationale = "Phase A can identify structural surfaces, but leverage remains bounded by the Skeptic challenge on unknown dependency closure."
+        recommended_next_slice = "Read the cited authority file and implement call or runtime workflow extraction before promoting this card beyond draft."
     card_dir = paths.run_dir / "findings"
     card_dir.mkdir(parents=True, exist_ok=True)
     card_path = card_dir / "int-0001.md"
@@ -946,12 +962,12 @@ def command_handoff(args: argparse.Namespace) -> int:
         "surface_type": "explicit",
         "surface_kind": "other",
         "surface_classification_register": "interpretive",
-        "primary_files": [{"path": rel_file, "role": f"Draft surface authority {primary_authority['id']} identified by Phase A surface mapping.", "citations": [citation]}],
-        "related_dependencies": {"certain": [citation], "suspected": [], "advisory": [], "unknown": [f".research/{paths.run_id}/surface-map.json#/edges/0"]},
+        "primary_files": [{"path": rel_file, "role": primary_role, "citations": [citation]}],
+        "related_dependencies": {"certain": certain_dependencies, "suspected": [], "advisory": [], "unknown": [f".research/{paths.run_id}/surface-map.json#/edges/{len(surface['edges']) - 1}"]},
         "affected_workflows": [],
         "expected_leverage": {
-            "rating": "medium" if primary_authority["kind"] in {"config", "test_suite", "ci_gate"} else "low",
-            "rationale": "Phase A can identify structural surfaces, but leverage remains bounded by the Skeptic challenge on unknown dependency closure.",
+            "rating": leverage_rating,
+            "rationale": leverage_rationale,
             "claim_register": "interpretive",
             "claim_status": "active",
             "evidence_kinds": ["static_structure"],
@@ -982,7 +998,7 @@ def command_handoff(args: argparse.Namespace) -> int:
                 "impact": "Unknown dependency closure means this card can guide the next reading slice but should not be used as a high-confidence intervention plan.",
             }
         ],
-        "recommended_next_slice": "Read the cited authority file and implement call or runtime workflow extraction before promoting this card beyond draft.",
+        "recommended_next_slice": recommended_next_slice,
         "claim_status": "active",
     }
     card_errors = validate_data(repo, card_frontmatter, "findings_card")

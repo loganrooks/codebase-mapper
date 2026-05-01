@@ -99,3 +99,15 @@
   - Contract check: This covers the pre-handoff/stop boundary, not true post-artifact-write hooks for every artifact write.
   - Reviewer-eye check: Repo-local Codex hooks only load when the project `.codex/` layer is trusted. The implementation cannot force that; the limitation is documented here.
 - Remaining Phase A gaps: stronger card actionability and append-only ledger mutation detection across historical revisions.
+
+## 2026-05-01 — Import-edge-backed findings card
+
+- Implemented: `cbm-handoff` now prefers a grounded `import` edge when producing the draft findings card. If present, the card's primary file role names the imported target and `related_dependencies.certain` points back to the surface-map edge.
+- Fallback behavior: if no citable import edge exists at the recorded `source_sha`, the card falls back to the first citable authority as before.
+- Verification run:
+  - `pytest -q` passed: 4 tests. The clean temp fixture verifies that a generated card names `Imports src/app.py` and references `.research/<run_id>/surface-map.json#/edges/0`.
+- Self-critique:
+  - Drift check: The card remains research-only and recommends a reading slice, not source mutation.
+  - Contract check: The card propagates the unknown-edge challenge and does not raise confidence above medium even when an import edge exists.
+  - Reviewer-eye check: This is now meaningfully more actionable on codebases with local Python imports, but non-Python or dirty repos can still fall back to a weaker structural card.
+- Remaining Phase A gap: append-only ledger mutation detection across historical revisions. Current ledger consistency checks presence of artifact citations, not whether previous ledger lines were edited.

@@ -74,6 +74,9 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert main(["validate", str(surface_map), "--repo", str(repo)]) == 0
     assert main(["verify-citations", str(card), "--repo", str(repo)]) == 0
     assert main(["validate", str(handoff), "--repo", str(repo)]) == 0
+    card_frontmatter = yaml.safe_load(card.read_text(encoding="utf-8").split("---", 2)[1])
+    assert "Imports src/app.py" in card_frontmatter["primary_files"][0]["role"]
+    assert card_frontmatter["related_dependencies"]["certain"][0].endswith("/edges/0")
 
     frontmatter = yaml.safe_load(handoff.read_text(encoding="utf-8").split("---", 2)[1])
     assert frontmatter["gate_summary"]["citation_resolution"]["unresolved_count"] == 0
