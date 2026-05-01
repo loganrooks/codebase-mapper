@@ -10,6 +10,8 @@ CBM exists because the work of understanding a codebase well enough to change it
 
 CBM's contribution is to make the *form* of understanding legible: every claim labeled by register, every claim citing real bytes, every interpretive disagreement carried in the artifact rather than collapsed. The system is not better at understanding code than a careful human reader. The system is better than a careless agent at *not pretending to understand*. The asymmetry is what makes it useful.
 
+That asymmetry is the thesis, not yet a finished measurement protocol. A mature CBM must eventually name the comparator, rubric, and evaluation procedure that make "not pretending to understand" measurable rather than merely persuasive.
+
 The mature version of CBM is the version where this asymmetry is reliable enough that humans treat the system as a colleague whose work needs review, not as a black box whose output needs forensics.
 
 ## The thing the system is doing
@@ -35,6 +37,10 @@ Six properties distinguish the mature system from the seed.
 **It composes with itself across time.** A repository accumulates a `.research/` directory. Runs from six months ago are valid inputs to runs today, with staleness automatically detected. The corpus of completed runs across many repositories becomes a reference: how does this team handle plugin systems, where does that codebase put authority, what kinds of unknowns recur. The system is one whose value increases with use.
 
 **The interpretive discipline pays off.** Cards labeled `claim_register: interpretive` are challenged at higher rates than cards labeled `factual` — and the challenges are mostly substantive, not pedantic. Cards with non-empty `dependent_challenges` correlate with downstream surprise: when a card hides contestation, things go wrong; when a card carries contestation, the human is prepared. The three-register model is not just a labeling exercise; it changes outcomes measurably.
+
+## Minimum useful CBM
+
+Before the system can claim it is more than a deterministic mapping kernel, it must complete one runtime-agent-produced run on a pinned external codebase. The minimum useful demonstration is a surface map produced by a real Surface Mapper, reviewed by a real isolated Skeptic, with at least one non-trivial interpretive claim or challenge grounded in citations, and a handoff that passes CBM validation without templated patches. Deterministic baselines are necessary evidence, but they do not by themselves satisfy this floor.
 
 ## The ideal version
 
@@ -86,6 +92,10 @@ At handoff, the bundle reports: 47 files in scope, 18 examined directly, 29 insp
 
 That is the experience. Specific, evidence-bound, honest about its limits, useful as a piece of writing.
 
+## Deployment shape
+
+The near-term CBM product is a local CLI that produces artifacts on disk for a repository at a pinned commit. The CLI owns run setup, producer dispatch, artifact locations, and validation. Platform hooks and Codex/Claude session adapters may improve ergonomics inside specific agent runtimes, but they are not the source of correctness and not the deployment model.
+
 ## Graduation criteria
 
 CBM exits beta when, on a representative sample of unfamiliar mid-size repositories (5k–50k LOC, multiple languages, mixed project types):
@@ -133,9 +143,13 @@ That is not a promise the kit makes. It is a horizon the kit is working toward.
 
 Things that the mature design must address, but the seed kit does not yet.
 
+The first two questions are v1-blocking for the runtime agent layer: the system must choose explicit behavior before it ships real producer/Skeptic interaction. The remaining questions shape later maturity and 2.0 work.
+
 **Producer-argues-back protocol.** When the Skeptic raises an interpretive challenge, the producer can accept-as-alternative or accept-as-replacement. There is currently no protocol for the producer defending the original with new evidence. Whether such a protocol is worth implementing depends on whether real runs produce challenges where the producer plausibly has more evidence than the Skeptic. If they do, the protocol is necessary; if they don't, it's overhead.
 
 **Claim-dependency modeling.** Interpretive claims often depend on each other. The schemas track claim *evidence*, not claim *dependencies*. When one interpretive claim is contradicted, the cascade behavior is unmodeled. The mature design needs a way to express claim dependencies and propagate status changes.
+
+The remaining conjectures are not allowed to block the first runtime-agent benchmark, but they stay visible because they shape what a mature corpus becomes.
 
 **Cross-run synthesis.** A mature CBM running on the same repository over months should accumulate something more than a directory of dated artifacts. The form of that accumulation — a knowledge graph, a longitudinal claim corpus, a periodic synthesis — is unspecified. Whatever shape it takes must preserve the discipline (every claim cites, registers are honored, contestation is carried).
 
@@ -143,10 +157,12 @@ Things that the mature design must address, but the seed kit does not yet.
 
 **The hermeneutic-circle problem.** Some interpretive claims are genuinely circular — A only makes sense given B, B only makes sense given A. Whether the schema and protocol can carry such pairs without forcing premature resolution is an open empirical question. The mature design either solves it or marks it cleanly as out-of-scope.
 
-These are real questions. Their answers shape what 2.0 looks like, not what 1.0 looks like. They go on the wall and stay visible.
+These are real questions. Some must be settled before the first runtime agent backend ships; the rest shape what 2.0 looks like. They go on the wall and stay visible.
 
 ## Coda
 
 A line for the wall: CBM is mature when a careful reader can use it for an hour and come away knowing more about a codebase than they would have known after an hour of reading the codebase alone. Not because the system did the reading for them — but because it instrumented their reading well enough that they read more carefully than they would have otherwise.
+
+This vision can change, but not silently. Revisions require a review or checkpoint artifact that names the pressure for change, the rejected alternatives, and the downstream planning docs that must be updated.
 
 That is the bar. Everything else is implementation.

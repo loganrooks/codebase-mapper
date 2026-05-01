@@ -2,6 +2,12 @@
 
 How to phase the build from seed to deep-mode-capable system. Schema version 1.2.
 
+## Current status note
+
+This roadmap remains the intent and acceptance taxonomy, not current pass/fail status. As of the recovery intervention on 2026-05-01, Phase A is only partially implemented as a deterministic foundation, and Phases B-F are not passed. Later-phase deterministic scaffolding exists, but runtime agent producers and external benchmark evidence do not.
+
+Before any Phase B+ pass claim, CBM must produce at least one real runtime-agent artifact on a pinned external benchmark and pass existing validation with honest producer identity and coverage.
+
 ## What changed in v1.2
 
 - **Reuse made operational.** Five forms (goal-agnostic cache, incremental update, historical consultation, consultation mode, deferred cross-run synthesis). Documented workflows; no more implicit-only.
@@ -71,9 +77,11 @@ Synthesizer collapsed into orchestrator pre-planning. Tracer deferred.
 
 ### Hooks in MVP
 
-- Post-artifact-write: `cbm-validate` + `cbm-verify-citations` + claim-evidence-requirements check.
-- Pre-`cbm-handoff`: full gate sweep + contestation summary populated.
-- Session start: load `compaction-recovery` skill.
+Hooks are adapter glue, not the product guarantee. The MVP implementation may ship Codex hook templates that call the same validators the CLI calls, but the run must remain correct when validation is invoked explicitly by CBM.
+
+- Post-artifact-write adapter: `cbm-validate` + `cbm-verify-citations` + claim-evidence-requirements check.
+- Pre-`cbm-handoff` adapter: full gate sweep + contestation summary populated.
+- Session-start adapter: load `compaction-recovery` skill.
 
 Per-artifact Skeptic spawning deferred.
 
@@ -145,6 +153,8 @@ Same artifact schemas across modes. Modes differ in *which* gates fire, *how man
 6. Test repo with expected outputs.
 
 Acceptance: end-to-end run, citations resolve, ≥1 actionable card, claim registers correctly assigned.
+
+Recovery amendment: deterministic end-to-end runs satisfy only the baseline portion of this acceptance. Agentic acceptance requires a real Surface Mapper and Skeptic artifact on the pinned external benchmark.
 
 ### Phase B — Standard mode (week 3–4)
 

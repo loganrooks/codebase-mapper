@@ -1,8 +1,14 @@
 # Architecture
 
-The recommended architecture is a **modular deterministic kernel + agentic synthesis layer + goal packs**, with evidence-provenance discipline enforced by hooks, and a **three-register claim model** for handling factual, inferential, and interpretive content.
+The recommended architecture is a **modular deterministic kernel + producer registry + agentic synthesis layer + goal packs**, with evidence-provenance discipline enforced by explicit CBM validation, and a **three-register claim model** for handling factual, inferential, and interpretive content.
 
 This document describes the architecture in implementable form. For operational rules, see `RUNTIME-CONSTITUTION.md`. For artifact and CLI contracts, see `contracts.md`. For mode-by-mode scope, see `roadmap.md`.
+
+## Current implementation status
+
+The current implementation is not this full architecture. It has a working deterministic kernel and many validation/scaffolding commands, but no production runtime agent producer layer yet. Current deterministic runs are baseline-only until `cbm run` dispatches real producers and validates their artifacts.
+
+The accepted recovery direction is a producer registry: each artifact type declares whether it is produced by the deterministic baseline, an external host-agent handoff, or a CLI-launched agent backend. Hooks may call validators or help platform sessions, but correctness belongs to the CLI validation chain and run manifest.
 
 ## Three tiers
 
@@ -19,7 +25,7 @@ CLI commands produce structural truth. No LLM judgment.
 
 Outputs are JSON validated against schemas. Cacheable by commit SHA. The kernel is not where the system gets clever; it is where the system gets reliable.
 
-### Tier 2 — Agentic synthesis (subagents)
+### Tier 2 — Agentic synthesis (runtime producers)
 
 Five agent role templates:
 
@@ -32,6 +38,8 @@ Five agent role templates:
 | **Skeptic** | 1 per gate boundary (per artifact in deep mode) | Hostile review with isolated context; **operates in three modes by claim register**. |
 
 Five templates is the cap. New agent additions require justification.
+
+These roles are runtime producer contracts, not labels for deterministic stand-ins. An artifact may use `produced_by: surface-mapper@...` or `skeptic@...` only when that role actually ran. Deterministic substitute artifacts use baseline producer names.
 
 Each role has a skill prompt in `skills/`.
 
@@ -82,7 +90,7 @@ Phase 7  Verification planning  in-card; revisited deep mode
 Phase 8  Skeptic gate + handoff sequential
 ```
 
-Hooks enforce phase prerequisites at the platform layer.
+The parent CBM process enforces phase prerequisites through validation and producer dispatch. Hooks can mirror those checks inside a platform session, but they do not contain unique policy.
 
 ## The evidence-provenance discipline
 
@@ -204,4 +212,6 @@ The recommended hybrid combines kernel modularity, CLI determinism, the three-re
 
 ## Portability
 
-Platform-neutral by design. Codex-specific concerns live in `platform/codex/`; Claude Code adaptations live in `platform/claude-code/`. Only platform-specific files are: hook configuration syntax, subagent definition format, orchestrator entry point. Everything else — schemas, skills, CLI commands, artifact formats — is identical across platforms.
+Platform-neutral by design. Codex-specific concerns live in `platform/codex/`; Claude Code adaptations live in `platform/claude-code/`. Only platform-specific files are: hook configuration syntax, runtime-agent invocation format, and adapter entry point. Everything else — schemas, skills, CLI commands, artifact formats — is identical across platforms.
+
+Codex CLI subprocesses are a candidate producer backend, not an architectural assumption. Before using them for Skeptic, the implementation must verify that subprocess context isolation satisfies `RUNTIME-CONSTITUTION.md`.

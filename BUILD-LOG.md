@@ -1180,3 +1180,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This directly addresses the user's concern that the review framing was biased.
   - Contract check: This changes planning/review artifacts only.
   - Reviewer-eye check: The project now has two review directories; the aborted one is retained as audit evidence and explicitly superseded.
+
+## 2026-05-01 — Recovery intervention: review disposition applied
+
+- Decision: Treat the Cowork disposition files as the operative review layer and synthesize them into `.planning/reviews/2026-05-01-strategy-workflow-vision-audit/SYNTHESIS.md` and `DISPOSITION.md`.
+- Decision: Replace the stale `.planning/STATE.md` and `.planning/CURRENT-PLAN.md` with recovery-specific state and plan documents.
+- Decision: Lock the recovery defaults selected by the user: producer registry architecture, surgical `VISION.md` edits, and checkpoint gate before broad unattended `/goal` resumes.
+- Decision: Amend `AGENTS.md` so "default proceed" applies only inside the active plan, checkpoint reviews block phase pass/main merge/broad `/goal` restart, and per-slice self-critique is no longer treated as sufficient review.
+- Decision: Require a minimal `cbm-loop-status` preflight before broad unattended `/goal` resumes. The full R6 drift-signal implementation remains queued, but the narrow preflight is load-bearing now.
+- Decision: Amend `VISION.md` surgically with minimum useful CBM, deployment shape, measurement honesty, revision protocol, and v1-blocking conjecture classification.
+- Decision: Update architecture/roadmap/contracts language so hooks are adapter glue and deterministic runs are baseline-only until runtime producers exist.
+- Rationale: The reviews converged that the previous workflow let deterministic kernel-hardening substitute for runtime-agent evidence. The reset must constrain the next autonomous loop, not just summarize the problem.
+- Verification plan: Run `git diff --check -- .planning AGENTS.md VISION.md docs/architecture.md docs/roadmap.md docs/contracts.md BUILD-LOG.md` before committing the planning/governance reset.

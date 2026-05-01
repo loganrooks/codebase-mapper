@@ -7,115 +7,86 @@ Superseded by: none
 
 ## Summary
 
-CBM is no longer in a clean Phase A-only state. The implementation has a working deterministic kernel and has opportunistically implemented many Phase B-E style kernel features, but it does not yet have the runtime agent layer that `VISION.md` requires for nuanced codebase understanding.
+CBM currently has a real deterministic kernel and a substantial artifact-validation surface. It does not yet have the runtime agent layer required by `VISION.md`.
 
-The current product should be described as:
+Current product state:
 
-- deterministic baseline extraction;
-- artifact schemas and validation gates;
-- citation, freshness, ledger, registry, contestation, coverage, reuse, and refresh scaffolding;
-- preliminary smoke artifacts in `.research/`;
-- no production-grade agentic Surface Mapper/Skeptic/Synthesizer/Planner orchestration yet.
+- deterministic baseline extraction exists;
+- artifact schemas and validation gates exist;
+- citation, freshness, ledger, registry, contestation, reuse, and refresh scaffolding exist;
+- deterministic smoke artifacts exist under `.research/`;
+- runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
+- current deterministic artifacts must not be treated as proof of nuanced codebase understanding.
 
-## Document Authority
+## Authority
 
-- `VISION.md`: currently authoritative for destination and maturity criteria, but now an explicit audit target. It may be revised if review finds that ambiguity or framing issues are harming implementation quality.
-- `RUNTIME-CONSTITUTION.md`: authoritative for runtime CBM agent discipline once real runtime agents exist.
-- `.planning/STATE.md`: authoritative for current factual status.
-- `.planning/CURRENT-PLAN.md`: authoritative for next work and open decisions.
+- `VISION.md`: destination and maturity target; committed in `e309eaa`; surgically amended during the recovery intervention.
+- `RUNTIME-CONSTITUTION.md`: runtime-agent discipline; committed in `e309eaa`.
+- `.planning/STATE.md`: factual current state.
+- `.planning/CURRENT-PLAN.md`: active recovery plan and allowed next work.
 - `BUILD-LOG.md`: chronological audit evidence, not a live plan.
-- `docs/roadmap.md`: baseline seed roadmap and phase taxonomy. Partially superseded by implementation reality; do not use as current status without checking this file.
-- `docs/architecture.md` and `docs/contracts.md`: design/contract references, but may need updates after the architecture correction around hooks and agent orchestration.
+- `docs/roadmap.md`: original phase taxonomy and acceptance context; not current pass/fail status.
 
-## Roadmap Status
+## Phase Status
 
-`docs/roadmap.md` is partially outdated:
+Phase A is partially implemented as a deterministic foundation.
 
-- Phase A core CLI/artifact foundation exists and has been repeatedly smoke-tested.
-- Several items that roadmap listed as deferred are now implemented as deterministic kernel features, including `cbm-bind`, `cbm-stale`, `cbm-run-gate`, reuse/refresh commands, `cbm-consult`, corpus status, project-type packs, and deterministic trace/refinement/approval artifacts.
-- Some later-phase labels are only partially satisfied. For example, `trace-workflows` exists as deterministic projection, but a true Tracer subagent does not.
-- Platform portability docs exist, but a verified Claude Code port does not.
-- The runtime agent orchestration layer remains the major architectural gap.
+Phases B-F are not passed. Some deterministic substitutes and later-phase scaffolding exist, but the roadmap acceptance criteria name agentic deliverables and benchmark behavior that have not yet been demonstrated.
 
-Current phase label: mixed kernel build beyond Phase A, pre-runtime-agent architecture correction.
+Important examples:
 
-## Implementation State
+- deterministic `cbm run` is not an agent orchestrator;
+- deterministic trace/refine/skeptic artifacts are not runtime agent output;
+- project-type packs exist as scaffolding, not mature Phase E evidence;
+- Claude Code portability is not verified;
+- no external benchmark run proves mapping adequacy.
 
-Committed recent checkpoints include:
+## Recent Checkpoints
 
-- `504fbba` `feat: verify claim evidence and registry health`
-- `f08722e` `feat: validate registry in evidence gates`
-- `b480b0b` `feat: reject duplicate pack annotations`
-- `108ab3a` `feat: reject duplicate extractor ids`
-- `7963479` `feat: fail handoff on listed schema errors`
+- `e309eaa` `docs: commit CBM authority documents`
+- `3ce5ae7` `docs: add external review comparison artifacts`
+- `5742c18` `docs: add independent strategy audit outputs`
+- `a086749` `docs: replace biased review with neutral audit plan`
+- `5a2ceb5` `docs: add live planning and review surface`
+- `692e9ef` `docs: preserve pre-reset reuse refresh work`
 
-Current known dirty/untracked files are broad kit/doc/schema/skill updates that predate this planning reset. Treat them as intentional working-tree context unless reviewed otherwise.
+## Active Architecture Decision
 
-## Artifact State
+Accepted default for recovery:
 
-Preliminary CBM artifacts exist under `.research/`, mostly smoke runs against this repo. They are useful to inspect artifact shape and gate behavior, not evidence that CBM can yet produce nuanced understanding of arbitrary unfamiliar codebases.
+CBM should own the run lifecycle through a producer registry. A producer entry chooses whether an artifact is produced by the deterministic baseline, an external host-agent handoff, or a CLI-launched agent backend. Parent-side CBM validation remains mandatory after each produced artifact.
 
-Known sample fixture:
+Codex CLI subprocesses are a candidate backend, not an assumption. The Skeptic role may use Codex subprocesses only if an isolation spike shows they satisfy the isolated-context requirement in `RUNTIME-CONSTITUTION.md`.
 
-- `tests/fixtures/sample_repo/pyproject.toml`
-- `tests/fixtures/sample_repo/src/app.py`
-- `tests/fixtures/sample_repo/tests/test_app.py`
+Hooks remain optional adapter glue. They are not the deployment model and not the correctness mechanism.
 
-This fixture is intentionally tiny. A pinned small real-world test repo, preferably an MCP server, is still needed for meaningful mapping evaluation.
+## Benchmark State
+
+The tiny fixture in `tests/fixtures/sample_repo/` is useful for tests only.
+
+Default benchmark candidate:
+
+- `https://github.com/modelcontextprotocol/servers`
+- SHA `4503e2d12b799448cd05f789dd40f9643a8d1a6c`
+- first target subtree to evaluate: `src/git`, if workable.
+
+No Phase B+ pass claim is allowed until a real agent-produced artifact passes existing gates on a pinned external benchmark.
+
+## Known Risks
+
+- Deterministic artifact provenance is currently misleading and must be fixed before further artifact claims.
+- Direct-examination coverage is currently overreported in deterministic paths.
+- `cbm/cli.py` remains a large monolith; splitting should follow producer-registry work, not precede it as churn.
+- Planning docs can become process theater if they are not tied to checkpoint review and concrete verification.
 
 ## Verification Status
 
-Last known full suite result before this planning reset:
+Last known full suite before the review reset: `pytest -q` reported `51 passed, 2 warnings`.
 
-- `pytest -q`: `51 passed, 2 warnings`
-- Warnings: existing `jsonschema.RefResolver` deprecation warnings.
+This verifies the test suite, not `VISION.md` maturity.
 
-This verifies the current automated test suite, not the full `VISION.md` maturity criteria.
+Required next verification:
 
-Expected verification checks for future substantive work:
-
-- focused regression test for the changed behavior;
-- full `pytest -q` before commit when code changes;
-- schema/citation/gate smoke checks for generated artifacts when artifact contracts change;
-- update `BUILD-LOG.md` and `.planning/STATE.md` or `.planning/CURRENT-PLAN.md` when status or plan changes;
-- for architecture/planning changes, run at least `git diff --check` and create/update review artifacts.
-
-## Current Architectural Question
-
-The current live Codex hooks are dogfooding/platform adapter glue, but their final role is unsettled. They should not be assumed to be the core CBM deployment or correctness mechanism without review.
-
-Candidate direction under review:
-
-- `cbm run` should own run setup, output location, producer execution, and explicit validation.
-- Deterministic commands produce baseline artifacts.
-- Real nuanced understanding requires runtime agent producers.
-- A likely runtime backend is launching Codex CLI subprocesses, for example `codex exec`, with CBM-specific prompts/config/output contracts.
-- Parent-side CBM validation remains the source of truth after every produced artifact.
-- Hooks may still be useful inside CBM-launched Codex agent sessions, but not as ambient user/global hooks.
-
-## Open Decisions
-
-- Output directory policy for target repositories: default `.research/<run_id>/` under `--repo`, with an optional explicit output root?
-- Runtime backend shape: Codex CLI subprocesses first, Claude Code subprocesses later, or a backend abstraction from the start?
-- Whether CBM should generate temporary per-agent Codex config/profile files for launched agents.
-- Whether the current `.codex/hooks.json` should remain live in this implementation repo or move to template-only dogfood opt-in.
-- How to represent true agent-produced direct examination coverage versus deterministic extractor-only coverage.
-- Which small real-world repository should become the first meaningful mapping benchmark.
-
-## Next Review
-
-The first Opus architecture audit packet at `.planning/reviews/2026-05-01-opus-architecture-audit/` was aborted because its prompt overdetermined the diagnosis.
-
-Replacement review packet:
-
-`.planning/reviews/2026-05-01-strategy-workflow-vision-audit/`
-
-It separates three independent tracks:
-
-- architecture and product shape;
-- development workflow and governance;
-- vision quality.
-
-The goal is to diagnose the project state and review multiple possible explanations, not to confirm the current agent's framing.
-
-The workflow track should explicitly evaluate how a long-running automated `/goal` loop detects drift, handles failed assumptions, recovers from mistakes, updates stale plans, and escalates gracefully without burying the issue in more implementation.
+- planning reset: `git diff --check -- .planning AGENTS.md VISION.md docs/architecture.md docs/roadmap.md BUILD-LOG.md`;
+- provenance/coverage slice: focused regressions plus full `pytest -q`;
+- benchmark slice: generated artifacts must validate and show honest producer identity and coverage.

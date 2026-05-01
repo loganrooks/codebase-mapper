@@ -1,6 +1,6 @@
 # Contracts
 
-CLI commands, artifact catalog, citation format, hook integration. Schemas live in `schemas/`.
+CLI commands, artifact catalog, citation format, validation chain, and hook adapter points. Schemas live in `schemas/`.
 
 ## Citation format
 
@@ -182,6 +182,8 @@ Artifacts begin `draft`. `cbm-validate` + `cbm-verify-citations` pass → `valid
 Claims have their own lifecycle (active → challenged → contested → contradicted → superseded → retired). Distinct from artifact status.
 
 ## Hook integration points
+
+Hooks are optional platform adapters. They may call the commands below, but they are not the source of truth and must not contain policy that is unavailable through explicit CBM commands.
 
 | Trigger | Action | Type |
 |---|---|---|

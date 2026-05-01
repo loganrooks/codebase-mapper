@@ -12,7 +12,9 @@ You are the agent building CBM. The runtime CBM agents (Surface Mapper, Skeptic,
 
 ## Mode of operation
 
-The user runs you as a continuous loop (e.g., Codex `/goal`). Your default is **proceed**, not **stop and ask**. Decisions get logged; the user reviews asynchronously via `BUILD-LOG.md` and git history. They intervene when they choose, not when you prompt.
+The user runs you as a continuous loop (e.g., Codex `/goal`). Your default is **proceed inside the active plan**, not "proceed anywhere." Decisions get logged; the user reviews asynchronously via `.planning/`, `BUILD-LOG.md`, and git history.
+
+Proceed only when `.planning/CURRENT-PLAN.md` authorizes the work category and names the expected verification. If the next useful task falls outside the active plan, write a `STOP-NOTE.md` in the relevant `.planning/` area, log the reason in `BUILD-LOG.md`, and surface to the user.
 
 This makes the guardrails load-bearing. Use all of them, always.
 
@@ -25,6 +27,9 @@ This makes the guardrails load-bearing. Use all of them, always.
 - **Atomic commits.** Each commit is a coherent unit with a descriptive message. Commits are checkpoints; you can roll back to any of them.
 - **`BUILD-LOG.md`** at the implementation's root. Append for every: decision made, kit deviation considered or taken, alternative weighed, question that came up. The log is the user's primary asynchronous review surface; write it for that audience.
 - **`.planning/STATE.md` and `.planning/CURRENT-PLAN.md` stay current.** The build log is chronological evidence, not a live plan. When implementation reality diverges from `docs/roadmap.md`, update `.planning/STATE.md` before relying on phase labels.
+- **No kernel-only hardening during recovery.** Until `.planning/CURRENT-PLAN.md` records a real agent-produced benchmark artifact that passes existing gates, do not add new kernel-only validators, gates, rejection rules, or artifact-strictness slices. Work that directly supports runtime producers, benchmark evidence, producer provenance, or run manifests is allowed.
+- **Checkpoint gate.** Phase pass claims, merges to main, and resuming broad unattended `/goal` require an accepted checkpoint review artifact, unless the user explicitly waives the gate and the waiver is logged.
+- **Loop-status preflight.** Once `cbm-loop-status` exists, run it before broad unattended `/goal` resumes and at recovery slice boundaries. A nonzero result is a stop-and-surface condition unless the active plan explicitly authorizes the current slice despite the warning.
 - **Reversibility preference.** When two paths exist, prefer the more reversible one. Schema-version bumps over schema rewrites. Additive changes over breaking. Branches over force-pushes. Logged decisions over silent ones.
 
 ## Planning and review surface
@@ -34,29 +39,54 @@ This makes the guardrails load-bearing. Use all of them, always.
 - `.planning/reviews/<date-slug>/` holds external or cross-model reviews. Each review session should include `REVIEW-SPEC.md`, `PROMPT.md`, `OUTPUT.md`, and `DISPOSITION.md`.
 - Mark planning docs with `Status`, `Last updated`, and `Supersedes/Superseded by` when relevant. Do not let stale docs look authoritative.
 - Do not use `BUILD-LOG.md` as the only place for forward-looking plans. It is an audit trail; plans belong in `.planning/`.
+- Completed or superseded plans are replaced by a successor plan. Do not keep editing an old plan to describe new work after its objective changes.
+
+## Checkpoint reviews
+
+A checkpoint review is a blocking review at a real boundary:
+
+- before claiming a phase has passed;
+- before merging a substantive branch to main;
+- before restarting broad unattended `/goal` after a planning or architecture reset;
+- when `.planning/CURRENT-PLAN.md` says a checkpoint is required.
+
+The checkpoint reviewer reads only the checkpoint packet: `VISION.md`, `RUNTIME-CONSTITUTION.md` when runtime agents are relevant, `.planning/STATE.md`, `.planning/CURRENT-PLAN.md`, the diff or commits since the last checkpoint, and the acceptance criteria being claimed. The reviewer should not read the producer's self-critique unless the prompt explicitly asks it to audit that self-critique.
+
+Write checkpoint outputs under `.planning/reviews/<date-slug>/CHECKPOINT.md`. The orchestrator must disposition the checkpoint as `accept`, `revise`, `park`, or `reject` before continuing. Cross-model review is preferred when available; a same-model isolated review is acceptable only as a fallback and must be labeled as such.
 
 ## Execution architecture discipline
 
 - Distinguish the deterministic kernel from the runtime agent layer. Current deterministic commands can produce baseline artifacts and gates; they do not by themselves provide the nuanced hermeneutic understanding described in `VISION.md`.
 - Do not describe the current `cbm run` pipeline as a full agent orchestrator unless it actually launches and coordinates runtime agents.
+- The accepted recovery default is a producer registry: `cbm run` owns the run lifecycle and dispatches per-artifact producers, while each producer declares its backend and validation chain.
+- Codex CLI subprocesses are a candidate backend, not an assumption. Do not use them for Skeptic until an isolation spike shows they satisfy the isolated-context requirement in `RUNTIME-CONSTITUTION.md`.
 - Core correctness must come from explicit CBM validation commands and run-level validation, not from ambient Codex hooks.
 - Codex/Claude hooks are platform adapter glue for agent sessions, not the deployment model and not a substitute for `cbm run` validation.
 - Do not install or rely on global/user-level hooks for CBM behavior. Any hook configuration should be explicit, repo-local, or created for CBM-launched agent sessions with a documented purpose.
 
 ## Self-critique cadence
 
-At meaningful units of work — a completed phase, a substantive decision, a kit deviation, a long uninterrupted stretch — pause and run an adversarial review of your own output. Three questions:
+Self-critique is a boundary practice, not a per-slice ritual. Run it at:
+
+- plan completion;
+- phase boundary;
+- before a merge to main;
+- kit deviation;
+- repeated failure or drift signal;
+- a long uninterrupted stretch.
+
+Do not use a self-critique as a substitute for a checkpoint review. Three questions:
 
 1. **Drift check**: am I still building what `VISION.md` and `RUNTIME-CONSTITUTION.md` describe? Or have I started building something adjacent?
 2. **Contract check**: do my artifacts validate? Does my implementation actually produce what the schemas say it should? Has any silent extension crept in?
 3. **Reviewer-eye check**: if a hostile reviewer read my recent commits and `BUILD-LOG.md` entries, what would they flag? Address the strongest objection.
 
-Log the critique pass in `BUILD-LOG.md`. If it surfaces something substantive, address it before continuing.
+Log the critique pass in `BUILD-LOG.md` or in the relevant review packet. If it surfaces something substantive, address it before continuing.
 
 ## What you do
 
 - Build per `docs/roadmap.md`, starting at Phase A.
-- At phase boundaries, self-validate against the roadmap's acceptance criteria. If passing, commit a clean phase milestone, log the assessment, proceed to the next phase. If failing, identify the gap and address.
+- At phase boundaries, validate against the roadmap's acceptance criteria and the active plan. A phase is `passed` only when every acceptance criterion named for that phase is met by the deliverable the criterion named. Deterministic substitutes do not pass agentic criteria. If criteria are not met, record `not passed` and list the gaps.
 - Look up Codex platform documentation when needed (hooks, subagents, orchestrator entry). The kit deliberately doesn't commit to specific syntaxes that may evolve.
 - When you hit ambiguity in the kit, choose the interpretation more consistent with `VISION.md` and `RUNTIME-CONSTITUTION.md`; log the choice and rationale.
 
@@ -78,6 +108,8 @@ The default is proceed. Genuinely stop and surface only for:
 - **Same mistake twice in a row** despite self-critique: indicates a deeper problem the loop alone cannot resolve.
 - **Token or compute budget exhausted** for the session.
 - **Kit ambiguity that interpreted either way would produce substantially different systems**: you cannot reasonably choose; the user must.
+- **Active-plan mismatch**: the next useful task is outside `.planning/CURRENT-PLAN.md` or would violate its disallowed-work list.
+- **Checkpoint required**: a phase pass, main merge, or broad `/goal` restart is blocked on a checkpoint review.
 
 For everything else — kit-vs-reality conflicts, design questions, additions, deviations, schema changes — log conspicuously in `BUILD-LOG.md` and proceed. The user catches substantive problems on review and intervenes if needed.
 
