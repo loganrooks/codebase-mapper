@@ -3984,6 +3984,51 @@ def command_hook_stop(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_hook_start(args: argparse.Namespace) -> int:
+    try:
+        payload = json.loads(sys.stdin.read() or "{}")
+    except json.JSONDecodeError:
+        payload = {}
+    repo = Path(payload.get("cwd") or args.repo).resolve()
+    run_dir = latest_run_dir(repo)
+    if not run_dir:
+        print(json.dumps({"continue": True, "systemMessage": "CBM: no .research run found for start-hook freshness validation."}))
+        return 0
+    handoff = run_dir / "handoff.md"
+    if not handoff.exists():
+        print(json.dumps({"continue": True, "systemMessage": f"CBM: run {run_dir.name} has no handoff.md for start-hook freshness validation."}))
+        return 0
+    try:
+        data, _ = load_artifact_frontmatter(handoff)
+        errors = []
+        for input_item in data.get("inputs", []):
+            input_path = repo / input_item["path"]
+            if not input_path.exists():
+                errors.append(f"input missing: {input_item['path']}")
+                continue
+            if sha256_file(input_path) != input_item["sha256"]:
+                errors.append(f"input hash changed: {input_item['path']}")
+            for citation in artifact_citations(input_path):
+                freshness = verify_citation_at_head(repo, citation)
+                if freshness["status"] != "still_grounded":
+                    errors.append(f"input citation stale: {input_item['path']}: {citation}: {freshness['reason']}")
+    except Exception as exc:
+        errors = [str(exc)]
+    if errors:
+        print(
+            json.dumps(
+                {
+                    "continue": False,
+                    "stopReason": f"CBM start freshness validation failed for {run_dir.name}.",
+                    "systemMessage": "CBM start freshness gate failed: " + "; ".join(errors[:3]),
+                }
+            )
+        )
+        return 0
+    print(json.dumps({"continue": True, "systemMessage": f"CBM start freshness gate passed for {run_dir.name}."}))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cbm")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -4126,6 +4171,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_hook_stop = sub.add_parser("hook-stop")
     p_hook_stop.add_argument("--repo", default=".")
     p_hook_stop.set_defaults(func=command_hook_stop)
+    p_hook_start = sub.add_parser("hook-start")
+    p_hook_start.add_argument("--repo", default=".")
+    p_hook_start.set_defaults(func=command_hook_start)
     return parser
 
 

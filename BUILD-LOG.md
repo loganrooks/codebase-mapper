@@ -921,3 +921,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Refresh now records more precise challenge trajectory instead of treating every disappeared challenged claim as merely obsolete.
   - Contract check: This uses existing `retracted.superseded_by` and `challenges_carried_forward.post_refresh_status` schema fields.
   - Reviewer-eye check: Replacement detection is heuristic: same claim kind, extractor, and source side. It does not prove semantic equivalence.
+
+## 2026-05-01 — Hook slice: session start freshness
+
+- Implemented: `cbm hook-start` for session-start recovery. It reads the latest handoff, checks recorded input hashes, and revalidates input artifact citations against current `HEAD`.
+- Implemented: stale input citations produce a blocking hook response so resumed sessions do not silently act on stale evidence.
+- Verification run:
+  - `pytest -q` passed: 39 tests, including a start-hook regression that passes before a cited source file changes and blocks after that file is committed at a new `HEAD`.
+- Self-critique:
+  - Drift check: Session resume now has a mechanical freshness gate matching the compaction-recovery and reuse discipline.
+  - Contract check: The command is additive and uses existing citation freshness logic rather than new schemas.
+  - Reviewer-eye check: The hook validates latest handoff inputs only; runs without handoff still continue with an informational message.

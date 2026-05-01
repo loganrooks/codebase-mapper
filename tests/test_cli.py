@@ -772,6 +772,34 @@ def test_stop_hook_rejects_card_gate_failure_even_with_fresh_hash(tmp_path: Path
     assert "confidence" in output["systemMessage"]
 
 
+def test_start_hook_rejects_stale_input_citations(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+    run_id = "run-hook-start"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": str(repo)})))
+    assert main(["hook-start", "--repo", str(repo)]) == 0
+    output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert output["continue"] is True
+    assert "passed" in output["systemMessage"]
+
+    (repo / "tests" / "test_app.py").write_text(
+        "from src.app import hello\n\n# changed after handoff\n\ndef test_hello():\n    assert hello() == 'hello'\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", "tests/test_app.py")
+    git(repo, "commit", "-m", "change cited source after handoff")
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"cwd": str(repo)})))
+    assert main(["hook-start", "--repo", str(repo)]) == 0
+    output = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert output["continue"] is False
+    assert "input citation stale" in output["systemMessage"]
+
+
 def test_ledger_integrity_detects_mutated_existing_line(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
