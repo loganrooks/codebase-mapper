@@ -2152,6 +2152,41 @@ def update_claim_status_from_challenges(claim: dict[str, Any]) -> None:
         claim["claim_status"] = "challenged"
 
 
+def contestation_summary_for_claims(claims: list[dict[str, Any]], artifact_path: str) -> dict[str, Any]:
+    registers = {"factual": 0, "inferential": 0, "interpretive": 0}
+    statuses = {"active": 0, "challenged": 0, "contested": 0, "contradicted": 0, "superseded": 0, "retired": 0}
+    open_challenges = 0
+    contested_claims = []
+    contradicted_claims = []
+    for claim in claims:
+        register = claim.get("claim_register")
+        if register in registers:
+            registers[register] += 1
+        status = claim.get("claim_status", "active")
+        if status in statuses:
+            statuses[status] += 1
+        challenges = claim.get("challenges", [])
+        open_challenges += sum(1 for challenge in challenges if challenge.get("status") == "open")
+        if status == "contested":
+            contested_claims.append(
+                {
+                    "claim_artifact": artifact_path,
+                    "claim_id": claim["id"],
+                    "challenge_count": len(challenges),
+                    "summary": f"{claim['id']} has {len(challenges)} live challenge(s).",
+                }
+            )
+        if status == "contradicted":
+            contradicted_claims.append({"claim_artifact": artifact_path, "claim_id": claim["id"]})
+    return {
+        "claims_by_register": registers,
+        "claims_by_status": statuses,
+        "open_challenges": open_challenges,
+        "contested_claims": contested_claims,
+        "contradicted_claims": contradicted_claims,
+    }
+
+
 def command_resolve_challenge(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     artifact_path = Path(args.artifact)
@@ -3272,6 +3307,9 @@ def command_handoff(args: argparse.Namespace) -> int:
     if approval_path.exists():
         artifacts.insert(-1, {"path": str(approval_path.relative_to(repo)), "artifact_type": "approval_plan", "status": "draft", "summary": "Deep-mode manual approval plan."})
         handoff_inputs.insert(-1, {"path": str(approval_path.relative_to(repo)), "sha256": sha256_file(approval_path)})
+    surface_claims = all_artifact_claims(surface)
+    contestation_summary = contestation_summary_for_claims(surface_claims, str(surface_path.relative_to(repo)))
+    challenge_count = sum(len(claim.get("challenges", [])) for claim in surface_claims)
     handoff = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "handoff",
@@ -3291,15 +3329,9 @@ def command_handoff(args: argparse.Namespace) -> int:
             "citation_resolution": {"resolved": 1 if citation_ok else 0, "unresolved_count": 0 if citation_ok else 1, "unresolved_examples": [] if citation_ok else [f"{citation}: {citation_reason}"]},
             "ledger_consistency": {"append_only_verified": ledger_append_only_ok and not missing_ledger_citations, "entry_count": ledger_count(ledger_path)},
             "staleness_check": {"fresh": 3 if binding else 2, "stale_artifacts": []},
-            "skeptic_review": {"artifacts_reviewed": 1, "challenges_logged": 1, "challenges_resolved": 0},
+            "skeptic_review": {"artifacts_reviewed": 1, "challenges_logged": challenge_count, "challenges_resolved": 0},
         },
-        "contestation_summary": {
-            "claims_by_register": {"factual": 1, "inferential": 0, "interpretive": 1},
-            "claims_by_status": {"active": 2, "challenged": 1, "contested": 0, "contradicted": 0, "superseded": 0, "retired": 0},
-            "open_challenges": 1,
-            "contested_claims": [],
-            "contradicted_claims": [],
-        },
+        "contestation_summary": contestation_summary,
         "artifacts": artifacts,
         "open_questions_count": 1,
         "coverage_caveats": ["Phase A surface mapping is deterministic and has not performed language-level import/call extraction."],

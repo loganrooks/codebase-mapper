@@ -638,3 +638,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Resolution is explicit and ledger-backed; it does not erase prior challenges.
   - Contract check: Challenge status uses the existing schema enum and append-only ledger kind.
   - Reviewer-eye check: The command resolves one challenge at a time. Batch review workflows and downstream card confidence recalculation remain future work.
+
+## 2026-05-01 — Handoff slice: dynamic contestation summary
+
+- Implemented: `cbm-handoff` now computes `contestation_summary` from actual surface-map authorities and edges instead of hardcoded Phase A counts.
+- Implemented: handoff Skeptic challenge count now reflects all logged claim challenges in the surface map, including human reviewer challenges.
+- Verification run:
+  - `pytest -q` passed: 34 tests, including a handoff regression where a human challenge and the Skeptic unknown-edge challenge both appear in final counts.
+- Self-critique:
+  - Drift check: Handoff reports live contestation; it does not resolve or collapse competing readings.
+  - Contract check: Counts derive from claim registers, claim statuses, and challenge statuses in the artifact itself.
+  - Reviewer-eye check: The summary currently covers surface-map claims. Cross-artifact contestation from split maps should be folded in later.

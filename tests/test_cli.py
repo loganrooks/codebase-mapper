@@ -434,6 +434,46 @@ def test_handoff_rejects_evidence_invalid_surface(tmp_path: Path) -> None:
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 1
 
 
+def test_handoff_summarizes_human_challenges(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-handoff-human-challenge"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    surface = repo / ".research" / run_id / "surface-map.json"
+    data = json.loads(surface.read_text(encoding="utf-8"))
+    import_edge = next(edge for edge in data["edges"] if edge["kind"] == "import")
+    assert (
+        main(
+            [
+                "challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--claim-id",
+                import_edge["id"],
+                "--competing-reading",
+                "The import relation could be setup-only and should remain challenged in handoff.",
+                "--evidence",
+                import_edge["citations"][0],
+                "--rationale",
+                "A human reviewer wants this dependency interpretation preserved in final handoff.",
+            ]
+        )
+        == 0
+    )
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
+    frontmatter = yaml.safe_load((repo / ".research" / run_id / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    assert frontmatter["contestation_summary"]["open_challenges"] == 2
+    assert frontmatter["contestation_summary"]["claims_by_status"]["challenged"] == 2
+    assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 2
+
+
 def test_deep_run_writes_workflow_trace(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
