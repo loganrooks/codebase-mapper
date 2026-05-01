@@ -538,3 +538,17 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Pack annotations inform extractor blind spots without changing extractor output or claim registers.
   - Contract check: Registry annotations are schema-validated and remain separate from extractor definitions.
   - Reviewer-eye check: This is annotation propagation, not project-specific extraction. Django/Rails/Phoenix/MCP packs still need extractors that consume these annotations.
+
+## 2026-05-01 — Phase E disposition
+
+- Acceptance status: partial pass for project-pack scaffolding.
+- Met: Phase 0 project-type detection exists as `project-type.json`.
+- Met: bundled packs exist for Django, Rails, Phoenix, MCP servers, agent orchestration projects, monorepos, plus a generic Python package pack used by the test fixture.
+- Met: detected pack annotations propagate into `extractor-registry.json`.
+- Gap: project-type-specific extractors are not yet implemented; current packs provide detection, hints, annotations, and blind spots only.
+- Verification run:
+  - `pytest -q` passed: 27 tests.
+- Self-critique:
+  - Drift check: Phase E did not invent framework-specific claims without extractors.
+  - Contract check: Project-type and extractor-registry artifacts validate.
+  - Reviewer-eye check: This is useful scaffolding, not mature Django/Rails/Phoenix/MCP understanding. The gap remains visible for future extractor work.
