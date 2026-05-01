@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1566,6 +1567,146 @@ def command_consult(args: argparse.Namespace) -> int:
     return 2
 
 
+def safe_relpath(base: Path, target: Path) -> str | None:
+    try:
+        return target.resolve().relative_to(base.resolve()).as_posix()
+    except ValueError:
+        return None
+
+
+def sanitize_id(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "-", value).strip("-") or "gate"
+
+
+def declared_ci_gates(artifact: dict[str, Any]) -> list[dict[str, Any]]:
+    gates = []
+    if isinstance(artifact.get("ci_gates"), list):
+        gates.extend(artifact["ci_gates"])
+    verification = artifact.get("verification")
+    if isinstance(verification, dict) and isinstance(verification.get("ci_gates"), list):
+        gates.extend(verification["ci_gates"])
+    return gates
+
+
+def find_declared_gate(repo: Path, paths: RunPaths, gate_id: str, artifact_arg: str | None) -> tuple[Path, dict[str, Any]] | None:
+    candidates: list[Path] = []
+    if artifact_arg:
+        artifact_path = Path(artifact_arg)
+        candidates.append(artifact_path if artifact_path.is_absolute() else repo / artifact_path)
+    else:
+        candidates.extend([paths.run_dir / "verification-map.json", paths.run_dir / "surface-map.json"])
+    for artifact_path in candidates:
+        if not artifact_path.exists():
+            continue
+        artifact = read_json(artifact_path)
+        for gate in declared_ci_gates(artifact):
+            if gate.get("id") == gate_id or gate.get("name") == gate_id:
+                return artifact_path, gate
+    return None
+
+
+def envelope_refusal(gate_envelope: dict[str, Any], args: argparse.Namespace) -> str | None:
+    if gate_envelope.get("requires_network") and not args.allow_network:
+        return "gate requires network access outside approved envelope"
+    if gate_envelope.get("requires_install") and not args.allow_install:
+        return "gate requires dependency installation outside approved envelope"
+    if gate_envelope.get("mutates_filesystem") and not args.allow_mutation:
+        return "gate mutates the filesystem outside approved envelope"
+    if gate_envelope["max_duration_seconds"] > args.max_duration:
+        return "gate max duration exceeds approved envelope"
+    return None
+
+
+def command_run_gate(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    found = find_declared_gate(repo, paths, args.gate_id, args.artifact)
+    if not found:
+        print(f"gate not found: {args.gate_id}", file=sys.stderr)
+        return 1
+    artifact_path, gate = found
+    command = gate.get("command")
+    if not command:
+        print(f"gate has no declared command: {args.gate_id}", file=sys.stderr)
+        return 1
+    gate_envelope = command["safety_envelope"]
+    refusal = envelope_refusal(gate_envelope, args)
+    if refusal:
+        print(f"refused: {refusal}", file=sys.stderr)
+        return 2
+    cwd = repo / command["cwd"]
+    cwd_rel = safe_relpath(repo, cwd)
+    if cwd_rel is None:
+        print("refused: command cwd is outside repo", file=sys.stderr)
+        return 2
+    argv = [command["runner"], *command.get("argv", [])]
+    started = time.monotonic()
+    timed_out = False
+    try:
+        proc = subprocess.run(
+            argv,
+            cwd=cwd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=gate_envelope["max_duration_seconds"],
+        )
+        exit_code = proc.returncode
+        stdout = proc.stdout
+        stderr = proc.stderr
+    except subprocess.TimeoutExpired as exc:
+        timed_out = True
+        exit_code = 124
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or f"Command timed out after {gate_envelope['max_duration_seconds']} seconds."
+    duration = time.monotonic() - started
+    output_dir = paths.run_dir / "command-outputs"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    output_path = output_dir / f"{sanitize_id(args.gate_id)}-{ts}.txt"
+    output_path.write_text(
+        "\n".join(
+            [
+                f"gate_id: {args.gate_id}",
+                f"artifact: {artifact_path.relative_to(repo).as_posix()}",
+                f"cwd: {cwd_rel}",
+                "command: " + json.dumps(argv),
+                f"exit_code: {exit_code}",
+                f"duration_seconds: {duration:.3f}",
+                f"timed_out: {str(timed_out).lower()}",
+                "",
+                "== stdout ==",
+                stdout,
+                "== stderr ==",
+                stderr,
+            ]
+        ),
+        encoding="utf-8",
+    )
+    ledger_path = paths.run_dir / "evidence-ledger.jsonl"
+    entry = {
+        "schema_version": SCHEMA_VERSION,
+        "entry_id": next_ledger_id(ledger_path),
+        "ts": utc_now(),
+        "entry_kind": "command_executed",
+        "agent": "cbm-run-gate",
+        "skill_version": "0.1",
+        "run_id": paths.run_id,
+        "source_sha": source_sha(repo),
+        "command_id": args.gate_id,
+        "exit_code": exit_code,
+        "duration_seconds": duration,
+        "output_artifact_path": str(output_path.relative_to(repo)),
+    }
+    try:
+        append_ledger_entry(repo, ledger_path, entry)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    print(output_path)
+    return exit_code
+
+
 def read_intake(run_dir: Path) -> dict[str, Any]:
     return read_json(run_dir / "intake.json")
 
@@ -2015,6 +2156,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_consult.add_argument("question")
     p_consult.add_argument("--repo", default=".")
     p_consult.set_defaults(func=command_consult)
+    p_run_gate = sub.add_parser("run-gate")
+    p_run_gate.add_argument("gate_id")
+    p_run_gate.add_argument("--repo", default=".")
+    p_run_gate.add_argument("--run-id")
+    p_run_gate.add_argument("--artifact")
+    p_run_gate.add_argument("--allow-network", action="store_true")
+    p_run_gate.add_argument("--allow-install", action="store_true")
+    p_run_gate.add_argument("--allow-mutation", action="store_true")
+    p_run_gate.add_argument("--max-duration", type=int, default=60)
+    p_run_gate.set_defaults(func=command_run_gate)
     p_handoff = sub.add_parser("handoff")
     p_handoff.add_argument("--repo", default=".")
     p_handoff.add_argument("--run-id")
@@ -2083,6 +2234,10 @@ def refresh_main() -> int:
 
 def consult_main() -> int:
     return main(["consult", *sys.argv[1:]])
+
+
+def run_gate_main() -> int:
+    return main(["run-gate", *sys.argv[1:]])
 
 
 def handoff_main() -> int:

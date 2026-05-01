@@ -292,3 +292,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This preserves prior readings and challenge state instead of overwriting the old surface map.
   - Contract check: The successor surface map uses `refreshed_from`, and the delta validates against the v1.2 refresh-delta schema.
   - Reviewer-eye check: This is a deterministic differential refresh, not yet a true Surface Mapper rereading pass. It can classify a still-matching changed claim as `updated`, but it does not make a qualitative judgment about whether the interpretation still holds beyond the static signature match.
+
+## 2026-05-01 — Phase B slice: run gate safety envelope
+
+- Implemented: `cbm-run-gate` / `cbm run-gate <gate-id>`, reading declared commands from a surface map's `verification.ci_gates`.
+- Implemented: safety-envelope refusal before execution for unapproved network, install, filesystem mutation, excessive duration, or cwd outside the repository.
+- Implemented: command execution without shell interpolation, captured output artifacts under `command-outputs/`, and `command_executed` evidence-ledger entries.
+- Verification run:
+  - `pytest -q` passed: 12 tests, including a run-gate test that executes a safe local command, records output and ledger evidence, and refuses a network-requiring gate without approval.
+- Self-critique:
+  - Drift check: The command adds controlled verification execution without allowing source mutation by default.
+  - Contract check: Output path, exit code, duration, and command id are recorded in the append-only ledger.
+  - Reviewer-eye check: The implementation enforces declared envelope metadata but does not provide OS-level sandboxing for filesystem mutation or network isolation. It refuses declared risky gates unless approved; it cannot detect a dishonest command declaration.

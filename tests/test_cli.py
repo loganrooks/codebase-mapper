@@ -329,6 +329,71 @@ def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path
     assert refused_frontmatter["matches"] == []
 
 
+def test_run_gate_executes_declared_command_and_refuses_outside_envelope(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-gate"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    surface = repo / ".research" / run_id / "surface-map.json"
+    surface_data = json.loads(surface.read_text(encoding="utf-8"))
+    citation = surface_data["edges"][0]["citations"][0]
+    surface_data["verification"]["ci_gates"].extend(
+        [
+            {
+                "name": "unit",
+                "path": "tests/test_app.py",
+                "kind": "test",
+                "citations": [citation],
+                "command": {
+                    "runner": sys.executable,
+                    "argv": ["-c", "print('gate-ok')"],
+                    "cwd": ".",
+                    "safety_envelope": {
+                        "requires_network": False,
+                        "requires_install": False,
+                        "mutates_filesystem": False,
+                        "max_duration_seconds": 5,
+                    },
+                },
+            },
+            {
+                "name": "networked",
+                "path": "tests/test_app.py",
+                "kind": "test",
+                "citations": [citation],
+                "command": {
+                    "runner": sys.executable,
+                    "argv": ["-c", "print('network')"],
+                    "cwd": ".",
+                    "safety_envelope": {
+                        "requires_network": True,
+                        "requires_install": False,
+                        "mutates_filesystem": False,
+                        "max_duration_seconds": 5,
+                    },
+                },
+            },
+        ]
+    )
+    surface.write_text(json.dumps(surface_data, indent=2) + "\n", encoding="utf-8")
+    assert main(["validate", str(surface), "--repo", str(repo)]) == 0
+
+    assert main(["run-gate", "unit", "--repo", str(repo), "--run-id", run_id, "--max-duration", "10"]) == 0
+    output = next((repo / ".research" / run_id / "command-outputs").glob("unit-*.txt"))
+    assert "gate-ok" in output.read_text(encoding="utf-8")
+    ledger_entries = [
+        json.loads(line)
+        for line in (repo / ".research" / run_id / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert any(entry["entry_kind"] == "command_executed" and entry["command_id"] == "unit" for entry in ledger_entries)
+
+    assert main(["run-gate", "networked", "--repo", str(repo), "--run-id", run_id, "--max-duration", "10"]) == 2
+
+
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

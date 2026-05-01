@@ -27,6 +27,7 @@ cbm-verify = "cbm.cli:verify_main"
 cbm-corpus-status = "cbm.cli:corpus_status_main"
 cbm-refresh = "cbm.cli:refresh_main"
 cbm-consult = "cbm.cli:consult_main"
+cbm-run-gate = "cbm.cli:run_gate_main"
 cbm-handoff = "cbm.cli:handoff_main"
 cbm-run = "cbm.cli:run_main"
 
