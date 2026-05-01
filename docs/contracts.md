@@ -99,6 +99,10 @@ Mode 5 (re-run) is just `cbm-init` again.
 
 Reader skill invocation. Identifies relevant artifacts from `.research/`; runs `cbm-validate-fresh` first; surfaces grounded answers from the corpus or refuses if the answer isn't there or freshness is too poor to trust. Output: a consultation response (markdown) plus optional ledger appends (`citation_reused`).
 
+### `cbm-loop-status` (recovery)
+
+Read-only recovery preflight. Checks that live planning files exist, authority/planning docs are not dirty, the requested recovery work category is allowed, and the checkpoint gate is satisfied for broad `/goal` scope. `--scope recovery-slice` reports a pending checkpoint as a warning; `--scope broad-goal` exits nonzero until the checkpoint is accepted or waived.
+
 ### `cbm-bind <goal-string>`
 
 Produce `goal-binding.json`. Lists candidate surfaces with map citations and status flags (active/challenged/contested/contradicted). `cbm-bind` does **not** commit to a single intervention.

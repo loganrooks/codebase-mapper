@@ -1192,3 +1192,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
 - Decision: Update architecture/roadmap/contracts language so hooks are adapter glue and deterministic runs are baseline-only until runtime producers exist.
 - Rationale: The reviews converged that the previous workflow let deterministic kernel-hardening substitute for runtime-agent evidence. The reset must constrain the next autonomous loop, not just summarize the problem.
 - Verification plan: Run `git diff --check -- .planning AGENTS.md VISION.md docs/architecture.md docs/roadmap.md docs/contracts.md BUILD-LOG.md` before committing the planning/governance reset.
+
+## 2026-05-01 — Recovery slice: minimal loop-status preflight
+
+- Implemented: `cbm-loop-status` / `cbm loop-status` as a read-only recovery preflight.
+- Implemented: broad `/goal` scope fails while the checkpoint gate is pending; recovery-slice scope reports that condition as a warning so bounded recovery work can continue.
+- Implemented: dirty authority/planning docs and disallowed recovery work categories fail the preflight.
+- Rationale: The workflow disposition's R6 recommendation is load-bearing enough that a minimal preflight should exist before broad unattended `/goal` resumes, even though the full drift-signal suite remains later work.
+- Verification run:
+  - Focused regressions passed: `pytest -q tests/test_cli.py::test_loop_status_blocks_broad_goal_until_checkpoint_satisfies_resume tests/test_cli.py::test_loop_status_blocks_dirty_authority_docs_and_disallowed_work`.
+  - `git diff --check -- cbm/cli.py tests/test_cli.py pyproject.toml docs/contracts.md BUILD-LOG.md` passed.
+  - `pytest -q` passed: 53 tests, 2 existing `jsonschema.RefResolver` deprecation warnings.

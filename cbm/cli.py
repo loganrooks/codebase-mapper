@@ -32,6 +32,22 @@ DEFAULT_EXCLUDED = [
     ".DS_Store",
 ]
 LIVE_CHALLENGE_STATUSES = {"open", "accepted_as_alternative", "accepted_as_replacement"}
+AUTHORITY_DOC_PATHS = [
+    "AGENTS.md",
+    "VISION.md",
+    "RUNTIME-CONSTITUTION.md",
+    ".planning/STATE.md",
+    ".planning/CURRENT-PLAN.md",
+]
+RECOVERY_ALLOWED_WORK_CATEGORIES = {
+    "false-provenance",
+    "coverage-honesty",
+    "producer-registry",
+    "run-manifest",
+    "benchmark",
+    "codex-isolation",
+    "loop-status",
+}
 
 
 @dataclass(frozen=True)
@@ -4083,6 +4099,106 @@ def command_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def git_status_lines(repo: Path, paths: list[str]) -> list[str]:
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(repo), "status", "--porcelain", "--", *paths],
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"git status failed: {exc.stderr.strip()}") from exc
+    return [line for line in proc.stdout.splitlines() if line.strip()]
+
+
+def checkpoint_files(repo: Path) -> list[Path]:
+    reviews = repo / ".planning" / "reviews"
+    if not reviews.exists():
+        return []
+    return sorted(reviews.glob("*/CHECKPOINT.md"), key=lambda path: path.stat().st_mtime, reverse=True)
+
+
+def checkpoint_satisfies_resume(path: Path) -> bool:
+    text = path.read_text(encoding="utf-8")
+    accepted_markers = [
+        "Satisfies resume gate: yes",
+        "Disposition: accept",
+        "Disposition: waived-by-user",
+        "disposition: accept",
+        "disposition: waived-by-user",
+    ]
+    return any(marker in text for marker in accepted_markers)
+
+
+def command_loop_status(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    issues: list[dict[str, str]] = []
+    warnings: list[dict[str, str]] = []
+
+    current_plan = repo / ".planning" / "CURRENT-PLAN.md"
+    state = repo / ".planning" / "STATE.md"
+    if not current_plan.exists():
+        issues.append({"code": "missing_current_plan", "message": ".planning/CURRENT-PLAN.md is missing"})
+    if not state.exists():
+        issues.append({"code": "missing_state", "message": ".planning/STATE.md is missing"})
+
+    dirty_authority = git_status_lines(repo, AUTHORITY_DOC_PATHS)
+    if dirty_authority:
+        issues.append(
+            {
+                "code": "dirty_authority_docs",
+                "message": "authority/planning files have uncommitted changes: " + "; ".join(dirty_authority),
+            }
+        )
+
+    if args.work_category and args.work_category not in RECOVERY_ALLOWED_WORK_CATEGORIES:
+        issues.append(
+            {
+                "code": "work_category_blocked",
+                "message": f"work category '{args.work_category}' is not allowed during recovery",
+            }
+        )
+
+    checkpoints = checkpoint_files(repo)
+    checkpoint_path = checkpoints[0] if checkpoints else None
+    checkpoint_ok = checkpoint_satisfies_resume(checkpoint_path) if checkpoint_path else False
+    if not checkpoint_path:
+        issue = {"code": "missing_checkpoint", "message": "no checkpoint review artifact found under .planning/reviews"}
+        if args.scope == "broad-goal":
+            issues.append(issue)
+        else:
+            warnings.append(issue)
+    elif not checkpoint_ok:
+        issue = {
+            "code": "checkpoint_pending",
+            "message": f"checkpoint does not satisfy resume gate: {checkpoint_path.relative_to(repo).as_posix()}",
+        }
+        if args.scope == "broad-goal":
+            issues.append(issue)
+        else:
+            warnings.append(issue)
+
+    result = {
+        "status": "fail" if issues else "ok",
+        "scope": args.scope,
+        "work_category": args.work_category,
+        "issues": issues,
+        "warnings": warnings,
+        "checkpoint": checkpoint_path.relative_to(repo).as_posix() if checkpoint_path else None,
+    }
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"loop-status: {result['status']}")
+        for item in issues:
+            print(f"issue {item['code']}: {item['message']}", file=sys.stderr)
+        for item in warnings:
+            print(f"warning {item['code']}: {item['message']}", file=sys.stderr)
+    return 1 if issues else 0
+
+
 def latest_run_dir(repo: Path) -> Path | None:
     research = repo / ".research"
     if not research.exists():
@@ -4389,6 +4505,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--mode", default="lightweight", choices=["lightweight", "standard", "deep"])
     p_run.add_argument("--run-id")
     p_run.set_defaults(func=command_run)
+    p_loop_status = sub.add_parser("loop-status")
+    p_loop_status.add_argument("--repo", default=".")
+    p_loop_status.add_argument("--scope", choices=["recovery-slice", "broad-goal"], default="recovery-slice")
+    p_loop_status.add_argument("--work-category")
+    p_loop_status.add_argument("--json", action="store_true")
+    p_loop_status.set_defaults(func=command_loop_status)
     p_hook_stop = sub.add_parser("hook-stop")
     p_hook_stop.add_argument("--repo", default=".")
     p_hook_stop.add_argument("--run-id")
@@ -4515,6 +4637,10 @@ def handoff_main() -> int:
 
 def run_main() -> int:
     return main(["run", *sys.argv[1:]])
+
+
+def loop_status_main() -> int:
+    return main(["loop-status", *sys.argv[1:]])
 
 
 def hook_stop_main() -> int:

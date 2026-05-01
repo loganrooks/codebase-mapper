@@ -1791,6 +1791,42 @@ def test_synthesis_index_connects_standard_maps(tmp_path: Path) -> None:
     assert any(path.endswith("dependency-graph.json") and claim_id == "edge-unknown-001" for path, claim_id in challenged_refs)
 
 
+def write_loop_status_scaffold(repo: Path, *, checkpoint_satisfies: bool) -> None:
+    (repo / ".planning" / "reviews" / "checkpoint").mkdir(parents=True)
+    (repo / ".planning" / "CURRENT-PLAN.md").write_text("# Current Plan\n\nStatus: active\n", encoding="utf-8")
+    (repo / ".planning" / "STATE.md").write_text("# State\n\nStatus: current\n", encoding="utf-8")
+    gate_value = "yes" if checkpoint_satisfies else "no"
+    (repo / ".planning" / "reviews" / "checkpoint" / "CHECKPOINT.md").write_text(
+        f"# Checkpoint\n\nSatisfies resume gate: {gate_value}\n",
+        encoding="utf-8",
+    )
+    for name in ["AGENTS.md", "VISION.md", "RUNTIME-CONSTITUTION.md"]:
+        (repo / name).write_text(f"# {name}\n", encoding="utf-8")
+    git(repo, "add", ".planning", "AGENTS.md", "VISION.md", "RUNTIME-CONSTITUTION.md")
+    git(repo, "commit", "-m", "add recovery planning")
+
+
+def test_loop_status_blocks_broad_goal_until_checkpoint_satisfies_resume(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=False)
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "false-provenance"]) == 1
+    assert main(["loop-status", "--repo", str(repo), "--scope", "recovery-slice", "--work-category", "false-provenance"]) == 0
+
+
+def test_loop_status_blocks_dirty_authority_docs_and_disallowed_work(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+
+    (repo / "VISION.md").write_text("# VISION\n\nchanged\n", encoding="utf-8")
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "false-provenance"]) == 1
+
+    git(repo, "add", "VISION.md")
+    git(repo, "commit", "-m", "update vision")
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "new-kernel-gate"]) == 1
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "false-provenance"]) == 0
+
+
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
