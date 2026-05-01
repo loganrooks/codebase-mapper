@@ -614,5 +614,16 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - `pytest -q` passed: 32 tests, including checks that platform docs ship both `hook-stop` and `gate-artifact` adapter semantics.
 - Self-critique:
   - Drift check: The adapter script only invokes the kernel gate; it does not encode platform-independent policy in shell.
-- Contract check: The Codex adapter, Claude Code adapter, and portability checklist now point at the same reusable gate.
+  - Contract check: The Codex adapter, Claude Code adapter, and portability checklist now point at the same reusable gate.
   - Reviewer-eye check: This still does not prove Claude Code syntax. It proves the command boundary a Claude Code hook must call once syntax is verified.
+
+## 2026-05-01 — Human review slice: challenge command
+
+- Implemented: `cbm-challenge` / `cbm challenge`, allowing a reviewer to add a structured challenge to a claim in `surface-map`, `authority-map`, or `dependency-graph` artifacts.
+- Implemented: challenge writes append-only `claim_challenged` ledger entries, validates the mutated artifact, and preserves competing evidence citations.
+- Verification run:
+  - `pytest -q` passed: 33 tests, including a human challenge regression that challenges an import edge, validates the artifact through `cbm gate-artifact`, and verifies the ledger entry.
+- Self-critique:
+  - Drift check: Human review enters as structured contestation, not as silent mutation or chat-only feedback.
+  - Contract check: Challenges use the existing schema shape and ledger entry kind.
+  - Reviewer-eye check: Resolution UX is still missing; this slice adds challenge creation only.

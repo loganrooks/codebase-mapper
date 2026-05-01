@@ -337,6 +337,59 @@ def test_gate_artifact_runs_schema_citation_and_evidence_checks(tmp_path: Path) 
     assert main(["gate-artifact", str(bad_surface), "--repo", str(repo)]) == 2
 
 
+def test_challenge_adds_human_challenge_to_claim(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-human-challenge"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    surface = repo / ".research" / run_id / "surface-map.json"
+    data = json.loads(surface.read_text(encoding="utf-8"))
+    import_edge = next(edge for edge in data["edges"] if edge["kind"] == "import")
+    citation = import_edge["citations"][0]
+    assert (
+        main(
+            [
+                "challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--claim-id",
+                import_edge["id"],
+                "--competing-reading",
+                "The import relation may be setup-only rather than evidence of the primary runtime path.",
+                "--evidence",
+                citation,
+                "--axis",
+                "scope",
+                "--relation",
+                "scope_dispute",
+                "--rationale",
+                "A reviewer needs this alternative preserved before using the import as a planning dependency.",
+                "--raised-by",
+                "human-reviewer",
+            ]
+        )
+        == 0
+    )
+    challenged = json.loads(surface.read_text(encoding="utf-8"))
+    updated = next(edge for edge in challenged["edges"] if edge["id"] == import_edge["id"])
+    assert updated["claim_status"] == "challenged"
+    assert updated["challenges"][0]["raised_by"] == "human-reviewer"
+    assert main(["gate-artifact", str(surface), "--repo", str(repo)]) == 0
+    ledger_entries = [
+        json.loads(line)
+        for line in (repo / ".research" / run_id / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert any(entry["entry_kind"] == "claim_challenged" and entry["claim_id"] == import_edge["id"] for entry in ledger_entries)
+
+
 def test_handoff_rejects_evidence_invalid_surface(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

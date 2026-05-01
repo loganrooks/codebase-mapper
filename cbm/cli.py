@@ -2038,6 +2038,99 @@ def command_gate_artifact(args: argparse.Namespace) -> int:
     return 0
 
 
+def artifact_claim_collections(data: dict[str, Any]) -> list[tuple[str, list[dict[str, Any]]]]:
+    collections: list[tuple[str, list[dict[str, Any]]]] = []
+    if isinstance(data.get("authorities"), list):
+        collections.append(("authorities", data["authorities"]))
+    if isinstance(data.get("edges"), list):
+        collections.append(("edges", data["edges"]))
+    return collections
+
+
+def find_claim(data: dict[str, Any], claim_id: str) -> dict[str, Any] | None:
+    for _, claims in artifact_claim_collections(data):
+        for claim in claims:
+            if claim.get("id") == claim_id:
+                return claim
+    return None
+
+
+def all_artifact_claims(data: dict[str, Any]) -> list[dict[str, Any]]:
+    claims: list[dict[str, Any]] = []
+    for _, collection in artifact_claim_collections(data):
+        claims.extend(collection)
+    return claims
+
+
+def command_challenge(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    artifact_path = Path(args.artifact)
+    if not artifact_path.is_absolute():
+        artifact_path = repo / artifact_path
+    data = read_json(artifact_path)
+    artifact_type = infer_artifact_type(artifact_path, data)
+    if artifact_type not in {"surface_map", "authority_map", "dependency_graph"}:
+        print(f"{artifact_type} does not support claim challenges", file=sys.stderr)
+        return 1
+    claim = find_claim(data, args.claim_id)
+    if claim is None:
+        print(f"claim not found: {args.claim_id}", file=sys.stderr)
+        return 1
+    evidence = args.evidence
+    for citation in evidence:
+        ok, reason = resolve_citation(repo, citation)
+        if not ok:
+            print(f"evidence citation does not resolve: {citation}: {reason}", file=sys.stderr)
+            return 1
+    challenge_id = next_challenge_id(all_artifact_claims(data))
+    challenge = {
+        "challenge_id": challenge_id,
+        "challenges_claim_id": args.claim_id,
+        "raised_by": args.raised_by,
+        "raised_at": utc_now(),
+        "competing_reading": args.competing_reading,
+        "competing_evidence": evidence,
+        "interpretive_axis": args.axis,
+        "relation_to_original": args.relation,
+        "status": "open",
+        "rationale": args.rationale,
+    }
+    claim.setdefault("challenges", []).append(challenge)
+    claim["claim_status"] = "contested" if len(claim["challenges"]) > 1 else "challenged"
+    errors = validate_data(repo, data, artifact_type)
+    errors.extend(check_claim_evidence(data))
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    ledger_path = artifact_path.parent / "evidence-ledger.jsonl"
+    if not ledger_path.exists():
+        ledger_path = artifact_path.parents[1] / "evidence-ledger.jsonl"
+    entry = {
+        "schema_version": SCHEMA_VERSION,
+        "entry_id": next_ledger_id(ledger_path),
+        "ts": utc_now(),
+        "entry_kind": "claim_challenged",
+        "agent": args.raised_by,
+        "skill_version": "0.1",
+        "run_id": data["run_id"],
+        "source_sha": data["source_sha"],
+        "artifact_path": str(artifact_path.relative_to(repo)),
+        "claim_id": args.claim_id,
+        "challenge_id": challenge_id,
+        "challenge": args.competing_reading,
+        "competing_evidence": evidence,
+    }
+    try:
+        append_ledger_entry(repo, ledger_path, entry)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    write_json(artifact_path, data)
+    print(challenge_id)
+    return 0
+
+
 def command_stale(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.artifact)
@@ -3367,6 +3460,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_gate_artifact.add_argument("artifact")
     p_gate_artifact.add_argument("--repo", default=".")
     p_gate_artifact.set_defaults(func=command_gate_artifact)
+    p_challenge = sub.add_parser("challenge")
+    p_challenge.add_argument("artifact")
+    p_challenge.add_argument("--repo", default=".")
+    p_challenge.add_argument("--claim-id", required=True)
+    p_challenge.add_argument("--competing-reading", required=True)
+    p_challenge.add_argument("--evidence", action="append", required=True)
+    p_challenge.add_argument("--axis", default="other", choices=["centrality", "scope", "salience", "classification", "framing", "completeness", "other"])
+    p_challenge.add_argument("--relation", default="competing", choices=["complementary", "competing", "reframing", "scope_dispute"])
+    p_challenge.add_argument("--rationale", required=True)
+    p_challenge.add_argument("--raised-by", default="human-reviewer")
+    p_challenge.set_defaults(func=command_challenge)
     p_stale = sub.add_parser("stale")
     p_stale.add_argument("artifact")
     p_stale.add_argument("--repo", default=".")
@@ -3487,6 +3591,10 @@ def verify_citations_main() -> int:
 
 def gate_artifact_main() -> int:
     return main(["gate-artifact", *sys.argv[1:]])
+
+
+def challenge_main() -> int:
+    return main(["challenge", *sys.argv[1:]])
 
 
 def stale_main() -> int:
