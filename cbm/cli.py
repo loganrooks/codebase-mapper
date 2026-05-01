@@ -2030,6 +2030,14 @@ def command_gate_artifact(args: argparse.Namespace) -> int:
             if not ok:
                 failures.append(f"citation: {citation}: {reason}")
         failures.extend(f"evidence: {error}" for error in check_claim_evidence(data))
+        contestation = verify_contestation_propagation(repo, data)
+        for item in contestation["missing"]:
+            failures.append(
+                "contestation: missing dependent challenge "
+                f"{item['claim_artifact']} {item['claim_id']} {','.join(item['missing_challenge_ids'])}"
+            )
+        for item in contestation["stale"]:
+            failures.append(f"contestation: stale dependent challenge {item['claim_artifact']} {item['claim_id']}")
     except Exception as exc:
         failures.append(str(exc))
     if failures:

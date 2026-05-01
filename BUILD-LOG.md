@@ -711,3 +711,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This makes contestation propagation auditable instead of relying on card generation intent or schema shape alone.
   - Contract check: The verify report remains the existing transient JSON artifact; this slice adds fields without introducing a new schema.
   - Reviewer-eye check: The audit only follows explicit `related_dependencies` refs, so card dependencies not expressed there remain outside this verifier.
+
+## 2026-05-01 — Gate slice: card contestation propagation hard gate
+
+- Implemented: `cbm-gate-artifact` / `cbm gate-artifact` now runs the same card contestation propagation audit as `cbm-verify`.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including a tampered card rejected by both `gate-artifact` and `verify`.
+- Self-critique:
+  - Drift check: Contestation propagation is now a hard artifact gate, aligning with the vision's zero-exception audit criterion for challenged dependencies.
+  - Contract check: The gate uses existing card and map fields; no schema changes or new artifact formats were introduced.
+  - Reviewer-eye check: This strengthens card gating but still depends on cards expressing their dependency surface through `related_dependencies`.
