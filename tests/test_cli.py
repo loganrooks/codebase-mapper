@@ -173,6 +173,24 @@ def test_ledger_integrity_detects_mutated_existing_line(tmp_path: Path) -> None:
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 1
 
 
+def test_stale_detects_changed_input_and_dependent_path(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-stale"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    run_dir = repo / ".research" / run_id
+    card = run_dir / "findings" / "int-0001.md"
+    surface = run_dir / "surface-map.json"
+    assert main(["stale", str(card), "--repo", str(repo)]) == 0
+
+    (repo / "tests" / "test_app.py").write_text("from src.app import hello\n\n# changed\n", encoding="utf-8")
+    assert main(["stale", str(surface), "--repo", str(repo)]) == 2
+    assert main(["stale", str(card), "--repo", str(repo)]) == 2
+
+
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

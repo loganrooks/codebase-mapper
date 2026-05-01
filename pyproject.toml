@@ -21,6 +21,7 @@ cbm-surface = "cbm.cli:surface_main"
 cbm-bind = "cbm.cli:bind_main"
 cbm-validate = "cbm.cli:validate_main"
 cbm-verify-citations = "cbm.cli:verify_citations_main"
+cbm-stale = "cbm.cli:stale_main"
 cbm-handoff = "cbm.cli:handoff_main"
 cbm-run = "cbm.cli:run_main"
 

@@ -902,6 +902,36 @@ def command_verify_citations(args: argparse.Namespace) -> int:
     return 0 if failed == 0 else 1
 
 
+def command_stale(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    path = Path(args.artifact)
+    if not path.is_absolute():
+        path = repo / path
+    data, _ = load_artifact_frontmatter(path)
+    stale_reasons: list[str] = []
+    for input_item in data.get("inputs", []):
+        input_path = repo / input_item["path"]
+        if not input_path.exists():
+            stale_reasons.append(f"input missing: {input_item['path']}")
+            continue
+        current_hash = sha256_file(input_path)
+        if current_hash != input_item["sha256"]:
+            stale_reasons.append(f"input hash changed: {input_item['path']}")
+    source = data.get("source_sha")
+    for rel in data.get("staleness", {}).get("depends_on_paths", []):
+        source_path = repo / rel
+        if not source_path.exists():
+            stale_reasons.append(f"dependent path missing: {rel}")
+        elif source and not path_matches_sha(repo, rel, source):
+            stale_reasons.append(f"dependent path changed since {source}: {rel}")
+    if stale_reasons:
+        for reason in stale_reasons:
+            print(f"stale {reason}")
+        return 2
+    print(f"fresh {path}")
+    return 0
+
+
 def read_intake(run_dir: Path) -> dict[str, Any]:
     return read_json(run_dir / "intake.json")
 
@@ -1325,6 +1355,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_verify.add_argument("artifact")
     p_verify.add_argument("--repo", default=".")
     p_verify.set_defaults(func=command_verify_citations)
+    p_stale = sub.add_parser("stale")
+    p_stale.add_argument("artifact")
+    p_stale.add_argument("--repo", default=".")
+    p_stale.set_defaults(func=command_stale)
     p_handoff = sub.add_parser("handoff")
     p_handoff.add_argument("--repo", default=".")
     p_handoff.add_argument("--run-id")
@@ -1369,6 +1403,10 @@ def validate_main() -> int:
 
 def verify_citations_main() -> int:
     return main(["verify-citations", *sys.argv[1:]])
+
+
+def stale_main() -> int:
+    return main(["stale", *sys.argv[1:]])
 
 
 def handoff_main() -> int:
