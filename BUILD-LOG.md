@@ -1346,6 +1346,7 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Focused regressions passed: `pytest -q tests/test_cli.py::test_package_schema_resources_match_root_schemas tests/test_cli.py::test_run_validates_with_cbm_schema_source_without_polluting_target_repo`.
   - Wheel build initially failed because setuptools discovered multiple top-level packages; adding explicit package discovery fixed it.
   - Wheel inspection passed: built `cbm-0.1.0-py3-none-any.whl`, found 19 `cbm/schemas/*.schema.json` files, and top-level wheel entries were limited to `cbm` and `cbm-0.1.0.dist-info`.
+  - Installed-package smoke passed from `/tmp` with `PYTHONPATH` pointing only at the installed wheel target. The warning path confirmed import from `/tmp/.../pkg/cbm/cli.py`; `cbm run` completed on a sample repo without copied schemas; `cbm validate handoff.md` passed.
 - Self-critique:
   - Drift check: This supports clean external benchmark runs and installed validation, rather than adding new artifact policy.
   - Contract check: Package data and schema-source behavior are both tested; wheel contents were inspected directly.

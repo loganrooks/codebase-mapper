@@ -118,7 +118,7 @@ Last known full suite after the Codex CLI smoke model-control slice: `pytest -q`
 
 Last known full suite after the schema packaging slice: `pytest -q` reported `60 passed, 2 warnings`.
 
-Last known packaging verification: `python3 -m pip wheel . --no-deps -w /tmp/cbm-wheel-check` built `cbm-0.1.0-py3-none-any.whl`; wheel inspection found 19 `cbm/schemas/*.schema.json` entries and no unintended top-level packages beyond `cbm` and dist-info.
+Last known packaging verification: `python3 -m pip wheel . --no-deps -w /tmp/cbm-wheel-check` built `cbm-0.1.0-py3-none-any.whl`; wheel inspection found 19 `cbm/schemas/*.schema.json` entries and no unintended top-level packages beyond `cbm` and dist-info. Installed-package smoke also passed from `/tmp` with `PYTHONPATH` pointing only at the wheel target; import came from `/tmp/.../pkg/cbm/cli.py`, `cbm run` completed, and `cbm validate handoff.md` passed without target-local schemas.
 
 This verifies the test suite, not `VISION.md` maturity.
 
