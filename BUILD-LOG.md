@@ -585,3 +585,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This makes the existing handoff gate stricter without changing artifact semantics.
   - Contract check: A final handoff can no longer proceed from a surface map that violates the claim-evidence table.
   - Reviewer-eye check: The post-write hook contract still needs a broader generalized hook runner; this slice covers the final handoff boundary.
+
+## 2026-05-01 — Guardrail slice: stop-hook freshness and evidence
+
+- Implemented: `cbm hook-stop` now verifies handoff input hashes and re-runs claim-evidence checks for `surface-map.json`.
+- Verification run:
+  - `pytest -q` passed: 31 tests, including a Stop-hook regression that mutates `surface-map.json` after handoff and confirms the hook blocks with an input-hash error.
+- Self-critique:
+  - Drift check: The Stop hook remains a gate; it does not rewrite artifacts or decide whether failures are acceptable.
+  - Contract check: The final platform hook now checks schema, handoff input freshness, and claim-evidence discipline.
+  - Reviewer-eye check: This catches post-handoff mutation and evidence-invalid surfaces, but generalized post-write hooks are still not modeled as a separate reusable runner.

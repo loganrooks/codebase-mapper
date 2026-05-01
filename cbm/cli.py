@@ -3242,6 +3242,16 @@ def command_hook_stop(args: argparse.Namespace) -> int:
     try:
         data, _ = load_artifact_frontmatter(handoff)
         errors = validate_data(repo, data, "handoff")
+        for input_item in data.get("inputs", []):
+            input_path = repo / input_item["path"]
+            if not input_path.exists():
+                errors.append(f"input missing: {input_item['path']}")
+                continue
+            if sha256_file(input_path) != input_item["sha256"]:
+                errors.append(f"input hash changed: {input_item['path']}")
+        surface_path = run_dir / "surface-map.json"
+        if surface_path.exists():
+            errors.extend(check_claim_evidence(read_json(surface_path)))
     except Exception as exc:
         errors = [str(exc)]
     if errors:
