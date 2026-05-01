@@ -680,3 +680,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Cards still treat unresolved dependency closure as low confidence and now explain when human contestation also affects the selected surface.
   - Contract check: The change stays inside existing `confidence`, `confidence_rationale`, and `dependent_challenges` fields without schema drift.
   - Reviewer-eye check: Confidence remains a coarse enum; this slice improves the audit trail before introducing any richer confidence scoring model.
+
+## 2026-05-01 — Synthesis slice: surface contestation coverage
+
+- Implemented: `synthesis-index.json` now includes challenged claims from `surface-map.json`, not only `authority-map.json` and `dependency-graph.json`.
+- Verification run:
+  - `pytest -q` passed: 35 tests, including a regression where a human challenge on a surface import appears in synthesis contestation.
+- Self-critique:
+  - Drift check: Synthesis now preserves contestation introduced before split maps exist instead of losing it between surface mapping and handoff.
+  - Contract check: The change reuses the existing `contestation.challenged_claims` structure without changing the schema.
+  - Reviewer-eye check: Workflow-trace and refinement report contestation still need a distinct representation because those artifacts do not expose the same challenge-bearing claim shape.

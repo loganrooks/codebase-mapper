@@ -297,6 +297,52 @@ def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] >= 2
 
 
+def test_synthesis_index_includes_surface_challenges(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-synthesis-surface-challenge"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    run_dir = repo / ".research" / run_id
+    surface = run_dir / "surface-map.json"
+    surface_data = json.loads(surface.read_text(encoding="utf-8"))
+    import_edge = next(edge for edge in surface_data["edges"] if edge["kind"] == "import")
+    assert (
+        main(
+            [
+                "challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--claim-id",
+                import_edge["id"],
+                "--competing-reading",
+                "The surface import may not represent the intervention path and should remain visible in synthesis.",
+                "--evidence",
+                import_edge["citations"][0],
+                "--rationale",
+                "A challenged surface relation should not disappear between surface mapping and handoff.",
+            ]
+        )
+        == 0
+    )
+    assert main(["authority-map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["dependency-graph", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["verify-map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["synthesis-index", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    synthesis_data = json.loads((run_dir / "synthesis-index.json").read_text(encoding="utf-8"))
+    challenged_claims = synthesis_data["contestation"]["challenged_claims"]
+    assert any(
+        item["artifact_path"].endswith("surface-map.json") and item["claim_id"] == import_edge["id"]
+        for item in challenged_claims
+    )
+
+
 def test_check_evidence_enforces_claim_requirements(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
@@ -1035,8 +1081,10 @@ def test_synthesis_index_connects_standard_maps(tmp_path: Path) -> None:
         "dependency_graph",
         "verification_map",
     }
-    assert data["contestation"]["open_challenges"] == 1
-    assert data["contestation"]["challenged_claims"][0]["claim_id"] == "edge-unknown-001"
+    assert data["contestation"]["open_challenges"] == 2
+    challenged_refs = {(item["artifact_path"], item["claim_id"]) for item in data["contestation"]["challenged_claims"]}
+    assert any(path.endswith("surface-map.json") and claim_id == "edge-unknown-001" for path, claim_id in challenged_refs)
+    assert any(path.endswith("dependency-graph.json") and claim_id == "edge-unknown-001" for path, claim_id in challenged_refs)
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:

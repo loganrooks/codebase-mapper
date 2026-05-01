@@ -1419,6 +1419,7 @@ def build_synthesis_index(repo: Path, paths: RunPaths) -> dict[str, Any]:
     dependency_graph = read_json(dependency_path)
     verification_map = read_json(verification_path)
     challenged = []
+    challenged.extend(challenged_claim_refs(surface_path, repo, all_artifact_claims(surface)))
     challenged.extend(challenged_claim_refs(authority_path, repo, authority_map["authorities"]))
     challenged.extend(challenged_claim_refs(dependency_path, repo, dependency_graph["edges"]))
     inputs = [
