@@ -1089,6 +1089,36 @@ def test_validate_fresh_and_verify_track_head_movement(tmp_path: Path) -> None:
     assert verify_report["summary"]["broken"] == 1
 
 
+def test_verify_commands_reject_artifacts_without_citations(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-no-citations"
+    assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    run_dir = repo / ".research" / run_id
+    report = run_dir / "verify-report.json"
+    artifact = run_dir / "uncited.md"
+    artifact.write_text(
+        "---\n"
+        "schema_version: '1.2'\n"
+        "artifact_type: consultation\n"
+        "consultation_id: con-no-citations\n"
+        "produced_at: '2026-05-01T00:00:00Z'\n"
+        "question: uncited\n"
+        "status: answered\n"
+        "matches: []\n"
+        "---\n# Uncited\n\nThis artifact has no citations.\n",
+        encoding="utf-8",
+    )
+
+    assert main(["verify-citations", str(artifact), "--repo", str(repo)]) == 1
+    assert main(["verify", str(artifact), "--repo", str(repo), "--output", str(report)]) == 2
+    verify_report = json.loads(report.read_text(encoding="utf-8"))
+    assert verify_report["summary"]["missing_citations"] == 1
+
+
 def test_verify_reports_missing_card_contestation(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

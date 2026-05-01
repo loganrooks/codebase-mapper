@@ -2122,6 +2122,7 @@ def command_verify_citations(args: argparse.Namespace) -> int:
         failed += 0 if ok else 1
     if not citations:
         print("no citations found")
+        failed += 1
     return 0 if failed == 0 else 1
 
 
@@ -2615,6 +2616,7 @@ def command_verify(args: argparse.Namespace) -> int:
             "still_grounded": sum(1 for item in results if item["status"] == "still_grounded"),
             "needs_review": sum(1 for item in results if item["status"] == "needs_review"),
             "broken": sum(1 for item in results if item["status"] == "broken"),
+            "missing_citations": 0 if results else 1,
             "contestation_missing": len(contestation["missing"]),
             "contestation_stale": len(contestation["stale"]),
             "confidence_violations": len(confidence_check["violations"]),
@@ -2644,6 +2646,7 @@ def command_verify(args: argparse.Namespace) -> int:
         0
         if report["summary"]["needs_review"] == 0
         and report["summary"]["broken"] == 0
+        and report["summary"]["missing_citations"] == 0
         and report["summary"]["contestation_missing"] == 0
         and report["summary"]["contestation_stale"] == 0
         and report["summary"]["confidence_violations"] == 0

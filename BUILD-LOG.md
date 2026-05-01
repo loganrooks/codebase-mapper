@@ -1051,3 +1051,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Explicit recovery/CI-style validation now fails closed instead of silently falling back to a no-op informational path.
   - Contract check: Default no-run behavior remains non-blocking for freshly initialized repositories with no `.research` data.
   - Reviewer-eye check: The platform adapters still do not pass `--run-id`; this is an operator/scripting hardening, not a change to normal Codex hook invocation.
+
+## 2026-05-01 — Citation slice: uncited artifacts fail verification
+
+- Implemented: `cbm verify-citations` now exits nonzero when an artifact contains no citations, rather than treating an empty citation set as success.
+- Implemented: `cbm verify` reports `summary.missing_citations` and fails when no citations are present.
+- Verification run:
+  - `pytest -q` passed: 49 tests, including a regression with a synthetic uncited consultation artifact rejected by both verification commands.
+- Self-critique:
+  - Drift check: This reinforces the evidence-bound artifact discipline from `VISION.md` and `RUNTIME-CONSTITUTION.md`.
+  - Contract check: Citation resolution still verifies normal cited artifacts; the new behavior only changes the no-citation case.
+  - Reviewer-eye check: Some administrative artifacts may be intentionally citationless; this stricter command behavior means callers should not use citation verification as a vacuous success check for those artifacts.
