@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import io
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -10,6 +11,8 @@ import yaml
 
 from cbm.cli import main
 
+SOURCE_ROOT = Path(__file__).resolve().parents[1]
+
 
 def git(repo: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(repo), *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -17,12 +20,7 @@ def git(repo: Path, *args: str) -> None:
 
 def make_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "sample"
-    repo.mkdir()
-    (repo / "pyproject.toml").write_text("[project]\nname = \"sample\"\n", encoding="utf-8")
-    (repo / "src").mkdir()
-    (repo / "src" / "app.py").write_text("def hello():\n    return 'hello'\n", encoding="utf-8")
-    (repo / "tests").mkdir()
-    (repo / "tests" / "test_app.py").write_text("from src.app import hello\n\ndef test_hello():\n    assert hello() == 'hello'\n", encoding="utf-8")
+    shutil.copytree(SOURCE_ROOT / "tests" / "fixtures" / "sample_repo", repo)
     git(repo, "init")
     git(repo, "config", "user.email", "test@example.invalid")
     git(repo, "config", "user.name", "Test User")
@@ -39,9 +37,9 @@ def copy_contracts(source_root: Path, repo: Path) -> None:
 
 
 def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
-    source_root = Path(__file__).resolve().parents[1]
     repo = make_repo(tmp_path)
-    copy_contracts(source_root, repo)
+    expected = json.loads((SOURCE_ROOT / "tests" / "fixtures" / "expected_phase_a.json").read_text(encoding="utf-8"))
+    copy_contracts(SOURCE_ROOT, repo)
     git(repo, "add", "schemas")
     git(repo, "commit", "-m", "add schemas")
 
@@ -60,8 +58,11 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     initial_surface = json.loads(surface_map.read_text(encoding="utf-8"))
     import_edges = [edge for edge in initial_surface["edges"] if edge["kind"] == "import"]
     assert import_edges
-    assert import_edges[0]["extractor_id"] == "ext-python-imports-v1"
-    assert import_edges[0]["evidence_kinds"] == ["static_relation"]
+    assert import_edges[0]["from"]["path"] == expected["surface_import_edge"]["from_path"]
+    assert import_edges[0]["to"]["path"] == expected["surface_import_edge"]["to_path"]
+    assert import_edges[0]["extractor_id"] == expected["surface_import_edge"]["extractor_id"]
+    assert import_edges[0]["claim_register"] == expected["surface_import_edge"]["claim_register"]
+    assert import_edges[0]["evidence_kinds"] == expected["surface_import_edge"]["evidence_kinds"]
 
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
     card = run_dir / "findings" / "int-0001.md"
@@ -75,7 +76,9 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert main(["verify-citations", str(card), "--repo", str(repo)]) == 0
     assert main(["validate", str(handoff), "--repo", str(repo)]) == 0
     card_frontmatter = yaml.safe_load(card.read_text(encoding="utf-8").split("---", 2)[1])
-    assert "Imports src/app.py" in card_frontmatter["primary_files"][0]["role"]
+    assert expected["findings_card"]["role_contains"] in card_frontmatter["primary_files"][0]["role"]
+    assert card_frontmatter["confidence"] == expected["findings_card"]["confidence"]
+    assert card_frontmatter["dependent_challenges"][0]["challenge_ids"] == [expected["findings_card"]["dependent_challenge_id"]]
     assert card_frontmatter["related_dependencies"]["certain"][0].endswith("/edges/0")
 
     frontmatter = yaml.safe_load(handoff.read_text(encoding="utf-8").split("---", 2)[1])
@@ -87,8 +90,9 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     reviewed_surface = json.loads(surface_map.read_text(encoding="utf-8"))
     reviewed_import_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "import"]
     reviewed_unknown_edges = [edge for edge in reviewed_surface["edges"] if edge["kind"] == "unknown"]
-    assert reviewed_import_edges[0]["claim_status"] == "active"
-    assert reviewed_unknown_edges[0]["claim_status"] == "challenged"
+    assert reviewed_import_edges[0]["claim_status"] == expected["surface_import_edge"]["claim_status"]
+    assert reviewed_unknown_edges[0]["id"] == expected["surface_unknown_edge"]["id"]
+    assert reviewed_unknown_edges[0]["claim_status"] == expected["surface_unknown_edge"]["claim_status_after_handoff"]
     assert reviewed_unknown_edges[0]["challenges"][0]["challenges_claim_id"] == "edge-unknown-001"
     ledger_entries = [
         json.loads(line)
@@ -108,9 +112,8 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
 
 
 def test_run_orchestrates_phase_a_flow(tmp_path: Path) -> None:
-    source_root = Path(__file__).resolve().parents[1]
     repo = make_repo(tmp_path)
-    copy_contracts(source_root, repo)
+    copy_contracts(SOURCE_ROOT, repo)
     git(repo, "add", "schemas")
     git(repo, "commit", "-m", "add schemas")
 
@@ -124,9 +127,8 @@ def test_run_orchestrates_phase_a_flow(tmp_path: Path) -> None:
 
 
 def test_stop_hook_validates_latest_handoff(tmp_path: Path, monkeypatch, capsys) -> None:
-    source_root = Path(__file__).resolve().parents[1]
     repo = make_repo(tmp_path)
-    copy_contracts(source_root, repo)
+    copy_contracts(SOURCE_ROOT, repo)
     git(repo, "add", "schemas")
     git(repo, "commit", "-m", "add schemas")
     assert main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", "run-hook"]) == 0
@@ -139,9 +141,8 @@ def test_stop_hook_validates_latest_handoff(tmp_path: Path, monkeypatch, capsys)
 
 
 def test_ledger_integrity_detects_mutated_existing_line(tmp_path: Path) -> None:
-    source_root = Path(__file__).resolve().parents[1]
     repo = make_repo(tmp_path)
-    copy_contracts(source_root, repo)
+    copy_contracts(SOURCE_ROOT, repo)
     git(repo, "add", "schemas")
     git(repo, "commit", "-m", "add schemas")
 
@@ -161,9 +162,8 @@ def test_ledger_integrity_detects_mutated_existing_line(tmp_path: Path) -> None:
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
-    source_root = Path(__file__).resolve().parents[1]
     repo = make_repo(tmp_path)
-    copy_contracts(source_root, repo)
+    copy_contracts(SOURCE_ROOT, repo)
     bad = repo / "bad-codebase-map.json"
     bad.write_text(json.dumps({"schema_version": "1.2", "artifact_type": "codebase_map"}), encoding="utf-8")
 
