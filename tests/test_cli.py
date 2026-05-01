@@ -1055,6 +1055,25 @@ def test_consult_answers_from_fresh_corpus_and_refuses_missing_question(tmp_path
     assert answered_frontmatter["matches"]
     assert all(match["citations"] for match in answered_frontmatter["matches"])
     assert any("src/app.py" in json.dumps(match) for match in answered_frontmatter["matches"])
+    surfaced = {
+        citation
+        for match in answered_frontmatter["matches"]
+        for citation in match["citations"]
+    }
+    ledger_entries = [
+        json.loads(line)
+        for line in (repo / ".research" / "run-consult" / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    reused = [
+        entry
+        for entry in ledger_entries
+        if entry["entry_kind"] == "citation_reused" and entry["agent"] == "cbm-consult"
+    ]
+    assert surfaced <= {entry["citation"] for entry in reused}
+    assert all(entry["artifact_path"] for entry in reused)
+    integrity = json.loads((repo / ".research" / "run-consult" / "evidence-ledger.jsonl.integrity.json").read_text(encoding="utf-8"))
+    assert integrity["line_count"] == len(ledger_entries)
 
     assert main(["consult", "nonexistent_surface_zzz", "--repo", str(repo)]) == 2
     consultations = sorted((repo / ".research" / "consultations").glob("*.md"))

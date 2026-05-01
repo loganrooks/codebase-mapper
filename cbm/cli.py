@@ -3036,6 +3036,40 @@ def consult_matches(repo: Path, question: str) -> list[dict[str, Any]]:
     return matches
 
 
+def append_consultation_reuse_entries(repo: Path, consult_id: str, matches: list[dict[str, Any]]) -> None:
+    for match in matches:
+        artifact_path = repo / match["artifact"]
+        try:
+            data, body = load_artifact_frontmatter(artifact_path)
+        except Exception:
+            continue
+        citation_claims = {citation: claim_id for citation, claim_id in citation_claim_pairs(data)}
+        for citation in extract_citations(body):
+            citation_claims.setdefault(citation, "artifact")
+        rel_parts = artifact_path.relative_to(repo).parts
+        if len(rel_parts) < 3 or rel_parts[0] != ".research":
+            continue
+        run_id = rel_parts[1]
+        ledger_path = repo / ".research" / run_id / "evidence-ledger.jsonl"
+        if not ledger_path.exists():
+            continue
+        for citation in match["citations"]:
+            entry = {
+                "schema_version": SCHEMA_VERSION,
+                "entry_id": next_ledger_id(ledger_path),
+                "ts": utc_now(),
+                "entry_kind": "citation_reused",
+                "agent": "cbm-consult",
+                "skill_version": "0.1",
+                "run_id": run_id,
+                "source_sha": data.get("source_sha", source_sha(repo)),
+                "citation": citation,
+                "artifact_path": match["artifact"],
+                "claim_id": citation_claims.get(citation, f"consultation:{consult_id}"),
+            }
+            append_ledger_entry(repo, ledger_path, entry)
+
+
 def command_consult(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     matches = consult_matches(repo, args.question)
@@ -3067,6 +3101,7 @@ def command_consult(args: argparse.Namespace) -> int:
             citation_text = ", ".join(match["citations"]) if match["citations"] else "no citations in artifact"
             lines.append(f"- `{match['artifact']}` ({match['artifact_type']}): {citation_text}")
         output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        append_consultation_reuse_entries(repo, consult_id, matches)
         print(output_path)
         return 0
     output_path.write_text(

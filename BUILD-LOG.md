@@ -855,3 +855,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Final platform gating now checks card semantics even when simple input-hash freshness is satisfied.
   - Contract check: The hook reuses existing gate logic and does not introduce a new platform contract.
   - Reviewer-eye check: Hook-stop still validates only handoff-listed card artifacts; broader per-artifact hook orchestration remains future work.
+
+## 2026-05-01 — Consultation slice: citation reuse ledger
+
+- Implemented: `cbm-consult` now appends `citation_reused` entries to the originating run's `evidence-ledger.jsonl` for citations surfaced from fresh corpus artifacts.
+- Implemented: consultation reuse entries preserve the source artifact path and best available claim id, keeping Reader outputs auditable without introducing fresh source claims.
+- Verification run:
+  - `pytest -q` passed: 37 tests, including a consultation regression that checks surfaced citations appear as `citation_reused` ledger entries and the ledger integrity manifest updates.
+- Self-critique:
+  - Drift check: Consultation now behaves more like a Reader over an artifact corpus rather than an unaudited search result.
+  - Contract check: The entries use the existing `citation_reused` ledger schema; no schema changes were needed.
+  - Reviewer-eye check: The Reader still records reuse only for matched artifacts with run-local ledgers; consultation artifacts under `.research/consultations` are not themselves recursively ledgered.
