@@ -47,14 +47,18 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
     assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
     assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["bind", "--repo", str(repo), "--run-id", run_id]) == 0
 
     run_dir = repo / ".research" / run_id
     codebase_map = run_dir / "codebase-map.json"
     surface_map = run_dir / "surface-map.json"
+    goal_binding = run_dir / "goal-binding.json"
     assert codebase_map.exists()
     assert surface_map.exists()
+    assert goal_binding.exists()
     assert main(["validate", str(codebase_map), "--repo", str(repo)]) == 0
     assert main(["validate", str(surface_map), "--repo", str(repo)]) == 0
+    assert main(["validate", str(goal_binding), "--repo", str(repo)]) == 0
     initial_surface = json.loads(surface_map.read_text(encoding="utf-8"))
     import_edges = [edge for edge in initial_surface["edges"] if edge["kind"] == "import"]
     assert import_edges
@@ -63,6 +67,10 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert import_edges[0]["extractor_id"] == expected["surface_import_edge"]["extractor_id"]
     assert import_edges[0]["claim_register"] == expected["surface_import_edge"]["claim_register"]
     assert import_edges[0]["evidence_kinds"] == expected["surface_import_edge"]["evidence_kinds"]
+    binding = json.loads(goal_binding.read_text(encoding="utf-8"))
+    assert binding["artifact_type"] == "goal_binding"
+    assert binding["goal"] == "understand this repo"
+    assert any(candidate["surface_ref"].endswith("/edges/0") for candidate in binding["candidates"])
 
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
     card = run_dir / "findings" / "int-0001.md"
@@ -122,6 +130,7 @@ def test_run_orchestrates_phase_a_flow(tmp_path: Path) -> None:
     run_dir = repo / ".research" / "run-orchestrated"
     assert (run_dir / "codebase-map.json").exists()
     assert (run_dir / "surface-map.json").exists()
+    assert (run_dir / "goal-binding.json").exists()
     assert (run_dir / "findings" / "int-0001.md").exists()
     assert (run_dir / "handoff.md").exists()
 

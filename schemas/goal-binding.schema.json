@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/goal-binding.schema.json",
+  "title": "Goal Binding",
+  "description": "Goal-specific binding over a goal-agnostic surface map. Produced by cbm-bind.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "inputs",
+    "status",
+    "goal",
+    "goal_class",
+    "research_only",
+    "candidates"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "goal_binding" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": { "type": "string", "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+    "goal": { "type": "string", "minLength": 1 },
+    "goal_class": {
+      "enum": [
+        "feature_add",
+        "refactor",
+        "extension_point",
+        "missing_extension_point",
+        "migration",
+        "audit",
+        "research_only",
+        "understand_repo",
+        "other"
+      ]
+    },
+    "research_only": { "type": "boolean" },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "rank",
+          "surface_ref",
+          "surface_id",
+          "surface_kind",
+          "path",
+          "claim_register",
+          "claim_status",
+          "citations",
+          "binding_rationale",
+          "recommended_card_type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1 },
+          "surface_ref": { "type": "string", "pattern": "^\\.research/.+\\.json#/.+" },
+          "surface_id": { "type": "string" },
+          "surface_kind": { "type": "string" },
+          "path": { "type": "string" },
+          "claim_register": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_register" },
+          "claim_status": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_status" },
+          "citations": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/citation" }
+          },
+          "binding_rationale": { "type": "string", "minLength": 20 },
+          "recommended_card_type": { "enum": ["findings_card", "intervention_card"] },
+          "dependent_challenges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["claim_artifact", "claim_id", "challenge_ids", "impact"],
+              "properties": {
+                "claim_artifact": { "type": "string" },
+                "claim_id": { "type": "string" },
+                "challenge_ids": {
+                  "type": "array",
+                  "items": { "type": "string", "pattern": "^chl-[0-9]{5,}$" }
+                },
+                "impact": { "type": "string", "minLength": 10 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

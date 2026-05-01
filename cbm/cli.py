@@ -245,6 +245,7 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "codebase_map": "codebase-map.schema.json",
         "surface_map": "surface-map.schema.json",
         "extractor_registry": "extractor-registry.schema.json",
+        "goal_binding": "goal-binding.schema.json",
         "handoff": "handoff.schema.json",
         "intervention_card": "intervention-card.schema.json",
         "findings_card": "intervention-card.schema.json",
@@ -793,6 +794,81 @@ def command_surface(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_bind(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    surface_path = paths.run_dir / "surface-map.json"
+    if not surface_path.exists():
+        print("surface-map.json missing; run cbm-surface first", file=sys.stderr)
+        return 1
+    surface = read_json(surface_path)
+    intake = read_intake(paths.run_dir)
+    goal = args.goal or intake["goal"]
+    goal_class = args.goal_class or intake["goal_class"]
+    candidates = []
+    for index, authority in enumerate(surface["authorities"]):
+        candidates.append(
+            {
+                "rank": len(candidates) + 1,
+                "surface_ref": f".research/{paths.run_id}/surface-map.json#/authorities/{index}",
+                "surface_id": authority["id"],
+                "surface_kind": authority["kind"],
+                "path": authority["path"],
+                "claim_register": authority["claim_register"],
+                "claim_status": authority["claim_status"],
+                "citations": authority["citations"],
+                "binding_rationale": f"Goal binding selected {authority['id']} because it is a cited {authority['kind']} surface available for the goal: {goal}",
+                "recommended_card_type": "findings_card" if goal_class in {"understand_repo", "research_only"} else "intervention_card",
+                "dependent_challenges": [],
+            }
+        )
+    for index, edge in enumerate(surface["edges"]):
+        if edge["kind"] != "import" or not edge.get("citations"):
+            continue
+        candidates.append(
+            {
+                "rank": len(candidates) + 1,
+                "surface_ref": f".research/{paths.run_id}/surface-map.json#/edges/{index}",
+                "surface_id": edge["id"],
+                "surface_kind": edge["kind"],
+                "path": edge["from"]["path"],
+                "claim_register": edge["claim_register"],
+                "claim_status": edge["claim_status"],
+                "citations": edge["citations"],
+                "binding_rationale": f"Goal binding selected {edge['id']} because it is a grounded static relation that gives a concrete next reading path for the goal: {goal}",
+                "recommended_card_type": "findings_card" if goal_class in {"understand_repo", "research_only"} else "intervention_card",
+                "dependent_challenges": [],
+            }
+        )
+    if not candidates:
+        print("no bindable candidates found in surface-map.json", file=sys.stderr)
+        return 1
+    binding_path = paths.run_dir / "goal-binding.json"
+    binding = {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "goal_binding",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "cbm-bind@0.1",
+        "source_sha": surface["source_sha"],
+        "inputs": [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}],
+        "status": "draft",
+        "goal": goal,
+        "goal_class": goal_class,
+        "research_only": goal_class in {"understand_repo", "research_only"},
+        "candidates": candidates,
+    }
+    errors = validate_data(repo, binding, "goal_binding")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, surface["source_sha"], str(binding_path.relative_to(repo)), binding, "cbm-bind")
+    write_json(binding_path, binding)
+    print(binding_path)
+    return 0
+
+
 def command_validate(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.artifact)
@@ -1135,6 +1211,7 @@ def command_run(args: argparse.Namespace) -> int:
         (command_init, init_args),
         (command_map, map_args),
         (command_surface, map_args),
+        (command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)),
         (command_handoff, map_args),
     ):
         rc = command(ns)
@@ -1214,6 +1291,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_surface.add_argument("--repo", default=".")
     p_surface.add_argument("--run-id")
     p_surface.set_defaults(func=command_surface)
+    p_bind = sub.add_parser("bind")
+    p_bind.add_argument("--repo", default=".")
+    p_bind.add_argument("--run-id")
+    p_bind.add_argument("--goal")
+    p_bind.add_argument("--goal-class")
+    p_bind.set_defaults(func=command_bind)
     p_validate = sub.add_parser("validate")
     p_validate.add_argument("artifact")
     p_validate.add_argument("--repo", default=".")
@@ -1254,6 +1337,10 @@ def map_main() -> int:
 
 def surface_main() -> int:
     return main(["surface", *sys.argv[1:]])
+
+
+def bind_main() -> int:
+    return main(["bind", *sys.argv[1:]])
 
 
 def validate_main() -> int:
