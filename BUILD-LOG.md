@@ -408,3 +408,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Goal packs affect only goal binding and card recommendation type, not goal-agnostic maps.
   - Contract check: `goal-binding.json` remains schema-valid and records the chosen goal class and research-only flag.
   - Reviewer-eye check: These are minimal ranking packs, not full planner prompt/template packs. They prove pack loading behavior at the binding layer but do not yet generate materially different card bodies.
+
+## 2026-05-01 — Phase C slice: goal-pack card emission
+
+- Implemented: `cbm-handoff` now consumes `goal-binding.json` as the source of goal, goal class, research-only flag, selected candidate, and recommended card type.
+- Implemented: feature/refactor/audit-style goal packs emit `interventions/int-0001.md` as an `intervention_card`; research-style packs keep emitting `findings/int-0001.md` as a `findings_card`.
+- Implemented: selected call edges now flow into the generated card role and dependency reference instead of falling back to import edges.
+- Verification run:
+  - `pytest -q` passed: 21 tests, including a feature-goal handoff test that validates and citation-checks the generated intervention card.
+- Self-critique:
+  - Drift check: The card type now follows the bound goal pack without changing the underlying goal-agnostic surface map.
+  - Contract check: The generated intervention card validates against the existing shared intervention/findings card schema and citation resolution still passes.
+  - Reviewer-eye check: The card body remains generic. This closes the pack-to-artifact integration gap, but richer pack-specific planning language is still future work.

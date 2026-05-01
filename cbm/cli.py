@@ -2296,28 +2296,42 @@ def command_handoff(args: argparse.Namespace) -> int:
     binding_path = paths.run_dir / "goal-binding.json"
     binding = read_json(binding_path) if binding_path.exists() else None
     selected_candidate = binding["candidates"][0] if binding and binding.get("candidates") else None
+    handoff_goal = binding["goal"] if binding else intake["goal"]
+    handoff_goal_class = binding["goal_class"] if binding else intake["goal_class"]
+    handoff_research_only = binding["research_only"] if binding else intake["research_only"]
+    card_type = selected_candidate.get("recommended_card_type", "findings_card") if selected_candidate else "findings_card"
+    card_dir_name = "interventions" if card_type == "intervention_card" else "findings"
+    card_summary = "Goal-bound intervention card." if card_type == "intervention_card" else "Goal-bound structural findings card."
     primary_authority = surface["authorities"][0]
-    import_edge_index = None
-    import_edge = None
+    relation_edge_index = None
+    relation_edge = None
     if selected_candidate and "/edges/" in selected_candidate["surface_ref"]:
-        import_edge_index = int(selected_candidate["surface_ref"].rsplit("/edges/", 1)[1])
-        edge = surface["edges"][import_edge_index]
-        if edge["kind"] == "import":
-            import_edge = edge
-    if import_edge is None:
-        import_edge_index = next((index for index, edge in enumerate(surface["edges"]) if edge["kind"] == "import"), None)
-        import_edge = surface["edges"][import_edge_index] if import_edge_index is not None else None
+        relation_edge_index = int(selected_candidate["surface_ref"].rsplit("/edges/", 1)[1])
+        edge = surface["edges"][relation_edge_index]
+        if edge["kind"] in {"import", "call"}:
+            relation_edge = edge
+    if relation_edge is None:
+        relation_edge_index = next((index for index, edge in enumerate(surface["edges"]) if edge["kind"] in {"import", "call"}), None)
+        relation_edge = surface["edges"][relation_edge_index] if relation_edge_index is not None else None
     if selected_candidate and "/authorities/" in selected_candidate["surface_ref"]:
         authority_index = int(selected_candidate["surface_ref"].rsplit("/authorities/", 1)[1])
         primary_authority = surface["authorities"][authority_index]
-    if import_edge:
-        rel_file = import_edge["from"]["path"]
-        citation = import_edge["citations"][0]
-        primary_role = f"Imports {import_edge['to']['path']}; this grounded static relation is the selected goal-binding candidate."
-        certain_dependencies = [f".research/{paths.run_id}/surface-map.json#/edges/{import_edge_index}", citation]
+        if selected_candidate["surface_kind"] == "authority":
+            relation_edge = None
+            relation_edge_index = None
+    if relation_edge:
+        rel_file = relation_edge["from"]["path"]
+        citation = relation_edge["citations"][0]
+        relation_target = relation_edge["to"]["path"]
+        if relation_edge["kind"] == "call":
+            relation_target = f"{relation_target}::{relation_edge['to'].get('symbol', '<unknown>')}"
+            primary_role = f"Calls {relation_target}; this grounded static relation is the selected goal-binding candidate."
+        else:
+            primary_role = f"Imports {relation_target}; this grounded static relation is the selected goal-binding candidate."
+        certain_dependencies = [f".research/{paths.run_id}/surface-map.json#/edges/{relation_edge_index}", citation]
         leverage_rating = "medium"
-        leverage_rationale = "A local import edge gives a concrete, citation-backed relation to read next; leverage is bounded by the unresolved unknown dependency edge."
-        recommended_next_slice = f"Read {import_edge['from']['path']} and {import_edge['to']['path']} around the cited import, then decide whether this relation represents setup, test coverage, or runtime coupling."
+        leverage_rationale = "A local relation edge gives a concrete, citation-backed relation to read next; leverage is bounded by the unresolved unknown dependency edge."
+        recommended_next_slice = f"Read {relation_edge['from']['path']} and {relation_edge['to']['path']} around the cited {relation_edge['kind']}, then decide whether this relation represents setup, test coverage, or runtime coupling."
     else:
         rel_file = primary_authority["path"]
         citation = primary_authority["citations"][0]
@@ -2326,7 +2340,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         leverage_rating = "medium" if primary_authority["kind"] in {"config", "test_suite", "ci_gate"} else "low"
         leverage_rationale = "Phase A can identify structural surfaces, but leverage remains bounded by the Skeptic challenge on unknown dependency closure."
         recommended_next_slice = "Read the cited authority file and implement call or runtime workflow extraction before promoting this card beyond draft."
-    card_dir = paths.run_dir / "findings"
+    card_dir = paths.run_dir / card_dir_name
     card_dir.mkdir(parents=True, exist_ok=True)
     card_path = card_dir / "int-0001.md"
     skeptic_dir = paths.run_dir / "skeptic-review"
@@ -2443,21 +2457,24 @@ def command_handoff(args: argparse.Namespace) -> int:
         + "---\n# Skeptic Review\n\nFinding: `edge-unknown-001` keeps dependency closure unknown because Phase A only extracts direct Python imports. It still misses calls, runtime workflows, relative imports, and dynamic loading. This prevents high-confidence planning from the draft surface map alone.\n",
         encoding="utf-8",
     )
+    card_inputs = [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}]
+    if binding_path.exists():
+        card_inputs.append({"path": str(binding_path.relative_to(repo)), "sha256": sha256_file(binding_path)})
     card_frontmatter = {
         "schema_version": SCHEMA_VERSION,
-        "artifact_type": "findings_card",
+        "artifact_type": card_type,
         "run_id": paths.run_id,
         "produced_at": now,
         "produced_by": "intervention-planner@0.1",
         "source_sha": sha,
-        "inputs": [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}],
+        "inputs": card_inputs,
         "status": "draft",
         "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1),
         "staleness": {"stale_if_input_hash_changes": True, "depends_on_paths": [rel_file]},
         "id": f"int-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}-001",
-        "goal": intake["goal"],
-        "goal_class": intake["goal_class"],
-        "research_only": True,
+        "goal": handoff_goal,
+        "goal_class": handoff_goal_class,
+        "research_only": handoff_research_only,
         "surface_type": "explicit",
         "surface_kind": "other",
         "surface_classification_register": "interpretive",
@@ -2500,12 +2517,15 @@ def command_handoff(args: argparse.Namespace) -> int:
         "recommended_next_slice": recommended_next_slice,
         "claim_status": "active",
     }
-    card_errors = validate_data(repo, card_frontmatter, "findings_card")
+    card_errors = validate_data(repo, card_frontmatter, card_type)
     if card_errors:
         for error in card_errors:
             print(error, file=sys.stderr)
         return 1
-    card_body = "\n# Phase A Structural Finding\n\nThis generated card proves the mechanical gates are wired: schema validation and citation resolution operate on an evidence-bound artifact.\n"
+    if card_type == "intervention_card":
+        card_body = "\n# Goal-Bound Intervention Card\n\nThis generated card carries the selected goal pack into a draft intervention artifact while preserving schema validation and citation resolution gates.\n"
+    else:
+        card_body = "\n# Phase A Structural Finding\n\nThis generated card proves the mechanical gates are wired: schema validation and citation resolution operate on an evidence-bound artifact.\n"
     card_path.write_text("---\n" + yaml.safe_dump(card_frontmatter, sort_keys=False) + "---\n" + card_body, encoding="utf-8")
     append_citation_entries(repo, ledger_path, paths.run_id, sha, str(card_path.relative_to(repo)), card_frontmatter, "intervention-planner")
     citation_ok, citation_reason = resolve_citation(repo, citation)
@@ -2517,7 +2537,7 @@ def command_handoff(args: argparse.Namespace) -> int:
     artifacts = [
         {"path": str((paths.run_dir / "codebase-map.json").relative_to(repo)), "artifact_type": "codebase_map", "status": "draft", "summary": "Deterministic structural file inventory."},
         {"path": str(surface_path.relative_to(repo)), "artifact_type": "surface_map", "status": "draft", "summary": "Draft deterministic surface map with explicit unknown dependency edge."},
-        {"path": str(card_path.relative_to(repo)), "artifact_type": "findings_card", "status": "draft", "summary": "Phase A generated structural findings card."},
+        {"path": str(card_path.relative_to(repo)), "artifact_type": card_type, "status": "draft", "summary": card_summary},
         {"path": str(skeptic_path.relative_to(repo)), "artifact_type": "skeptic_review", "status": "draft", "summary": "Lightweight Skeptic finding against unknown dependency closure."},
     ]
     handoff_inputs = [
@@ -2539,14 +2559,14 @@ def command_handoff(args: argparse.Namespace) -> int:
         "status": "draft",
         "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1),
         "mode": intake["mode"],
-        "user_goal": intake["goal"],
-        "goal_class": intake["goal_class"],
-        "research_only": intake["research_only"],
+        "user_goal": handoff_goal,
+        "goal_class": handoff_goal_class,
+        "research_only": handoff_research_only,
         "gate_summary": {
-            "schema_validation": {"passed": 3, "failed_artifacts": []},
+            "schema_validation": {"passed": 4 if binding else 3, "failed_artifacts": []},
             "citation_resolution": {"resolved": 1 if citation_ok else 0, "unresolved_count": 0 if citation_ok else 1, "unresolved_examples": [] if citation_ok else [f"{citation}: {citation_reason}"]},
             "ledger_consistency": {"append_only_verified": ledger_append_only_ok and not missing_ledger_citations, "entry_count": ledger_count(ledger_path)},
-            "staleness_check": {"fresh": 2, "stale_artifacts": []},
+            "staleness_check": {"fresh": 3 if binding else 2, "stale_artifacts": []},
             "skeptic_review": {"artifacts_reviewed": 1, "challenges_logged": 1, "challenges_resolved": 0},
         },
         "contestation_summary": {

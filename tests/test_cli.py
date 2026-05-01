@@ -172,6 +172,46 @@ def test_goal_packs_rank_same_surface_differently(tmp_path: Path) -> None:
     assert (repo / ".research" / run_id / "surface-map.json").stat().st_mtime_ns == surface_mtime
 
 
+def test_handoff_emits_goal_pack_card_type(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-feature-handoff"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["bind", "--repo", str(repo), "--run-id", run_id, "--goal", "add greeting behavior", "--goal-class", "feature_add"]) == 0
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    run_dir = repo / ".research" / run_id
+    card = run_dir / "interventions" / "int-0001.md"
+    handoff = run_dir / "handoff.md"
+    assert card.exists()
+    assert not (run_dir / "findings" / "int-0001.md").exists()
+    assert main(["validate", str(card), "--repo", str(repo)]) == 0
+    assert main(["verify-citations", str(card), "--repo", str(repo)]) == 0
+
+    card_frontmatter = yaml.safe_load(card.read_text(encoding="utf-8").split("---", 2)[1])
+    assert card_frontmatter["artifact_type"] == "intervention_card"
+    assert card_frontmatter["goal"] == "add greeting behavior"
+    assert card_frontmatter["goal_class"] == "feature_add"
+    assert card_frontmatter["research_only"] is False
+    assert "Calls src/app.py::hello" in card_frontmatter["primary_files"][0]["role"]
+    assert card_frontmatter["related_dependencies"]["certain"][0].endswith("/edges/1")
+    assert any(input_item["path"].endswith("goal-binding.json") for input_item in card_frontmatter["inputs"])
+
+    frontmatter = yaml.safe_load(handoff.read_text(encoding="utf-8").split("---", 2)[1])
+    assert frontmatter["user_goal"] == "add greeting behavior"
+    assert frontmatter["goal_class"] == "feature_add"
+    assert frontmatter["research_only"] is False
+    artifact_types = [artifact["artifact_type"] for artifact in frontmatter["artifacts"]]
+    assert "intervention_card" in artifact_types
+    assert "findings_card" not in artifact_types
+    assert any(input_item["path"].endswith("interventions/int-0001.md") for input_item in frontmatter["inputs"])
+
+
 def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
