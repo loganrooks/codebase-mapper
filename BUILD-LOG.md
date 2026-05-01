@@ -773,3 +773,13 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Coverage summaries now have a basic arithmetic invariant instead of trusting self-reported counts blindly.
   - Contract check: The gate uses existing coverage fields shared by schemas; no schema changes were needed.
   - Reviewer-eye check: This still does not prove which specific paths were directly examined, only that the reported counts are internally coherent.
+
+## 2026-05-01 — Handoff slice: coverage caveat specificity
+
+- Implemented: `cbm-handoff` now writes data-bearing coverage caveats that name direct-examination counts, unread in-scope file counts, and extractor-only inspection limits.
+- Verification run:
+  - `pytest -q` passed: 36 tests, including assertions that handoff caveats mention directly examined files, unread files, and deterministic extractor-only limits.
+- Self-critique:
+  - Drift check: Handoffs now say what the run did not read instead of using only a generic Phase A caveat.
+  - Contract check: This uses the existing `coverage_caveats` handoff field and shared coverage counts.
+  - Reviewer-eye check: Caveats still report counts, not path lists; path-aware direct-examination evidence remains a future schema improvement.

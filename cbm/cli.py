@@ -303,6 +303,18 @@ def coverage_block(file_count: int, examined: int = 0) -> dict[str, Any]:
     }
 
 
+def coverage_caveats(coverage: dict[str, Any]) -> list[str]:
+    result = coverage["result"]
+    examined = result["files_examined_directly"]
+    in_scope = result["files_in_scope"]
+    unread = result["files_unread_in_scope"]
+    extractor_only = max(result["files_inspected_via_extractor"] - examined, 0)
+    return [
+        f"{examined} of {in_scope} in-scope file(s) were directly examined for role claims; {unread} file(s) remain unread by an agent or human.",
+        f"{extractor_only} file(s) were inspected via deterministic extractors only; those observations support structural claims, not settled interpretive role claims.",
+    ]
+
+
 def scope_signature(paths: list[str]) -> str:
     return sha256_text("\n".join(sorted(paths)))
 
@@ -3525,6 +3537,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             claim_refs.extend((str(split_path.relative_to(repo)), claim) for claim in all_artifact_claims(split_data))
     contestation_summary = contestation_summary_for_claim_refs(claim_refs)
     challenge_count = sum(len(live_challenges(claim)) for _, claim in claim_refs)
+    handoff_coverage = coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1)
     handoff = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "handoff",
@@ -3534,7 +3547,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "source_sha": sha,
         "inputs": handoff_inputs,
         "status": "draft",
-        "coverage": coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1),
+        "coverage": handoff_coverage,
         "mode": intake["mode"],
         "user_goal": handoff_goal,
         "goal_class": handoff_goal_class,
@@ -3549,7 +3562,8 @@ def command_handoff(args: argparse.Namespace) -> int:
         "contestation_summary": contestation_summary,
         "artifacts": artifacts,
         "open_questions_count": 1,
-        "coverage_caveats": ["Phase A surface mapping is deterministic and has not performed language-level import/call extraction."],
+        "coverage_caveats": coverage_caveats(handoff_coverage)
+        + ["Phase A surface mapping is deterministic and has not performed language-level import/call extraction."],
         "recommended_next_action": "Implement call and runtime workflow extraction so the unknown dependency edge can be narrowed with grounded relations.",
     }
     errors = validate_data(repo, handoff, "handoff")

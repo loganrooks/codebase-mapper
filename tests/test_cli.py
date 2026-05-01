@@ -112,6 +112,8 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert frontmatter["gate_summary"]["ledger_consistency"]["entry_count"] >= 3
     assert frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 1
     assert frontmatter["contestation_summary"]["claims_by_register"]["interpretive"] >= 1
+    assert any("were directly examined" in caveat and "remain unread" in caveat for caveat in frontmatter["coverage_caveats"])
+    assert any("deterministic extractors only" in caveat for caveat in frontmatter["coverage_caveats"])
     assert "goal_binding" in [artifact["artifact_type"] for artifact in frontmatter["artifacts"]]
     assert "project_type_report" in [artifact["artifact_type"] for artifact in frontmatter["artifacts"]]
     assert any(input_item["path"].endswith("goal-binding.json") for input_item in frontmatter["inputs"])
