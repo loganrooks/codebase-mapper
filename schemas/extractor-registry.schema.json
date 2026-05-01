@@ -7,11 +7,31 @@
   "required": ["schema_version", "extractors"],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "const": "1.1" },
+    "schema_version": { "const": "1.2" },
     "extractors": {
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/extractor" }
+    },
+    "project_pack_annotations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["project_type", "pack_id", "extractor_annotations", "known_blind_spots"],
+        "additionalProperties": false,
+        "properties": {
+          "project_type": { "type": "string" },
+          "pack_id": { "type": "string" },
+          "extractor_annotations": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "known_blind_spots": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
     }
   },
   "$defs": {

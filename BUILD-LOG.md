@@ -527,3 +527,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: Project-type signals are reported in a separate artifact and do not contaminate goal-agnostic maps yet.
   - Contract check: Detections cite source files and carry pack annotations through `schemas/project-type.schema.json`.
   - Reviewer-eye check: Detection is intentionally manifest/content-marker based. It does not yet modify extractor registry behavior based on the detected pack.
+
+## 2026-05-01 — Phase E slice: extractor pack annotations
+
+- Implemented: `extractor-registry.json` now carries `project_pack_annotations` derived from detected project packs.
+- Implemented: `schemas/extractor-registry.schema.json` now validates those annotations as top-level registry context for Skeptic and mapper consumers.
+- Verification run:
+  - `pytest -q` passed: 27 tests, including initialized extractor-registry validation and Python package annotation propagation.
+- Self-critique:
+  - Drift check: Pack annotations inform extractor blind spots without changing extractor output or claim registers.
+  - Contract check: Registry annotations are schema-validated and remain separate from extractor definitions.
+  - Reviewer-eye check: This is annotation propagation, not project-specific extraction. Django/Rails/Phoenix/MCP packs still need extractors that consume these annotations.

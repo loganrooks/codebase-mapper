@@ -625,6 +625,7 @@ def command_init(args: argparse.Namespace) -> int:
         "status": "initialized",
         "created_at": now,
     }
+    project_type_report = build_project_type_report(repo, paths, sha)
     registry = {
         "schema_version": SCHEMA_VERSION,
         "extractors": [
@@ -699,11 +700,19 @@ def command_init(args: argparse.Namespace) -> int:
                 ],
             },
         ],
+        "project_pack_annotations": [
+            {
+                "project_type": detection["project_type"],
+                "pack_id": detection["pack_id"],
+                "extractor_annotations": detection["extractor_annotations"],
+                "known_blind_spots": detection["known_blind_spots"],
+            }
+            for detection in project_type_report["detections"]
+        ],
     }
     write_json(paths.run_dir / "intake.json", intake)
     write_json(paths.run_dir / "state.json", state)
     write_json(paths.run_dir / "extractor-registry.json", registry)
-    project_type_report = build_project_type_report(repo, paths, sha)
     write_json(paths.run_dir / "project-type.json", project_type_report)
     (paths.run_dir / "evidence-ledger.jsonl").touch()
     write_ledger_integrity_manifest(paths.run_dir / "evidence-ledger.jsonl")

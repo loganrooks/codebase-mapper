@@ -52,6 +52,7 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     run_dir = repo / ".research" / run_id
     codebase_map = run_dir / "codebase-map.json"
     project_type = run_dir / "project-type.json"
+    extractor_registry = run_dir / "extractor-registry.json"
     surface_map = run_dir / "surface-map.json"
     goal_binding = run_dir / "goal-binding.json"
     assert codebase_map.exists()
@@ -60,6 +61,7 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert goal_binding.exists()
     assert main(["validate", str(codebase_map), "--repo", str(repo)]) == 0
     assert main(["validate", str(project_type), "--repo", str(repo)]) == 0
+    assert main(["validate", str(extractor_registry), "--repo", str(repo)]) == 0
     assert main(["validate", str(surface_map), "--repo", str(repo)]) == 0
     assert main(["validate", str(goal_binding), "--repo", str(repo)]) == 0
     initial_surface = json.loads(surface_map.read_text(encoding="utf-8"))
@@ -83,6 +85,8 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     assert binding["candidates"][0]["surface_kind"] == "import"
     project_data = json.loads(project_type.read_text(encoding="utf-8"))
     assert any(item["project_type"] == "python_package" for item in project_data["detections"])
+    registry_data = json.loads(extractor_registry.read_text(encoding="utf-8"))
+    assert any(item["project_type"] == "python_package" for item in registry_data["project_pack_annotations"])
 
     assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
     card = run_dir / "findings" / "int-0001.md"
