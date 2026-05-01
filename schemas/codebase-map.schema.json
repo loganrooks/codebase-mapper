@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cbm.local/schemas/codebase-map.schema.json",
   "title": "Codebase Map",
-  "description": "Deterministic structural output of cbm-map. Goal-agnostic. No interpretive claims. v1.1 adds coverage and staleness blocks.",
+  "description": "Deterministic structural output of cbm-map. Goal-agnostic. No interpretive claims. v1.1 adds coverage and staleness blocks; v1.2 adds optional refreshed_from lineage block.",
   "type": "object",
   "required": [
     "schema_version",
@@ -25,7 +25,7 @@
   ],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "const": "1.1" },
+    "schema_version": { "const": "1.2" },
     "artifact_type": { "const": "codebase_map" },
     "run_id": { "type": "string", "minLength": 1 },
     "produced_at": { "type": "string", "format": "date-time" },
@@ -48,6 +48,7 @@
     "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
     "coverage": { "$ref": "#/$defs/coverage" },
     "staleness": { "$ref": "#/$defs/staleness" },
+    "refreshed_from": { "$ref": "#/$defs/refreshed_from" },
 
     "repo_root": { "type": "string" },
     "files": {
@@ -171,6 +172,30 @@
         "scope_signature": {
           "type": "string",
           "description": "Hash of the sorted file list matching included_globs at run time. Change is a warning, not staleness."
+        }
+      }
+    },
+    "refreshed_from": {
+      "type": "object",
+      "description": "Lineage block recording that this artifact was derived from a prior artifact via refresh. Absence means the artifact is fresh (Mode 5 = re-run = no refreshed_from). Distinct from inputs[]: inputs[] records what was read to produce this artifact; refreshed_from records that this artifact is a *successor* to a specific prior artifact in the same artifact-type lineage.",
+      "required": ["artifact_path", "source_sha", "refresh_mode"],
+      "properties": {
+        "artifact_path": {
+          "type": "string",
+          "description": "Path to the prior artifact this one was derived from."
+        },
+        "source_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "The source_sha of the prior artifact."
+        },
+        "refresh_mode": {
+          "enum": ["structural", "interpretive"],
+          "description": "Mode 3 (structural) re-runs deterministic kernel; Mode 4 (interpretive) carries forward prior interpretive claims where evidence unchanged."
+        },
+        "refresh_delta_path": {
+          "type": "string",
+          "description": "Path to the refresh-delta artifact recording what carried forward, what changed, what was retracted."
         }
       }
     }

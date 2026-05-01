@@ -14,10 +14,10 @@ path/to/file.ext:START-END@SHA
 
 Cross-artifact references use JSON Pointer: `.research/<run_id>/dependency-graph.json#/edges/47`.
 
-## Universal frontmatter (v1.1)
+## Universal frontmatter (v1.2)
 
 ```yaml
-schema_version: "1.1"
+schema_version: "1.2"
 artifact_type: <type>
 run_id: <run_id>
 produced_at: <ISO 8601 UTC>
@@ -41,6 +41,11 @@ staleness:
   stale_if_input_hash_changes: true
   depends_on_paths: [...]
   scope_signature: <hash>
+refreshed_from:                       # optional; absent means fresh artifact
+  artifact_path: <prior artifact>
+  source_sha: <prior SHA>
+  refresh_mode: structural | interpretive
+  refresh_delta_path: <delta artifact>
 ```
 
 ## CLI command catalog
@@ -69,6 +74,31 @@ JSON Schema validation. Exit 0 on success.
 
 Compare recorded inputs and `staleness.depends_on_paths` to current state. Exit 0 fresh, 2 stale.
 
+### `cbm-validate-fresh <artifact>` (v1.2)
+
+Mode 1 staleness check. Re-hash every cited file at current HEAD; compare to citations' recorded SHAs. Output: per-citation freshness status. Cheaper than `cbm-verify`; does not re-resolve line ranges, only file-level hashes. Used by `compaction-recovery` on session start and as a precondition for `cbm-consult`. Exit 0 if all citations resolve at unchanged bytes; exit 2 with report otherwise.
+
+### `cbm-verify <artifact>` (v1.2)
+
+Mode 2 staleness check. Re-resolve every citation at current HEAD: file present? lines exist? bytes unchanged? Output: per-citation `still_grounded | needs_review | broken`. More expensive than `cbm-validate-fresh`; produces a verify report (artifact_type: `verify_report`) annotating each claim with current freshness state. Does not rewrite the artifact.
+
+### `cbm-corpus-status` (v1.2)
+
+Walks `.research/`, reports per-artifact freshness against current HEAD. Distinguishes "fresh," "stale (codebase moved)," and "pinned (still valid as historical reading)." Output is human-readable summary plus a machine-readable manifest. Use to decide which artifacts to refresh, consult, or leave alone.
+
+### `cbm-refresh <artifact> --mode <structural|interpretive>` (v1.2)
+
+Mode 3 or 4 refresh.
+
+- `--mode structural`: re-runs the deterministic kernel at HEAD; updates the codebase map; emits a refresh delta listing added/removed/changed files; marks downstream interpretive artifacts as needing review.
+- `--mode interpretive`: invokes the Surface Mapper in differential mode with the prior surface map as input; produces a successor surface map plus a refresh delta documenting what carried forward, what changed, what was retracted, what is new, what is newly contested.
+
+Mode 5 (re-run) is just `cbm-init` again.
+
+### `cbm-consult <question>` (v1.2)
+
+Reader skill invocation. Identifies relevant artifacts from `.research/`; runs `cbm-validate-fresh` first; surfaces grounded answers from the corpus or refuses if the answer isn't there or freshness is too poor to trust. Output: a consultation response (markdown) plus optional ledger appends (`citation_reused`).
+
 ### `cbm-bind <goal-string>`
 
 Produce `goal-binding.json`. Lists candidate surfaces with map citations and status flags (active/challenged/contested/contradicted). `cbm-bind` does **not** commit to a single intervention.
@@ -79,7 +109,7 @@ Assemble handoff bundle. Pre-checks: schema, citations, ledger consistency, stal
 
 ### `cbm-gate <artifact>`
 
-Composite check: schema + citations + staleness + (cards) verification non-empty + (graphs) unknown partition present + (claims) evidence-kinds matches AGENTS.md §7 table for each claim type.
+Composite check: schema + citations + staleness + (cards) verification non-empty + (graphs) unknown partition present + (claims) evidence-kinds matches RUNTIME-CONSTITUTION.md §7 table for each claim type.
 
 ### `cbm-run-gate <gate-id>` (standard+ mode)
 
@@ -99,7 +129,7 @@ Validate the extractor registry against its schema. Confirm every extractor has 
 
 Programmatic interface for raising a challenge from a human reviewer. Defers to MVP+; for now, challenges come from the Skeptic only.
 
-## Artifact catalog (v1.1)
+## Artifact catalog (v1.2)
 
 | Artifact | Type | Path | Writer | MVP |
 |---|---|---|---|---|
@@ -120,11 +150,14 @@ Programmatic interface for raising a challenge from a human reviewer. Defers to 
 | `findings/<id>.md` | md+yaml | `findings/<id>.md` | Planner (research-only) | yes |
 | `skeptic-review/<a>.md` | md+yaml | `skeptic-review/<a>.md` | Skeptic | yes |
 | `command-outputs/<id>-<ts>.txt` | txt | `command-outputs/...` | `cbm-run-gate` | post-MVP |
+| `refresh-delta.json` | json | `refreshes/<delta-id>.json` | `cbm-refresh` | post-MVP (v1.2 standard) |
+| `verify-report.json` | json | (transient) | `cbm-verify` | post-MVP (v1.2) |
+| `consultations/<id>.md` | md | `consultations/<id>.md` | `cbm-consult` | post-MVP (v1.2) |
 | `handoff.md` | md+yaml | `handoff.md` | `cbm-handoff` | yes |
 
 ## Claim-evidence requirements
 
-The Skeptic enforces these per claim type. Authoritative table is in AGENTS.md §7:
+The Skeptic enforces these per claim type. Authoritative table is in RUNTIME-CONSTITUTION.md §7:
 
 | Claim type | Required evidence_kinds | Forbidden alone | Min corroboration |
 |---|---|---|---|
@@ -159,7 +192,10 @@ Claims have their own lifecycle (active → challenged → contested → contrad
 | Post-write to source files (during run) | mark consumer artifacts stale | warning gate |
 | Pre-`cbm-handoff` | full gate sweep + contestation summary populated | hard gate |
 | Pre-`cbm-run-gate` | safety envelope check | hard gate |
-| Session start | run compaction-recovery skill | recovery |
+| Pre-`cbm-consult` | `cbm-validate-fresh` on artifacts to be consulted | hard gate |
+| Pre-`cbm-refresh` (interpretive) | structural refresh has produced an updated codebase map | hard gate |
+| Post-`cbm-refresh` | refresh-delta produced; downstream artifacts marked needs-review | hard gate |
+| Session start | run compaction-recovery skill (which calls `cbm-validate-fresh`) | recovery |
 
 ## Extractor registry
 

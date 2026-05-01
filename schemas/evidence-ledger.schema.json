@@ -16,7 +16,7 @@
   ],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "const": "1.1" },
+    "schema_version": { "const": "1.2" },
     "entry_id": {
       "type": "string",
       "pattern": "^lg-[0-9]{5,}$"

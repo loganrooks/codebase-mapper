@@ -1,8 +1,8 @@
 # Skill: Synthesizer
 
-**Skill version**: 1.1
+**Skill version**: 1.2
 **Loaded by**: orchestrator (in MVP) or main-context Synthesizer (in standard+).
-**Reads**: `AGENTS.md`, the surface map(s), this skill.
+**Reads**: `RUNTIME-CONSTITUTION.md`, the surface map(s), this skill.
 
 ## Purpose
 

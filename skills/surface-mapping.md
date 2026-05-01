@@ -1,8 +1,8 @@
 # Skill: Surface Mapping
 
-**Skill version**: 1.1
+**Skill version**: 1.2
 **Loaded by**: Surface Mapper subagent.
-**Reads**: `AGENTS.md`, `schemas/surface-map.schema.json`, `extractor-registry.json`, this skill.
+**Reads**: `RUNTIME-CONSTITUTION.md`, `schemas/surface-map.schema.json`, `extractor-registry.json`, this skill. In refresh mode, additionally reads the prior surface map and the codebase-map refresh delta.
 
 ## Purpose
 
@@ -106,7 +106,7 @@ rationale: "<required for medium/low confidence and certain kinds>"
 - `implicit_social_contract`: `interpretive`. Always advisory.
 - `unknown`: no register required (the schema relaxes for unknown kind).
 
-**Mapping kind → evidence_kinds (per AGENTS.md §7 table):**
+**Mapping kind → evidence_kinds (per RUNTIME-CONSTITUTION.md §7 table):**
 - `import`: `[static_relation]`.
 - `call`: `[static_relation]`.
 - `runtime_workflow`: must include `runtime_trace` OR `command_output`; `static_structure` alone forbidden.
@@ -114,7 +114,7 @@ rationale: "<required for medium/low confidence and certain kinds>"
 
 The Skeptic enforces this table. Mismatches fail the gate.
 
-**Anti-pattern**: emitting `runtime_workflow` with only `static_structure` evidence. The schema and AGENTS.md §7 forbid this.
+**Anti-pattern**: emitting `runtime_workflow` with only `static_structure` evidence. The schema and RUNTIME-CONSTITUTION.md §7 forbid this.
 
 **Anti-pattern**: zero `unknown` edges on a non-trivial codebase. Re-examine; either find them or write the gap to the uncertainty register.
 
@@ -152,6 +152,55 @@ Fill the `coverage` block of the artifact:
 - `result.files_unread_in_scope`: in-scope files neither read nor extracted (red flag if non-zero with claims about them).
 - `limitations`: what you couldn't look at and why.
 
+## Differential refresh mode (v1.2)
+
+When the orchestrator invokes the Surface Mapper with `refresh_mode: interpretive` and a prior surface map as input, the protocol changes. The goal is **not** to re-do the whole map — it's to address what the codebase change broke and carry forward what survives.
+
+### Inputs (refresh mode adds)
+
+- The prior `surface-map.json` at its `source_sha`.
+- The current `codebase-map.json` refreshed to HEAD (with its own `refreshed_from` block).
+- A pending `refresh-delta.json` for the codebase map (lists added/removed/changed files).
+
+### Method (refresh mode)
+
+**Step R1 — Per-claim evidence-resolution pass.** For every claim in the prior surface map, resolve its citations at HEAD:
+- All cited bytes unchanged → claim is a candidate for `carried_forward`.
+- Some cited bytes changed → claim is a candidate for `updated` or `retracted`; producer must address.
+- Cited file removed or lines no longer exist → claim is a candidate for `retracted`.
+
+The resolution pass is mechanical; the producer's interpretive work begins after.
+
+**Step R2 — Carry-forward decisions.** For each candidate-for-carried-forward claim: confirm the surrounding code context still supports the claim's reading. A factual claim about an import survives almost automatically. An interpretive claim about centrality may need re-reading even if the cited bytes are unchanged — the *surroundings* may have shifted enough that the centrality reading no longer holds. When in doubt, move the claim to `updated` and re-examine.
+
+**Step R3 — Address affected claims.** For each claim with shifted evidence, the producer makes an explicit decision:
+- **Update**: the claim's interpretive content survives; re-cite the new bytes; possibly adjust evidence_kinds.
+- **Retract**: the claim is no longer defensible; record rationale.
+- **Supersede**: a different but related claim now holds; create the successor and link via refresh-delta.
+- **Mark as needs-review**: defer the decision, write the claim to the successor with `claim_status: challenged` and a self-challenge naming the unresolved evidence shift.
+
+**Step R4 — New claims from the delta.** The codebase delta may have introduced new files, new authorities, new edges. Treat these as fresh-mode claims (Steps 3–4 of the standard method). They appear in `newly_added` of the refresh-delta.
+
+**Step R5 — Carry challenges forward.** Each prior challenge is classified by what the refresh did to it:
+- `still_active`: the challenge's target survived as-is or was updated; the challenge still bites. Carry the challenge into the successor verbatim.
+- `resolved_by_refresh`: the codebase change adjudicated the challenge (e.g., the alternative reading is now the only defensible reading). Move challenge to `withdrawn` or `accepted_as_replacement` as appropriate.
+- `obsolete_target_retracted`: the challenged claim was retracted; the challenge has nothing to bite into.
+- `now_contradicted`: the codebase change actually contradicted the original claim, escalating challenge to contradiction.
+
+**Step R6 — Newly contested claims.** Sometimes the codebase change surfaces a competing reading that wasn't visible in the prior. These go in `newly_contested` of the refresh-delta. The successor claim's `claim_status` moves to `challenged` with the new challenge attached.
+
+**Step R7 — Open question reconciliation.** Each open question from the prior gets a status: `still_open`, `resolved`, `obsolete`, or `transformed` (the question morphed into a different question).
+
+**Step R8 — Write successor + delta.** The successor `surface-map.json` is a normal artifact, with `refreshed_from` populated and a `refresh_delta_path` reference. The refresh delta records the trajectory.
+
+### Anti-patterns (refresh mode)
+
+- **Re-mapping from scratch under the guise of refresh.** If you find yourself ignoring the prior map and producing fresh claims, you're doing Mode 5, not Mode 4. Either commit to a fresh run or actually carry forward what survives.
+- **Carrying forward without re-resolving citations.** A claim whose citations point at deleted lines and gets carried forward verbatim is silent corruption. Run R1 first, always.
+- **Treating challenges as obsolete just because the codebase changed.** Most challenges survive most refreshes; they're about readings, not bytes. Default to `still_active` and explicitly justify other classifications.
+- **Producing a successor without a refresh delta.** The delta is what makes the trajectory legible. A successor surface map without its delta is a dropped chain of custody.
+- **Promoting the successor before the delta is written.** Hooks gate this; do not bypass.
+
 ## Quality bar
 
 A surface map of acceptable quality:
@@ -161,7 +210,7 @@ A surface map of acceptable quality:
 - Citations on every authority and non-`unknown` edge.
 - Rationales on `medium`/`low` confidence and advisory edges.
 - `claim_register` correctly assigned (interpretive claims marked as such).
-- `evidence_kinds` matches the AGENTS.md §7 requirements per claim type.
+- `evidence_kinds` matches the RUNTIME-CONSTITUTION.md §7 requirements per claim type.
 - `extractor_id` present on extractor-derived edges.
 - `corroboration_count` ≥ 2 where required.
 - Coverage report honestly distinguishes direct examination from extractor inspection.

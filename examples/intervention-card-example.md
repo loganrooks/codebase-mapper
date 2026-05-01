@@ -1,9 +1,9 @@
 ---
-schema_version: "1.1"
+schema_version: "1.2"
 artifact_type: findings_card
 run_id: example-run-001
 produced_at: "2026-04-30T14:22:11Z"
-produced_by: intervention-planner@1.1
+produced_by: intervention-planner@1.2
 source_sha: a3f2c91
 inputs:
   - path: ./.research/example-run-001/surface-map.json
@@ -84,7 +84,7 @@ expected_leverage:
   challenges:
     - challenge_id: chl-00012
       challenges_claim_id: leverage
-      raised_by: skeptic@1.1
+      raised_by: skeptic@1.2
       raised_at: "2026-04-30T14:18:33Z"
       competing_reading: "Leverage of registry-only changes is low, not medium: if the dynamic-loading path at edge 91 is the production-effective registration mechanism (e.g., loaded at request time from configuration), registry-mediated additions may not appear at all under typical deployment, making the registry surface effectively decorative."
       competing_evidence:

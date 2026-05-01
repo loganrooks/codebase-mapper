@@ -1,8 +1,8 @@
 # Skill: Intervention Planner
 
-**Skill version**: 1.1
+**Skill version**: 1.2
 **Loaded by**: Intervention Planner subagent (one per candidate surface).
-**Reads**: `AGENTS.md`, `schemas/intervention-card.schema.json`, surface map, synthesis notes/index, this skill.
+**Reads**: `RUNTIME-CONSTITUTION.md`, `schemas/intervention-card.schema.json`, surface map, synthesis notes/index, this skill.
 
 ## Purpose
 

@@ -1,6 +1,16 @@
 # Roadmap
 
-How to phase the build from seed to deep-mode-capable system. Schema version 1.1.
+How to phase the build from seed to deep-mode-capable system. Schema version 1.2.
+
+## What changed in v1.2
+
+- **Reuse made operational.** Five forms (goal-agnostic cache, incremental update, historical consultation, consultation mode, deferred cross-run synthesis). Documented workflows; no more implicit-only.
+- **Five staleness modes.** Validate, verify, refresh structural, refresh interpretive, re-run. Each command has its own CLI; each preserves a different amount of interpretive continuity.
+- **Refresh delta as first-class artifact.** New schema (`refresh-delta.schema.json`) records carried_forward, updated, retracted, newly_added, newly_contested, plus per-challenge and per-open-question reconciliation status. The corpus accumulates trajectory.
+- **Optional `refreshed_from` block** on artifacts that can be refreshed (codebase map, surface map, intervention card). Lineage made explicit at the artifact level.
+- **New Reader skill (`consult.md`)** for the read-existing-artifacts-without-rerunning case. Refuses honestly when the corpus doesn't contain the answer or is too stale.
+- **Compaction recovery integrates `cbm-validate-fresh`** so session resume never silently uses stale inputs.
+- **Surface Mapper gains differential refresh mode** with the per-claim migration protocol.
 
 ## What changed in v1.1
 
@@ -145,8 +155,9 @@ Acceptance: end-to-end run, citations resolve, ≥1 actionable card, claim regis
 5. `cbm-bind` and `goal-binding.json`.
 6. `cbm-stale` and warning gate.
 7. `cbm-run-gate` with safety envelope discipline.
+8. v1.2 reuse and refresh: `cbm-validate-fresh`, `cbm-verify`, `cbm-corpus-status`, `cbm-refresh --mode <structural|interpretive>`, `cbm-consult`. Reader skill. Differential refresh mode for Surface Mapper. Refresh-delta artifact.
 
-Acceptance: 50k-LOC repo, coherent maps with non-trivial unknown partitions, Skeptic catches ≥1 weak claim per gate, ≥1 interpretive challenge per run on real codebases.
+Acceptance: 50k-LOC repo, coherent maps with non-trivial unknown partitions, Skeptic catches ≥1 weak claim per gate, ≥1 interpretive challenge per run on real codebases. Reuse: a second goal against the same SHA produces cards without re-mapping; a substantive codebase change refreshed via Mode 4 carries forward ≥80% of prior surface-map claims; consultation answers well-scoped questions in <30 seconds with grounded citations.
 
 ### Phase C — Goal packs (week 5–6)
 

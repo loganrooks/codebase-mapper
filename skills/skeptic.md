@@ -1,7 +1,7 @@
 # Skill: Skeptic
 
-**Skill version**: 1.1
-**Loaded by**: Skeptic subagent (always isolated context — see AGENTS.md §17).
+**Skill version**: 1.2
+**Loaded by**: Skeptic subagent (always isolated context — see RUNTIME-CONSTITUTION.md §17).
 **Reads**: only the artifact under review, the evidence ledger, the uncertainty register, the extractor registry, and the source repo at `source_sha`. **Does not read the producing agent's reasoning.**
 
 ## Purpose
@@ -66,7 +66,7 @@ Three failure modes:
 
 If ≥1 fails, expand the sample.
 
-**Evidence-kinds check.** Look up the claim type in AGENTS.md §7 (claim-evidence requirements table). Verify `evidence_kinds` includes the required kinds and excludes the forbidden-alone kinds. Also verify `corroboration_count` ≥ minimum if specified.
+**Evidence-kinds check.** Look up the claim type in RUNTIME-CONSTITUTION.md §7 (claim-evidence requirements table). Verify `evidence_kinds` includes the required kinds and excludes the forbidden-alone kinds. Also verify `corroboration_count` ≥ minimum if specified.
 
 If extractor_id is present, look up the extractor in the registry. Check that `produces_evidence_kinds` matches the claim's `evidence_kinds`. Check the extractor's `known_blind_spots` — if the claim's category appears in blind spots, challenge: `extractor_blind_spot_relevant`.
 
@@ -244,7 +244,7 @@ For each:
 
 ## Severity classification
 
-- **hard**: artifact cannot be promoted to `validated` without addressing. Examples: unresolved citations, mechanical inconsistencies, register misclassification, partition misclassification, evidence-kinds violation per the AGENTS.md §7 table.
+- **hard**: artifact cannot be promoted to `validated` without addressing. Examples: unresolved citations, mechanical inconsistencies, register misclassification, partition misclassification, evidence-kinds violation per the RUNTIME-CONSTITUTION.md §7 table.
 - **soft**: artifact can be promoted with the challenge logged. Examples: vague rationale, suspect-but-unprovable zero unknowns, advisory phrasing that should be clearer.
 - **interpretive**: not a severity at all in the defect sense. The artifact promotes with `claim_status: challenged` on the affected claim. This is information, not failure.
 

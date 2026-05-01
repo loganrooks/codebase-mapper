@@ -1,8 +1,8 @@
 # Skill: Compaction Recovery
 
-**Skill version**: 1.1
+**Skill version**: 1.2
 **Loaded by**: every agent on every invocation that is not the first in a run.
-**Reads**: `state.json`, validated artifacts, ledger and register tails.
+**Reads**: `state.json`, validated artifacts, ledger and register tails. In v1.2, also runs `cbm-validate-fresh` on inputs.
 
 ## Purpose
 
@@ -58,6 +58,14 @@ Match your role against `state.phase` and `state.artifacts`:
 ### Step 5 — Verify input freshness
 
 For your next-action artifact, confirm inputs are still fresh. If any differs, **stop** and re-read.
+
+In v1.2, this step uses `cbm-validate-fresh` against your input artifacts, which re-hashes cited files at current HEAD. Three outcomes:
+
+- All cited bytes unchanged → proceed.
+- Some cited bytes changed → the input artifact is partially stale; surface to the orchestrator. Decision: refresh the input (`cbm-refresh`) or proceed with awareness that some claims may need updating.
+- Input file's `inputs[i].sha256` no longer matches the recorded artifact → the upstream artifact has itself been refreshed; re-read its current state.
+
+The point: never act on inputs you have not verified are still grounded in the codebase you think they're grounded in.
 
 ### Step 6 — Verify source SHA
 

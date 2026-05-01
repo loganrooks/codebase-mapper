@@ -37,7 +37,7 @@
   ],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "const": "1.1" },
+    "schema_version": { "const": "1.2" },
     "artifact_type": { "enum": ["intervention_card", "findings_card"] },
     "run_id": { "type": "string" },
     "produced_at": { "type": "string", "format": "date-time" },
@@ -58,6 +58,7 @@
     "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
     "coverage": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/coverage" },
     "staleness": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/staleness" },
+    "refreshed_from": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/refreshed_from" },
 
     "claim_status": {
       "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_status",
