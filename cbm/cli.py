@@ -331,6 +331,7 @@ def schema_for_artifact(repo: Path, artifact_type: str) -> dict[str, Any]:
         "refresh_delta": "refresh-delta.schema.json",
         "verification_map": "verification-map.schema.json",
         "workflow_trace": "workflow-trace.schema.json",
+        "refinement_report": "refinement-report.schema.json",
     }
     name = mapping.get(artifact_type)
     if not name:
@@ -1583,6 +1584,96 @@ def command_trace_workflows(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_refine(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    dependency_path = paths.run_dir / "dependency-graph.json"
+    if not dependency_path.exists():
+        print("dependency-graph.json missing; run cbm-dependency-graph first", file=sys.stderr)
+        return 1
+    dependency_graph = read_json(dependency_path)
+    inputs = [{"path": str(dependency_path.relative_to(repo)), "sha256": sha256_file(dependency_path)}]
+    refinements: list[dict[str, Any]] = []
+    for edge in dependency_graph["edges"]:
+        for challenge in edge.get("challenges", []):
+            citations = challenge.get("competing_evidence") or edge.get("citations") or [first_artifact_citation(repo, paths, dependency_graph)]
+            refinements.append(
+                {
+                    "item_id": f"rfi-{len(refinements) + 1:04d}",
+                    "source_artifact": str(dependency_path.relative_to(repo)),
+                    "source_kind": "skeptic_challenge",
+                    "claim_id": edge["id"],
+                    "challenge_id": challenge["challenge_id"],
+                    "disposition": "needs_runtime_trace" if edge["kind"] == "unknown" else "needs_mapper_rerun",
+                    "reentry_targets": ["tracer", "dependency_mapper"],
+                    "rationale": "The challenge remains live and must re-enter a later tracing or dependency-mapping round before downstream confidence can increase.",
+                    "citations": citations,
+                }
+            )
+    trace_dir = paths.run_dir / "workflow-traces"
+    if trace_dir.exists():
+        for trace_path in sorted(trace_dir.glob("*.json")):
+            trace = read_json(trace_path)
+            inputs.append({"path": str(trace_path.relative_to(repo)), "sha256": sha256_file(trace_path)})
+            fallback_citations = trace["steps"][0]["citations"]
+            for unknown in trace.get("unknowns", []):
+                refinements.append(
+                    {
+                        "item_id": f"rfi-{len(refinements) + 1:04d}",
+                        "source_artifact": str(trace_path.relative_to(repo)),
+                        "source_kind": "trace_unknown",
+                        "claim_id": trace["workflow_id"],
+                        "disposition": "needs_runtime_trace",
+                        "reentry_targets": ["tracer", "manual_review"],
+                        "rationale": f"Trace unknown remains unresolved: {unknown['description']}",
+                        "citations": fallback_citations,
+                    }
+                )
+    if not refinements:
+        rel, _ = first_citable_file(repo, read_codebase_map(paths.run_dir), dependency_graph["source_sha"])
+        citation = citation_for(repo, rel, dependency_graph["source_sha"])
+        if not citation:
+            print(f"could not create citation for {rel}", file=sys.stderr)
+            return 1
+        refinements.append(
+            {
+                "item_id": "rfi-0001",
+                "source_artifact": str(dependency_path.relative_to(repo)),
+                "source_kind": "skeptic_challenge",
+                "claim_id": "no-open-challenge",
+                "disposition": "parked",
+                "reentry_targets": ["skeptic"],
+                "rationale": "No open deterministic challenges were present; refinement is parked until a later Skeptic round produces one.",
+                "citations": [citation],
+            }
+        )
+    report_path = paths.run_dir / "refinements" / "refinement-0001.json"
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "artifact_type": "refinement_report",
+        "run_id": paths.run_id,
+        "produced_at": utc_now(),
+        "produced_by": "refinement-orchestrator@0.1",
+        "source_sha": dependency_graph["source_sha"],
+        "inputs": inputs,
+        "status": "draft",
+        "round_id": "ref-0001",
+        "round_number": 1,
+        "refinements": refinements,
+        "next_round_required": any(item["disposition"] in {"accepted_live_unknown", "needs_runtime_trace", "needs_mapper_rerun"} for item in refinements),
+        "summary": "Deep-mode refinement records unresolved challenges and trace unknowns as explicit re-entry work rather than treating the run as complete.",
+    }
+    errors = validate_data(repo, report, "refinement_report")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    append_citation_entries(repo, paths.run_dir / "evidence-ledger.jsonl", paths.run_id, dependency_graph["source_sha"], str(report_path.relative_to(repo)), report, "refinement-orchestrator")
+    write_json(report_path, report)
+    print(report_path)
+    return 0
+
+
 def command_validate(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.artifact)
@@ -2669,6 +2760,10 @@ def command_handoff(args: argparse.Namespace) -> int:
     for trace_path in trace_paths:
         artifacts.insert(-1, {"path": str(trace_path.relative_to(repo)), "artifact_type": "workflow_trace", "status": "draft", "summary": "Deep-mode static workflow trace."})
         handoff_inputs.insert(-1, {"path": str(trace_path.relative_to(repo)), "sha256": sha256_file(trace_path)})
+    refinement_paths = sorted((paths.run_dir / "refinements").glob("*.json")) if (paths.run_dir / "refinements").exists() else []
+    for refinement_path in refinement_paths:
+        artifacts.insert(-1, {"path": str(refinement_path.relative_to(repo)), "artifact_type": "refinement_report", "status": "draft", "summary": "Deep-mode refinement disposition report."})
+        handoff_inputs.insert(-1, {"path": str(refinement_path.relative_to(repo)), "sha256": sha256_file(refinement_path)})
     handoff = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "handoff",
@@ -2780,6 +2875,7 @@ def command_run(args: argparse.Namespace) -> int:
     if args.mode == "deep":
         commands.append((command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)))
         commands.append((command_trace_workflows, map_args))
+        commands.append((command_refine, map_args))
     else:
         commands.append((command_bind, argparse.Namespace(repo=str(repo), run_id=run_id, goal=None, goal_class=None)))
     commands.append((command_handoff, map_args))
@@ -2892,6 +2988,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_trace.add_argument("--repo", default=".")
     p_trace.add_argument("--run-id")
     p_trace.set_defaults(func=command_trace_workflows)
+    p_refine = sub.add_parser("refine")
+    p_refine.add_argument("--repo", default=".")
+    p_refine.add_argument("--run-id")
+    p_refine.set_defaults(func=command_refine)
     p_validate = sub.add_parser("validate")
     p_validate.add_argument("artifact")
     p_validate.add_argument("--repo", default=".")
@@ -2996,6 +3096,10 @@ def bind_main() -> int:
 
 def trace_workflows_main() -> int:
     return main(["trace-workflows", *sys.argv[1:]])
+
+
+def refine_main() -> int:
+    return main(["refine", *sys.argv[1:]])
 
 
 def validate_main() -> int:

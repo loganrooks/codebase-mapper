@@ -303,6 +303,32 @@ def test_deep_run_writes_workflow_trace(tmp_path: Path) -> None:
     assert any(input_item["path"].endswith("workflow-traces/trace-0001.json") for input_item in frontmatter["inputs"])
 
 
+def test_deep_run_writes_refinement_report(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    assert main(["run", "--repo", str(repo), "--goal", "audit verification posture", "--goal-class", "audit", "--mode", "deep", "--run-id", "run-deep-refine"]) == 0
+
+    run_dir = repo / ".research" / "run-deep-refine"
+    report = run_dir / "refinements" / "refinement-0001.json"
+    handoff = run_dir / "handoff.md"
+    assert report.exists()
+    assert main(["validate", str(report), "--repo", str(repo)]) == 0
+    assert main(["verify-citations", str(report), "--repo", str(repo)]) == 0
+    data = json.loads(report.read_text(encoding="utf-8"))
+    assert data["artifact_type"] == "refinement_report"
+    assert data["next_round_required"] is True
+    assert any(item["source_kind"] == "skeptic_challenge" and item["challenge_id"] == "chl-10001" for item in data["refinements"])
+    assert any(item["source_kind"] == "trace_unknown" and item["disposition"] == "needs_runtime_trace" for item in data["refinements"])
+    assert any("tracer" in item["reentry_targets"] for item in data["refinements"])
+
+    frontmatter = yaml.safe_load(handoff.read_text(encoding="utf-8").split("---", 2)[1])
+    assert "refinement_report" in [artifact["artifact_type"] for artifact in frontmatter["artifacts"]]
+    assert any(input_item["path"].endswith("refinements/refinement-0001.json") for input_item in frontmatter["inputs"])
+
+
 def test_stop_hook_validates_latest_handoff(tmp_path: Path, monkeypatch, capsys) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

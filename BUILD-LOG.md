@@ -466,3 +466,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: The tracer artifact is explicitly low-confidence and static-derived; it does not pretend to observe runtime behavior.
   - Contract check: Trace steps carry registers, claim status, evidence kinds, citations, and staleness dependencies through a schema-validated artifact.
   - Reviewer-eye check: This is an artifact boundary, not a full Tracer subagent or runtime instrumentation. It starts Phase D without weakening the evidence model.
+
+## 2026-05-01 — Phase D slice: refinement report
+
+- Implemented: `schemas/refinement-report.schema.json` for deep-mode refinement rounds over unresolved Skeptic challenges and workflow trace unknowns.
+- Implemented: `cbm-refine` / `cbm refine`, which records challenge and trace-unknown dispositions with re-entry targets instead of silently treating them as resolved.
+- Implemented: deep `cbm run` now writes `refinements/refinement-0001.json` after tracing, and handoff includes refinement reports as artifacts and inputs.
+- Verification run:
+  - `pytest -q` passed: 24 tests, including refinement report schema validation, citation resolution, live challenge disposition, trace-unknown disposition, and handoff inclusion.
+- Self-critique:
+  - Drift check: The refinement report keeps uncertainty and contestation live; it does not mark challenges resolved without new evidence.
+  - Contract check: Every refinement item carries source artifact, claim id, disposition, re-entry targets, rationale, and citations.
+  - Reviewer-eye check: This is the durable protocol boundary for multi-round refinement, not a full second mapper/tracer execution loop. The next deeper slice would consume these re-entry targets to decide whether to run another mapper/tracer round.
