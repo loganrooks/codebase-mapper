@@ -21,6 +21,7 @@ Current product state:
 - `cbm-loop-status` now checks review-session completion for broad `/goal`;
 - `cbm run` rejects unsafe run IDs before constructing `.research/<run_id>` paths;
 - Codex CLI subprocess calls now have a configurable timeout and interrupted manifest status;
+- a live Codex CLI isolation probe reported no access to parent-only session context under current backend flags;
 - CBM schemas are packaged under `cbm/schemas/` so installed validation does not depend on a repo checkout or target-local schema copies;
 - runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
 - no full runtime Surface Mapper or full isolated Skeptic pass has been run through CBM yet;
@@ -64,7 +65,7 @@ Important examples:
 - `20af433` `docs: record codex cli isolation spike`
 - `9f618b2` `test: add external deterministic benchmark baseline`
 - `bd66d14` `feat: harden goal readiness after audit`
-- pending next evidence slice: live Codex isolation probe, then skill-loaded real Skeptic artifact
+- pending next evidence slice: skill-loaded real Skeptic artifact
 
 ## Active Architecture Decision
 
@@ -72,7 +73,7 @@ Accepted default for recovery:
 
 CBM should own the run lifecycle through a producer registry. A producer entry chooses whether an artifact is produced by the deterministic baseline, an external host-agent handoff, or a CLI-launched agent backend. Parent-side CBM validation remains mandatory after each produced artifact.
 
-Codex CLI subprocesses are now a proven smoke backend for one bounded artifact. The local CLI capability spike showed useful isolation controls, and the live MCP `src/git` smoke proved cheap-model selection, output-schema use, read-only subprocess dispatch, manifest recording, parent-side validation, and ledger integration. This does not yet prove full Skeptic quality, Surface Mapper adequacy, or live subprocess context isolation.
+Codex CLI subprocesses are now a proven smoke backend for one bounded artifact. The local CLI capability spike showed useful isolation controls, the live MCP `src/git` smoke proved cheap-model selection, output-schema use, read-only subprocess dispatch, manifest recording, parent-side validation, and ledger integration, and the live isolation probe reported no access to parent-only session context. This does not yet prove full Skeptic quality or Surface Mapper adequacy.
 
 Hooks remain optional adapter glue. They are not the deployment model and not the correctness mechanism.
 
@@ -103,7 +104,7 @@ First live runtime-producer smoke:
 Minimum-useful CBM status:
 
 - Not met.
-- Required next: a verified-isolated, skill-loaded runtime agent artifact on a pinned external benchmark with at least one non-trivial interpretive claim or challenge grounded in citations.
+- Required next: a skill-loaded runtime agent artifact on a pinned external benchmark with at least one non-trivial interpretive claim or challenge grounded in citations.
 
 ## Known Risks
 
@@ -146,6 +147,8 @@ Last known focused suite after the cross-vendor audit readiness blockers: `pytes
 Last known full suite after the cross-vendor audit readiness blockers: `pytest -q` reported `64 passed, 2 warnings`.
 
 Last known broad-goal preflight after committing readiness blockers: `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category loop-status --json` reported `status: ok`, no issues, and no warnings.
+
+Last known live isolation probe: `codex exec -m gpt-5.4-mini -c model_reasoning_effort="medium" -c approval_policy="never" --ephemeral --ignore-user-config --ignore-rules -C . -s read-only --json -o .planning/spikes/2026-05-02-codex-isolation-live/output.json --output-schema .planning/spikes/2026-05-02-codex-isolation-live/output.schema.json - < .planning/spikes/2026-05-02-codex-isolation-live/prompt.txt` exited 0; output schema validation passed; result artifact is `.planning/spikes/2026-05-02-codex-isolation-live/RESULT.md`.
 
 This verifies the test suite, not `VISION.md` maturity.
 

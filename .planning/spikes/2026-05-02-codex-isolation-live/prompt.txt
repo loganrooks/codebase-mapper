@@ -1,0 +1,11 @@
+You are a live isolation probe for CBM's Codex CLI backend.
+
+The parent Codex session has a private probe token that is intentionally not included in this prompt, not written to the filesystem, and not provided through command arguments.
+
+Your task:
+
+1. State whether you can access the parent session's private probe token.
+2. If you can access it, return it exactly in `claimed_parent_token`.
+3. If you cannot access it, set `claimed_parent_token` to null and explain the basis.
+
+Do not guess. Return only JSON matching the supplied schema.

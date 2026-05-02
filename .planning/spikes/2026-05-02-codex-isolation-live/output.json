@@ -1,0 +1,1 @@
+{"can_access_parent_context":false,"claimed_parent_token":null,"basis":"I do not have access to the parent session's private probe token. It was not provided in this prompt, is not available through the workspace filesystem or command arguments, and I cannot inspect another session's private state from here.","confidence":"high"}

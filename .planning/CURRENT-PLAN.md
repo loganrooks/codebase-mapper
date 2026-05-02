@@ -40,6 +40,7 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 16. Run live Codex CLI smoke on pinned MCP `src/git` benchmark. Status: completed.
 17. Run cross-vendor Opus audit of the recovery work and next plan. Status: completed; disposition accepted with revisions.
 18. Implement immediate readiness blockers from the audit: review-completion gate, run-id validation, and Codex subprocess timeout handling. Status: completed in `bd66d14`; final loop-status passed.
+19. Run live Codex CLI isolation probe. Status: completed; probe reported no access to parent-only session context.
 
 Recovery readiness is restored for the next narrow runtime-producer evidence track. Broad unattended `/goal` is allowed for that track only; Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific evidence exists.
 
@@ -47,7 +48,7 @@ Recovery readiness is restored for the next narrow runtime-producer evidence tra
 
 The next broad `/goal` track should produce the first real agent-produced benchmark artifact. The first implementation target is a narrow live Codex CLI smoke or equivalent external producer backend that writes one schema-valid artifact, records its subprocess invocation in `run-manifest.json`, and passes parent-side validation.
 
-Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark. This proves subprocess dispatch and validation harness behavior for a bounded artifact, not the full runtime-agent mapping loop and not the minimum-useful CBM floor. The next proof target is a verified-isolated, skill-loaded Skeptic review that can raise at least one non-trivial cited challenge.
+Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, and the live isolation probe reported no access to parent-only session context. This proves subprocess dispatch, validation harness behavior, and a narrow isolation property for a bounded artifact. It does not prove the full runtime-agent mapping loop and does not meet the minimum-useful CBM floor. The next proof target is a skill-loaded Skeptic review that can raise at least one non-trivial cited challenge.
 
 This is not a Phase B+ pass claim. It is the first runtime-producer evidence slice.
 

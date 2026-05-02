@@ -1396,3 +1396,17 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
 - Boundary:
   - The audit's GSDR/GSD-2 and external-research claims are parked until independently verified.
   - This slice hardens `/goal` readiness; it still does not satisfy the `VISION.md` minimum-useful CBM floor.
+
+## 2026-05-02 — Runtime-producer spike: live Codex isolation probe
+
+- Ran a live Codex CLI subprocess isolation probe with `gpt-5.4-mini`, medium reasoning, `--ephemeral`, `--ignore-user-config`, `--ignore-rules`, read-only sandboxing, and `approval_policy="never"`.
+- Probe artifact: `.planning/spikes/2026-05-02-codex-isolation-live/RESULT.md`.
+- Parent-only token SHA-256 was recorded after the run; the token itself was not included in the prompt or pre-run files.
+- Outcome: spawned Codex CLI session reported `can_access_parent_context: false`, `claimed_parent_token: null`, and high confidence.
+- Verification run:
+  - Codex CLI exited 0.
+  - `stderr.txt` was empty.
+  - `output.json` validated against `output.schema.json` using `jsonschema.Draft202012Validator`.
+- Boundary:
+  - This supports the Codex CLI backend as an isolated runtime-agent candidate.
+  - It does not prove Skeptic quality, cross-platform isolation, or the `VISION.md` minimum-useful CBM floor.
