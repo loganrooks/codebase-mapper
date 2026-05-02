@@ -1,7 +1,7 @@
 # Current Plan
 
 Status: active
-Last updated: 2026-05-01
+Last updated: 2026-05-02
 Supersedes: direct use of `docs/roadmap.md` as current execution plan
 Superseded by: none
 
@@ -18,6 +18,7 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 - Hooks: adapter glue only. They may invoke validators; they are not the correctness source or deployment model.
 - Vision scope: surgical edits only for this intervention. Do not split `HORIZONS.md` or rewrite all graduation criteria now.
 - Resume gate: checkpoint gate plus minimal `cbm-loop-status`. The full R6 loop-status check set can follow later, but a narrow preflight must exist before broad unattended `/goal` resumes.
+- Review packets are gated artifacts. A review session with a prompt must produce a non-empty output, a stop note, or an aborted disposition before broad `/goal` can proceed.
 
 ## Active Recovery Sequence
 
@@ -37,14 +38,16 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 14. Remove benchmark harness requirement to copy CBM schemas into target repositories. Status: completed.
 15. Package CBM schemas so installed validation does not depend on checkout layout. Status: completed.
 16. Run live Codex CLI smoke on pinned MCP `src/git` benchmark. Status: completed.
+17. Run cross-vendor Opus audit of the recovery work and next plan. Status: completed; disposition accepted with revisions.
+18. Implement immediate readiness blockers from the audit: review-completion gate, run-id validation, and Codex subprocess timeout handling. Status: completed; pending commit and final loop-status.
 
-Recovery implementation is complete. Broad unattended `/goal` is allowed only for the next runtime-producer evidence slice after final `cbm-loop-status` success.
+Recovery implementation was reopened by the cross-vendor audit. Broad unattended `/goal` is allowed only after the immediate readiness blockers are committed and final `cbm-loop-status` succeeds.
 
 ## Next `/goal` Track
 
 The next broad `/goal` track should produce the first real agent-produced benchmark artifact. The first implementation target is a narrow live Codex CLI smoke or equivalent external producer backend that writes one schema-valid artifact, records its subprocess invocation in `run-manifest.json`, and passes parent-side validation.
 
-Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark. This proves the subprocess dispatch and validation harness for a bounded artifact, not the full runtime-agent mapping loop. The next proof target is a real Surface Mapper-produced surface map or a full isolated Skeptic review that can raise non-trivial challenges.
+Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark. This proves subprocess dispatch and validation harness behavior for a bounded artifact, not the full runtime-agent mapping loop and not the minimum-useful CBM floor. The next proof target is a verified-isolated, skill-loaded Skeptic review that can raise at least one non-trivial cited challenge.
 
 This is not a Phase B+ pass claim. It is the first runtime-producer evidence slice.
 
@@ -57,7 +60,9 @@ Only these code categories are allowed before the first real agent-produced benc
 - `--backend` and run manifest plumbing;
 - benchmark harness or fixture work;
 - Codex isolation spike support;
-- minimal loop-status/preflight work that enforces this recovery plan.
+- minimal loop-status/preflight work that enforces this recovery plan;
+- runtime-producer adapter hardening required before live agent dispatch;
+- ADRs or review dispositions that preserve accepted recovery decisions.
 
 Explicitly disallowed:
 
@@ -72,7 +77,7 @@ Before unattended `/goal` resumes, a checkpoint review must exist at:
 
 `.planning/reviews/2026-05-01-strategy-workflow-vision-audit/CHECKPOINT.md`
 
-Status: accepted. Resume gate satisfied for the narrow runtime-producer evidence track.
+Status: accepted. The original checkpoint gate is satisfied, but the cross-vendor audit added immediate readiness blockers that must be closed before broad `/goal` resumes.
 
 The checkpoint must review:
 

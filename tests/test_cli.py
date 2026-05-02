@@ -8,6 +8,7 @@ import sys
 from importlib import resources
 from pathlib import Path
 
+import pytest
 import yaml
 
 from cbm.cli import extract_citations, goal_pack, load_goal_packs, load_project_packs, main, sha256_file
@@ -397,6 +398,58 @@ def test_run_backend_codex_cli_fake_producer_writes_agent_review(tmp_path: Path)
     assert "-s read-only" in codex_steps[0]["command"]
     handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
     assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 0
+
+
+def test_run_rejects_unsafe_run_id_before_writing_outside_research(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+
+    with pytest.raises(SystemExit):
+        main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", "../escape"])
+
+    assert not (tmp_path / "escape").exists()
+
+
+def test_run_backend_codex_cli_timeout_marks_manifest_interrupted(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = tmp_path / "slow-codex"
+    fake_codex.write_text(
+        "#!/usr/bin/env python3\n"
+        "import time\n"
+        "time.sleep(5)\n",
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o755)
+
+    run_id = "run-codex-cli-timeout"
+    assert (
+        main(
+            [
+                "run",
+                "--repo",
+                str(repo),
+                "--goal",
+                "understand this repo",
+                "--backend",
+                "codex-cli",
+                "--allow-live-codex",
+                "--codex-command",
+                str(fake_codex),
+                "--codex-timeout",
+                "1",
+                "--run-id",
+                run_id,
+            ]
+        )
+        == 124
+    )
+
+    run_manifest = repo / ".research" / run_id / "run-manifest.json"
+    assert main(["validate", str(run_manifest), "--repo", str(repo)]) == 0
+    manifest_data = json.loads(run_manifest.read_text(encoding="utf-8"))
+    assert manifest_data["status"] == "interrupted"
+    codex_steps = [step for step in manifest_data["steps"] if step["backend"] == "codex-cli"]
+    assert codex_steps[0]["status"] == "interrupted"
+    assert codex_steps[0]["exit_code"] == 124
 
 
 def test_init_records_project_type_citations_in_ledger(tmp_path: Path) -> None:
@@ -2087,6 +2140,7 @@ def write_loop_status_scaffold(repo: Path, *, checkpoint_satisfies: bool) -> Non
         f"# Checkpoint\n\nSatisfies resume gate: {gate_value}\n",
         encoding="utf-8",
     )
+    (repo / ".planning" / "reviews" / "checkpoint" / "DISPOSITION.md").write_text("# Disposition\n\nDisposition: accept\n", encoding="utf-8")
     for name in ["AGENTS.md", "VISION.md", "RUNTIME-CONSTITUTION.md"]:
         (repo / name).write_text(f"# {name}\n", encoding="utf-8")
     git(repo, "add", ".planning", "AGENTS.md", "VISION.md", "RUNTIME-CONSTITUTION.md")
@@ -2112,6 +2166,20 @@ def test_loop_status_blocks_dirty_authority_docs_and_disallowed_work(tmp_path: P
     git(repo, "commit", "-m", "update vision")
     assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "new-kernel-gate"]) == 1
     assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "false-provenance"]) == 0
+
+
+def test_loop_status_blocks_incomplete_review_sessions_for_broad_goal(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+    review = repo / ".planning" / "reviews" / "orphan-review"
+    review.mkdir()
+    (review / "PROMPT.md").write_text("# Prompt\n", encoding="utf-8")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "recovery-slice", "--work-category", "loop-status"]) == 0
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "loop-status"]) == 1
+
+    (review / "OUTPUT.md").write_text("# Output\n\nReview complete.\n", encoding="utf-8")
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "loop-status"]) == 0
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:

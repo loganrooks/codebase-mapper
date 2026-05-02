@@ -69,6 +69,9 @@ CODEX_CLI_SMOKE_PRODUCER = "codex-cli-smoke@0.1"
 BACKEND_CHOICES = ["deterministic", "external", "codex-cli"]
 DEFAULT_CODEX_CLI_MODEL = "gpt-5.4-mini"
 DEFAULT_CODEX_CLI_REASONING_EFFORT = "medium"
+DEFAULT_CODEX_CLI_TIMEOUT_SECONDS = 600
+INTERRUPTED_EXIT_CODE = 124
+RUN_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,19 @@ def sha256_file(path: Path) -> str:
 
 def sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def validate_run_id(run_id: str) -> str:
+    if not RUN_ID_RE.fullmatch(run_id) or run_id in {".", ".."}:
+        raise SystemExit("invalid run_id: use 1-64 letters, numbers, dot, underscore, or hyphen")
+    return run_id
+
+
+def positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
 
 
 def read_json(path: Path) -> Any:
@@ -860,12 +876,14 @@ def append_citation_entries(repo: Path, ledger_path: Path, run_id: str, sha: str
 
 def run_paths(repo: Path, run_id: str | None) -> RunPaths:
     if run_id:
+        run_id = validate_run_id(run_id)
         return RunPaths(repo=repo, run_id=run_id, run_dir=repo / ".research" / run_id)
     state_files = sorted((repo / ".research").glob("*/state.json"))
     if not state_files:
         raise SystemExit("no CBM run found; run cbm-init first or pass --run-id")
     state = read_json(state_files[-1])
     rid = state["run_id"]
+    rid = validate_run_id(rid)
     return RunPaths(repo=repo, run_id=rid, run_dir=repo / ".research" / rid)
 
 
@@ -3872,7 +3890,25 @@ def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
         str(output_schema_path),
         "-",
     ]
-    proc = subprocess.run(command, input=prompt, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        proc = subprocess.run(
+            command,
+            input=prompt,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=args.codex_timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        detail = f"codex-cli smoke timed out after {args.codex_timeout} seconds"
+        output = exc.output.decode("utf-8", errors="replace") if isinstance(exc.output, bytes) else exc.output
+        stderr = exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else exc.stderr
+        if stderr:
+            detail += f": {stderr.strip()}"
+        elif output:
+            detail += f": {output.strip()}"
+        print(detail, file=sys.stderr)
+        return INTERRUPTED_EXIT_CODE
     if proc.returncode != 0:
         print(proc.stderr.strip() or proc.stdout.strip() or "codex-cli smoke failed", file=sys.stderr)
         return proc.returncode
@@ -4372,6 +4408,7 @@ def command_run(args: argparse.Namespace) -> int:
                     codex_command=args.codex_command,
                     codex_model=args.codex_model,
                     codex_reasoning_effort=args.codex_reasoning_effort,
+                    codex_timeout=args.codex_timeout,
                 ),
             )
         )
@@ -4441,8 +4478,9 @@ def command_run(args: argparse.Namespace) -> int:
         rc = command(ns)
         step["exit_code"] = rc
         step["completed_at"] = utc_now()
-        step["status"] = "succeeded" if rc == 0 else "failed"
-        write_json(paths.run_dir / "run-manifest.json", build_run_manifest(args, repo, run_id, "running" if rc == 0 else "failed", steps))
+        step["status"] = "succeeded" if rc == 0 else "interrupted" if rc == INTERRUPTED_EXIT_CODE else "failed"
+        manifest_status = "running" if rc == 0 else "interrupted" if rc == INTERRUPTED_EXIT_CODE else "failed"
+        write_json(paths.run_dir / "run-manifest.json", build_run_manifest(args, repo, run_id, manifest_status, steps))
         if rc != 0:
             return rc
     write_json(paths.run_dir / "run-manifest.json", build_run_manifest(args, repo, run_id, "succeeded", steps))
@@ -4481,6 +4519,41 @@ def checkpoint_satisfies_resume(path: Path) -> bool:
         "disposition: waived-by-user",
     ]
     return any(marker in text for marker in accepted_markers)
+
+
+def nonempty(path: Path) -> bool:
+    return path.is_file() and path.stat().st_size > 0
+
+
+def review_session_completion_issues(repo: Path) -> list[dict[str, str]]:
+    reviews = repo / ".planning" / "reviews"
+    if not reviews.exists():
+        return []
+    issues: list[dict[str, str]] = []
+    for session in sorted(path for path in reviews.iterdir() if path.is_dir()):
+        rel = session.relative_to(repo).as_posix()
+        files = [path for path in session.iterdir() if path.is_file()]
+        dirs = [path for path in session.iterdir() if path.is_dir()]
+        if not files and not dirs:
+            issues.append({"code": "empty_review_session", "message": f"{rel} has no review artifacts or stop note"})
+            continue
+        stop_note = session / "STOP-NOTE.md"
+        disposition = session / "DISPOSITION.md"
+        disposition_text = disposition.read_text(encoding="utf-8") if nonempty(disposition) else ""
+        session_aborted = "Status: aborted" in disposition_text or "status: aborted" in disposition_text
+        prompts = sorted(session.glob("PROMPT*.md"))
+        outputs = sorted(path for path in session.glob("OUTPUT*.md") if nonempty(path))
+        if prompts and not outputs and not nonempty(stop_note) and not session_aborted:
+            issues.append(
+                {
+                    "code": "incomplete_review_session",
+                    "message": f"{rel} has prompt artifacts but no non-empty OUTPUT*.md, STOP-NOTE.md, or aborted disposition",
+                }
+            )
+        checkpoint = session / "CHECKPOINT.md"
+        if checkpoint.exists() and not nonempty(disposition):
+            issues.append({"code": "missing_checkpoint_disposition", "message": f"{rel} has CHECKPOINT.md but no non-empty DISPOSITION.md"})
+    return issues
 
 
 def command_loop_status(args: argparse.Namespace) -> int:
@@ -4530,6 +4603,12 @@ def command_loop_status(args: argparse.Namespace) -> int:
             issues.append(issue)
         else:
             warnings.append(issue)
+
+    review_issues = review_session_completion_issues(repo)
+    if args.scope == "broad-goal":
+        issues.extend(review_issues)
+    else:
+        warnings.extend(review_issues)
 
     result = {
         "status": "fail" if issues else "ok",
@@ -4860,6 +4939,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--codex-command", default="codex")
     p_run.add_argument("--codex-model", default=DEFAULT_CODEX_CLI_MODEL)
     p_run.add_argument("--codex-reasoning-effort", default=DEFAULT_CODEX_CLI_REASONING_EFFORT, choices=["low", "medium", "high", "xhigh"])
+    p_run.add_argument("--codex-timeout", type=positive_int, default=DEFAULT_CODEX_CLI_TIMEOUT_SECONDS)
     p_run.add_argument("--run-id")
     p_run.set_defaults(func=command_run)
     p_loop_status = sub.add_parser("loop-status")

@@ -25,7 +25,7 @@
     "mode": { "enum": ["lightweight", "standard", "deep"] },
     "goal": { "type": "string", "minLength": 1 },
     "goal_class": { "type": "string", "minLength": 1 },
-    "status": { "enum": ["running", "succeeded", "failed", "refused"] },
+    "status": { "enum": ["running", "succeeded", "failed", "refused", "interrupted"] },
     "refusal_reason": { "type": "string", "minLength": 1 },
     "producer_registry": {
       "type": "object",
@@ -64,7 +64,7 @@
             "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
           },
           "backend": { "enum": ["deterministic", "external", "codex-cli"] },
-          "status": { "enum": ["planned", "running", "succeeded", "failed"] },
+          "status": { "enum": ["planned", "running", "succeeded", "failed", "interrupted"] },
           "exit_code": {
             "anyOf": [
               { "type": "integer", "minimum": 0 },

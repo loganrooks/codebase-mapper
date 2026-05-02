@@ -37,6 +37,7 @@ This makes the guardrails load-bearing. Use all of them, always.
 - `.planning/STATE.md` is the short current-state ledger. Update it when phase status, roadmap freshness, deployment shape, verification status, or major open questions change.
 - `.planning/CURRENT-PLAN.md` is the active plan. It should name the next concrete work, expected write set, verification checks, and open decisions.
 - `.planning/reviews/<date-slug>/` holds external or cross-model reviews. Each review session should include `REVIEW-SPEC.md`, `PROMPT.md`, `OUTPUT.md`, and `DISPOSITION.md`.
+- A review session that is started but not completed must have a `STOP-NOTE.md` or an aborted disposition. Do not leave empty review directories or prompt-only packets as ambiguous state.
 - Mark planning docs with `Status`, `Last updated`, and `Supersedes/Superseded by` when relevant. Do not let stale docs look authoritative.
 - Do not use `BUILD-LOG.md` as the only place for forward-looking plans. It is an audit trail; plans belong in `.planning/`.
 - Completed or superseded plans are replaced by a successor plan. Do not keep editing an old plan to describe new work after its objective changes.
@@ -52,7 +53,7 @@ A checkpoint review is a blocking review at a real boundary:
 
 The checkpoint reviewer reads only the checkpoint packet: `VISION.md`, `RUNTIME-CONSTITUTION.md` when runtime agents are relevant, `.planning/STATE.md`, `.planning/CURRENT-PLAN.md`, the diff or commits since the last checkpoint, and the acceptance criteria being claimed. The reviewer should not read the producer's self-critique unless the prompt explicitly asks it to audit that self-critique.
 
-Write checkpoint outputs under `.planning/reviews/<date-slug>/CHECKPOINT.md`. The orchestrator must disposition the checkpoint as `accept`, `revise`, `park`, or `reject` before continuing. Cross-model review is preferred when available; a same-model isolated review is acceptable only as a fallback and must be labeled as such.
+Write checkpoint outputs under `.planning/reviews/<date-slug>/CHECKPOINT.md`. The orchestrator must disposition the checkpoint as `accept`, `revise`, `park`, or `reject` before continuing. Cross-model review is preferred when available; a same-model isolated review is acceptable only as a fallback and must be labeled as such. Same-model fallback reviews may clear narrow recovery slices, but they do not clear phase-pass claims, main-merge claims, or minimum-useful-CBM claims unless the user explicitly waives the cross-model gate and the waiver is logged.
 
 ## Execution architecture discipline
 

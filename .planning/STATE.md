@@ -1,7 +1,7 @@
 # CBM Build State
 
 Status: current operational state
-Last updated: 2026-05-01
+Last updated: 2026-05-02
 Supersedes: none
 Superseded by: none
 
@@ -18,6 +18,9 @@ Current product state:
 - a guarded `codex-cli` smoke backend exists and can be tested with a fake executable;
 - the `codex-cli` smoke backend defaults to `gpt-5.4-mini` with medium reasoning for harness tests;
 - the first live Codex CLI smoke artifact has passed on the pinned MCP `src/git` benchmark;
+- `cbm-loop-status` now checks review-session completion for broad `/goal`;
+- `cbm run` rejects unsafe run IDs before constructing `.research/<run_id>` paths;
+- Codex CLI subprocess calls now have a configurable timeout and interrupted manifest status;
 - CBM schemas are packaged under `cbm/schemas/` so installed validation does not depend on a repo checkout or target-local schema copies;
 - runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
 - no full runtime Surface Mapper or full isolated Skeptic pass has been run through CBM yet;
@@ -61,6 +64,7 @@ Important examples:
 - `20af433` `docs: record codex cli isolation spike`
 - `9f618b2` `test: add external deterministic benchmark baseline`
 - pending readiness closure: accepted recovery checkpoint and final `/goal` readiness verification
+- pending cross-vendor audit closure: Opus audit disposition and immediate readiness blockers
 
 ## Active Architecture Decision
 
@@ -68,7 +72,7 @@ Accepted default for recovery:
 
 CBM should own the run lifecycle through a producer registry. A producer entry chooses whether an artifact is produced by the deterministic baseline, an external host-agent handoff, or a CLI-launched agent backend. Parent-side CBM validation remains mandatory after each produced artifact.
 
-Codex CLI subprocesses are now a proven smoke backend for one bounded artifact. The local CLI capability spike showed useful isolation controls, and the live MCP `src/git` smoke proved cheap-model selection, output-schema use, read-only subprocess dispatch, manifest recording, parent-side validation, and ledger integration. This does not yet prove full Skeptic quality or Surface Mapper adequacy.
+Codex CLI subprocesses are now a proven smoke backend for one bounded artifact. The local CLI capability spike showed useful isolation controls, and the live MCP `src/git` smoke proved cheap-model selection, output-schema use, read-only subprocess dispatch, manifest recording, parent-side validation, and ledger integration. This does not yet prove full Skeptic quality, Surface Mapper adequacy, or live subprocess context isolation.
 
 Hooks remain optional adapter glue. They are not the deployment model and not the correctness mechanism.
 
@@ -94,7 +98,12 @@ First live runtime-producer smoke:
 
 - Target: MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
 - Result artifact: `.planning/benchmarks/2026-05-02-mcp-git-codex-smoke/RESULT.md`.
-- Status: live Codex CLI smoke review passed validation and handoff gates with honest producer identity. This is runtime-producer evidence for one bounded smoke artifact, not the `VISION.md` minimum useful CBM floor.
+- Status: live Codex CLI smoke review passed validation and handoff gates with honest producer identity. This is runtime-producer dispatch evidence for one bounded smoke artifact.
+
+Minimum-useful CBM status:
+
+- Not met.
+- Required next: a verified-isolated, skill-loaded runtime agent artifact on a pinned external benchmark with at least one non-trivial interpretive claim or challenge grounded in citations.
 
 ## Known Risks
 
@@ -102,10 +111,11 @@ First live runtime-producer smoke:
 - Direct-examination coverage was overreported in deterministic surface, verification, and trace paths; the recovery slice now reports zero direct examination for those baseline artifacts.
 - `cbm/cli.py` remains a large monolith; splitting should follow producer-registry work, not precede it as churn.
 - Planning docs can become process theater if they are not tied to checkpoint review and concrete verification.
+- Review packets can become orphaned artifacts if prompt/output/disposition completion is not mechanically gated; the current `loop-status` slice addresses this for broad `/goal`.
 
 ## `/goal` Readiness
 
-Recovery implementation is complete and the checkpoint gate is accepted.
+Recovery implementation is active again after the cross-vendor audit. The checkpoint gate is accepted, and immediate readiness blockers have been implemented pending commit and final `cbm-loop-status`.
 
 Broad unattended `/goal` is restored only for the next narrow runtime-producer evidence track: the first real agent-produced benchmark artifact. It is not restored for Phase B+ pass claims, unrelated kernel hardening, or treating deterministic baseline artifacts as runtime-agent output.
 
@@ -130,6 +140,10 @@ Last known packaging verification: `python3 -m pip wheel . --no-deps -w /tmp/cbm
 Last known live benchmark smoke: `python3 -m cbm.cli run --repo /tmp/cbm-live-mcp-servers-4503e2d/src/git --goal "understand MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-codex-smoke-4` exited 0.
 
 Last known full suite after the live Codex CLI smoke remediation slice: `pytest -q` reported `61 passed, 2 warnings`.
+
+Last known focused suite after the cross-vendor audit readiness blockers: `pytest -q tests/test_cli.py::test_loop_status_blocks_incomplete_review_sessions_for_broad_goal tests/test_cli.py::test_run_rejects_unsafe_run_id_before_writing_outside_research tests/test_cli.py::test_run_backend_codex_cli_timeout_marks_manifest_interrupted tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review tests/test_cli.py::test_package_schema_resources_match_root_schemas` reported `5 passed, 2 warnings`.
+
+Last known full suite after the cross-vendor audit readiness blockers: `pytest -q` reported `64 passed, 2 warnings`.
 
 This verifies the test suite, not `VISION.md` maturity.
 

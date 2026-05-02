@@ -1374,3 +1374,24 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This directly advances the runtime-producer evidence track and explicitly avoids Phase B+ overclaim.
   - Contract check: Parent-side validation and handoff gates caught two integration defects before the successful run.
   - Reviewer-eye check: The smoke review is deliberately shallow; the next quality target must be real Surface Mapper/Skeptic behavior, not more smoke infrastructure.
+
+## 2026-05-02 — Cross-vendor audit and readiness hardening
+
+- Ran a Claude Opus max-effort cross-vendor audit from `.planning/reviews/2026-05-02-opus-cross-vendor-audit/PROMPT.md`.
+- First launch attempt was terminated before output because the cmux Claude wrapper injected hook settings. Relaunch used `CMUX_CLAUDE_HOOKS_DISABLED=1` and narrowed setting sources to avoid hook confusion.
+- Captured review artifacts:
+  - `.planning/reviews/2026-05-02-opus-cross-vendor-audit/OUTPUT-CLAUDE-OPUS.md`;
+  - `.planning/reviews/2026-05-02-opus-cross-vendor-audit/INTERVENTIONS.md`;
+  - `.planning/reviews/2026-05-02-opus-cross-vendor-audit/DISPOSITION.md`.
+- Disposition accepted the immediate blockers: orphaned review-session detection, Codex CLI timeout handling, and run-id validation.
+- Implemented: `cbm-loop-status` checks review-session completion and blocks broad `/goal` when a review has prompts without non-empty output, stop note, or aborted disposition.
+- Implemented: unsafe run IDs are rejected before `.research/<run_id>` path construction.
+- Implemented: Codex CLI smoke subprocesses have a configurable timeout; timed-out runs return 124 and write `interrupted` run/step manifest status.
+- Implemented: run-manifest schema now accepts `interrupted`; run-id shape is enforced at the CLI boundary to avoid a breaking schema-version bump.
+- Added stop note for the empty `.planning/reviews/2026-05-01-claude-cowork-architecture-review/` packet.
+- Verification run:
+  - Focused regressions passed: `pytest -q tests/test_cli.py::test_loop_status_blocks_incomplete_review_sessions_for_broad_goal tests/test_cli.py::test_run_rejects_unsafe_run_id_before_writing_outside_research tests/test_cli.py::test_run_backend_codex_cli_timeout_marks_manifest_interrupted tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review tests/test_cli.py::test_package_schema_resources_match_root_schemas`.
+  - Full suite passed: `pytest -q` reported 64 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Boundary:
+  - The audit's GSDR/GSD-2 and external-research claims are parked until independently verified.
+  - This slice hardens `/goal` readiness; it still does not satisfy the `VISION.md` minimum-useful CBM floor.
