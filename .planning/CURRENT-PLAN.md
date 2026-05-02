@@ -13,13 +13,14 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 
 ## Locked Decisions
 
-- Runtime architecture default: CBM owns the run lifecycle through a producer registry. Each artifact type declares a producer backend and validation chain.
+- Runtime architecture default: CBM owns the run lifecycle through a producer registry. Each artifact type declares a producer backend and validation chain. See `ADR-001-cbm-owns-run-lifecycle` and `ADR-003-producer-registry-over-outer-orchestrator`.
 - Backend default: test Codex CLI subprocesses first, but do not use Codex subprocesses for Skeptic unless isolation satisfies `RUNTIME-CONSTITUTION.md`.
-- Hooks: adapter glue only. They may invoke validators; they are not the correctness source or deployment model.
+- Hooks: adapter glue only. They may invoke validators; they are not the correctness source or deployment model. See `ADR-002-hooks-are-adapter-glue`.
 - Vision scope: surgical edits only for this intervention. Do not split `HORIZONS.md` or rewrite all graduation criteria now.
 - Resume gate: checkpoint gate plus minimal `cbm-loop-status`. The full R6 loop-status check set can follow later, but a narrow preflight must exist before broad unattended `/goal` resumes.
 - Review packets are gated artifacts. A review session with a prompt must produce a non-empty output, a stop note, or an aborted disposition before broad `/goal` can proceed.
-- Pass-claim checkpoints require explicit reviewer model identity. Same-model fallback checkpoints can clear narrow recovery slices only when labeled; they cannot clear pass-claim scope.
+- Pass-claim checkpoints require explicit reviewer model identity. Same-model fallback checkpoints can clear narrow recovery slices only when labeled; they cannot clear pass-claim scope. See `ADR-005-cross-model-checkpoint-mandatory-for-pass-claims`.
+- Deterministic baseline output is not runtime-agent evidence. See `ADR-004-deterministic-baseline-is-not-runtime-evidence`.
 
 ## Active Recovery Sequence
 

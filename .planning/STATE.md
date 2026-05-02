@@ -75,11 +75,15 @@ Important examples:
 
 Accepted default for recovery:
 
-CBM should own the run lifecycle through a producer registry. A producer entry chooses whether an artifact is produced by the deterministic baseline, an external host-agent handoff, or a CLI-launched agent backend. Parent-side CBM validation remains mandatory after each produced artifact.
+CBM should own the run lifecycle through a producer registry. A producer entry chooses whether an artifact is produced by the deterministic baseline, an external host-agent handoff, or a CLI-launched agent backend. Parent-side CBM validation remains mandatory after each produced artifact. See `ADR-001-cbm-owns-run-lifecycle` and `ADR-003-producer-registry-over-outer-orchestrator`.
 
 Codex CLI subprocesses are now a proven runtime-producer backend for bounded Skeptic artifacts. The local CLI capability spike showed useful isolation controls, the live MCP `src/git` smoke proved cheap-model selection, output-schema use, read-only subprocess dispatch, manifest recording, parent-side validation, and ledger integration, the live isolation probe reported no access to parent-only session context, and the first skill-loaded `skeptic@1.2` run produced a structurally ingested interpretive challenge. This does not yet prove full Skeptic quality or Surface Mapper adequacy.
 
-Hooks remain optional adapter glue. They are not the deployment model and not the correctness mechanism.
+Hooks remain optional adapter glue. They are not the deployment model and not the correctness mechanism. See `ADR-002-hooks-are-adapter-glue`.
+
+Deterministic baseline output is not runtime-agent evidence. See `ADR-004-deterministic-baseline-is-not-runtime-evidence`.
+
+Pass-claim checkpoints require a non-current model family unless explicitly waived by the user. See `ADR-005-cross-model-checkpoint-mandatory-for-pass-claims`.
 
 ## Benchmark State
 

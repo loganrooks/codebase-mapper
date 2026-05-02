@@ -1483,3 +1483,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Diff check passed: `git diff --check -- cbm/cli.py schemas/run-manifest.schema.json cbm/schemas/run-manifest.schema.json tests/test_cli.py BUILD-LOG.md`.
 - Boundary:
   - Additive schema fields were used; no schema-version bump is required.
+
+## 2026-05-02 — Recovery slice: I-S5 ADR ledger seed
+
+- Implemented: seeded `.planning/decisions/` with five accepted ADRs for run lifecycle ownership, hooks as adapter glue, producer registry, deterministic-baseline boundaries, and cross-model pass-claim checkpoints.
+- Updated cross-links in `.planning/STATE.md`, `.planning/CURRENT-PLAN.md`, and `AGENTS.md` so the load-bearing decisions are reachable from live governance surfaces.
+- Verification run:
+  - Preflight passed: `python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category recovery-governance --json` reported `status: ok`, no issues, and no warnings.
+  - Diff check passed: `git diff --check -- .planning/decisions .planning/STATE.md .planning/CURRENT-PLAN.md AGENTS.md BUILD-LOG.md`.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 83 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Boundary:
+  - The ADRs record accepted recovery decisions; they do not introduce new architecture beyond the current plan/state.
