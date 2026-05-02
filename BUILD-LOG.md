@@ -1410,3 +1410,26 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
 - Boundary:
   - This supports the Codex CLI backend as an isolated runtime-agent candidate.
   - It does not prove Skeptic quality, cross-platform isolation, or the `VISION.md` minimum-useful CBM floor.
+
+## 2026-05-02 — Runtime-producer slice: skill-loaded Codex Skeptic
+
+- Implemented: runtime skills are packaged under `cbm/runtime_skills/` and loaded from disk via `cbm.skill_loader`.
+- Implemented: `cbm run --backend codex-cli --codex-skeptic-mode skill` injects `skills/skeptic.md` into the Codex CLI producer prompt.
+- Implemented: run-manifest steps can record a loaded skill `{name, path, sha256}`.
+- Implemented: skill mode labels the runtime producer as `skeptic@1.2` instead of `codex-cli-smoke@0.1`.
+- Added regressions for packaged runtime skill equality, Skeptic skill hash loading, and skill-mode fake Codex producer behavior.
+- Ran a live skill-loaded Skeptic benchmark on MCP `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
+- Result artifact: `.planning/benchmarks/2026-05-02-mcp-git-skeptic-skill/RESULT.md`.
+- Outcome:
+  - First attempt `run-mcp-git-codex-skeptic-skill-1` failed under disk pressure; parent later hit `OSError: [Errno 28] No space left on device` while updating `run-manifest.json`.
+  - After clearing generated temp/test artifacts and using `TMPDIR=/var/tmp`, `run-mcp-git-codex-skeptic-skill-2` exited 0.
+  - The successful run produced `skeptic@1.2` review output with `findings_logged: 1` and `challenge_ids: ["chl-00001"]`.
+- Verification run:
+  - Focused regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_package_runtime_skill_resources_match_root_skills tests/test_cli.py::test_load_skill_records_skeptic_hash tests/test_cli.py::test_run_backend_codex_cli_skill_mode_loads_skeptic_skill tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review tests/test_cli.py::test_package_schema_resources_match_root_schemas`.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 67 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+  - Wheel inspection passed: built a temp wheel under `/var/tmp`, found 7 `cbm/runtime_skills/*.md` package entries, then removed the temp wheel directory.
+  - Live benchmark run passed: `run-mcp-git-codex-skeptic-skill-2`.
+- Boundary:
+  - This is real skill-loaded runtime-producer evidence, not just smoke.
+  - It still does not meet the `VISION.md` minimum-useful CBM floor because the runtime challenge is not yet integrated into the ledger/contestation summary and no interpretive challenge was produced.
+  - The next code slice must make runtime Skeptic challenges structurally consumable by parent-side CBM validation and handoff summaries.

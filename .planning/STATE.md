@@ -22,6 +22,8 @@ Current product state:
 - `cbm run` rejects unsafe run IDs before constructing `.research/<run_id>` paths;
 - Codex CLI subprocess calls now have a configurable timeout and interrupted manifest status;
 - a live Codex CLI isolation probe reported no access to parent-only session context under current backend flags;
+- runtime skill loading exists for Codex CLI skill mode, and run manifests record the loaded Skeptic skill hash;
+- the first skill-loaded `skeptic@1.2` run on MCP `src/git` produced a substantive defect finding;
 - CBM schemas are packaged under `cbm/schemas/` so installed validation does not depend on a repo checkout or target-local schema copies;
 - runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
 - no full runtime Surface Mapper or full isolated Skeptic pass has been run through CBM yet;
@@ -65,7 +67,7 @@ Important examples:
 - `20af433` `docs: record codex cli isolation spike`
 - `9f618b2` `test: add external deterministic benchmark baseline`
 - `bd66d14` `feat: harden goal readiness after audit`
-- pending next evidence slice: skill-loaded real Skeptic artifact
+- pending next evidence slice: structured runtime Skeptic challenge ingestion
 
 ## Active Architecture Decision
 
@@ -73,7 +75,7 @@ Accepted default for recovery:
 
 CBM should own the run lifecycle through a producer registry. A producer entry chooses whether an artifact is produced by the deterministic baseline, an external host-agent handoff, or a CLI-launched agent backend. Parent-side CBM validation remains mandatory after each produced artifact.
 
-Codex CLI subprocesses are now a proven smoke backend for one bounded artifact. The local CLI capability spike showed useful isolation controls, the live MCP `src/git` smoke proved cheap-model selection, output-schema use, read-only subprocess dispatch, manifest recording, parent-side validation, and ledger integration, and the live isolation probe reported no access to parent-only session context. This does not yet prove full Skeptic quality or Surface Mapper adequacy.
+Codex CLI subprocesses are now a proven runtime-producer backend for bounded Skeptic artifacts. The local CLI capability spike showed useful isolation controls, the live MCP `src/git` smoke proved cheap-model selection, output-schema use, read-only subprocess dispatch, manifest recording, parent-side validation, and ledger integration, the live isolation probe reported no access to parent-only session context, and the first skill-loaded `skeptic@1.2` run produced a substantive finding. This does not yet prove full Skeptic quality or Surface Mapper adequacy.
 
 Hooks remain optional adapter glue. They are not the deployment model and not the correctness mechanism.
 
@@ -101,10 +103,16 @@ First live runtime-producer smoke:
 - Result artifact: `.planning/benchmarks/2026-05-02-mcp-git-codex-smoke/RESULT.md`.
 - Status: live Codex CLI smoke review passed validation and handoff gates with honest producer identity. This is runtime-producer dispatch evidence for one bounded smoke artifact.
 
+First skill-loaded runtime Skeptic run:
+
+- Target: MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
+- Result artifact: `.planning/benchmarks/2026-05-02-mcp-git-skeptic-skill/RESULT.md`.
+- Status: skill-loaded `skeptic@1.2` produced a substantive defect finding and passed handoff gates. This is not yet minimum-useful CBM because the challenge was not integrated into the ledger/contestation summary and no interpretive challenge was produced.
+
 Minimum-useful CBM status:
 
 - Not met.
-- Required next: a skill-loaded runtime agent artifact on a pinned external benchmark with at least one non-trivial interpretive claim or challenge grounded in citations.
+- Required next: structured runtime Skeptic challenge ingestion plus a pinned external benchmark run with at least one non-trivial interpretive claim or challenge grounded in citations.
 
 ## Known Risks
 
@@ -149,6 +157,14 @@ Last known full suite after the cross-vendor audit readiness blockers: `pytest -
 Last known broad-goal preflight after committing readiness blockers: `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category loop-status --json` reported `status: ok`, no issues, and no warnings.
 
 Last known live isolation probe: `codex exec -m gpt-5.4-mini -c model_reasoning_effort="medium" -c approval_policy="never" --ephemeral --ignore-user-config --ignore-rules -C . -s read-only --json -o .planning/spikes/2026-05-02-codex-isolation-live/output.json --output-schema .planning/spikes/2026-05-02-codex-isolation-live/output.schema.json - < .planning/spikes/2026-05-02-codex-isolation-live/prompt.txt` exited 0; output schema validation passed; result artifact is `.planning/spikes/2026-05-02-codex-isolation-live/RESULT.md`.
+
+Last known skill-loader focused suite: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_package_runtime_skill_resources_match_root_skills tests/test_cli.py::test_load_skill_records_skeptic_hash tests/test_cli.py::test_run_backend_codex_cli_skill_mode_loads_skeptic_skill tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review tests/test_cli.py::test_package_schema_resources_match_root_schemas` reported `5 passed, 2 warnings`.
+
+Last known full suite after skill-loader slice: `TMPDIR=/var/tmp pytest -q` reported `67 passed, 2 warnings`.
+
+Last known skill package verification: a temp wheel built under `/var/tmp` contained 7 `cbm/runtime_skills/*.md` package entries.
+
+Last known skill-loaded live benchmark run: `TMPDIR=/var/tmp python3 -m cbm.cli run --repo /tmp/cbm-live-mcp-servers-4503e2d/src/git --goal "understand MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-skeptic-mode skill --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-codex-skeptic-skill-2` exited 0.
 
 This verifies the test suite, not `VISION.md` maturity.
 

@@ -12,6 +12,7 @@ import pytest
 import yaml
 
 from cbm.cli import extract_citations, goal_pack, load_goal_packs, load_project_packs, main, sha256_file
+from cbm.skill_loader import load_skill
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -46,6 +47,23 @@ def test_package_schema_resources_match_root_schemas() -> None:
         if item.name.endswith(".schema.json")
     }
     assert package_schemas == root_schemas
+
+
+def test_package_runtime_skill_resources_match_root_skills() -> None:
+    root_skills = {path.name: path.read_text(encoding="utf-8") for path in (SOURCE_ROOT / "skills").glob("*.md")}
+    package_skills = {
+        item.name: item.read_text(encoding="utf-8")
+        for item in resources.files("cbm").joinpath("runtime_skills").iterdir()
+        if item.name.endswith(".md")
+    }
+    assert package_skills == root_skills
+
+
+def test_load_skill_records_skeptic_hash() -> None:
+    skill = load_skill("skeptic", SOURCE_ROOT)
+    assert skill.name == "skeptic"
+    assert skill.sha256 == sha256_file(SOURCE_ROOT / "skills" / "skeptic.md")
+    assert "Skill: Skeptic" in skill.body
 
 
 def test_extract_citations_ignores_markdown_backticks() -> None:
@@ -398,6 +416,70 @@ def test_run_backend_codex_cli_fake_producer_writes_agent_review(tmp_path: Path)
     assert "-s read-only" in codex_steps[0]["command"]
     handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
     assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 0
+
+
+def test_run_backend_codex_cli_skill_mode_loads_skeptic_skill(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = tmp_path / "fake-skill-codex"
+    fake_codex.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "prompt = sys.stdin.read()\n"
+        "assert '<runtime_skill>' in prompt\n"
+        "assert '# Skill: Skeptic' in prompt\n"
+        "assert 'Runtime skill sha256:' in prompt\n"
+        "output_path.write_text(json.dumps({\n"
+        "    'body': '## Overall\\n\\nSkill-loaded review completed.\\n\\n## Interpretive challenges\\n\\nNo defensible challenge found in this fixture.',\n"
+        "    'findings_logged': 0,\n"
+        "    'challenge_ids': [],\n"
+        "    'factual_spot_checks': 1,\n"
+        "    'interpretive_challenges_attempted': 0\n"
+        "}) + '\\n', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o755)
+
+    run_id = "run-codex-cli-skill"
+    assert (
+        main(
+            [
+                "run",
+                "--repo",
+                str(repo),
+                "--goal",
+                "understand this repo",
+                "--backend",
+                "codex-cli",
+                "--allow-live-codex",
+                "--codex-command",
+                str(fake_codex),
+                "--codex-skeptic-mode",
+                "skill",
+                "--run-id",
+                run_id,
+            ]
+        )
+        == 0
+    )
+
+    run_dir = repo / ".research" / run_id
+    skeptic_review = run_dir / "skeptic-review" / "surface-map.md"
+    run_manifest = run_dir / "run-manifest.json"
+    review_frontmatter = yaml.safe_load(skeptic_review.read_text(encoding="utf-8").split("---", 2)[1])
+    assert review_frontmatter["produced_by"] == "skeptic@1.2"
+    assert main(["validate", str(run_manifest), "--repo", str(repo)]) == 0
+    manifest_data = json.loads(run_manifest.read_text(encoding="utf-8"))
+    codex_steps = [step for step in manifest_data["steps"] if step["backend"] == "codex-cli"]
+    assert codex_steps[0]["step_id"] == "codex-cli-skill-skeptic-review"
+    assert codex_steps[0]["producer_id"] == "skeptic@1.2"
+    assert codex_steps[0]["skill"]["name"] == "skeptic"
+    assert codex_steps[0]["skill"]["sha256"] == sha256_file(SOURCE_ROOT / "skills" / "skeptic.md")
+    registry_data = json.loads((run_dir / "producer-registry.json").read_text(encoding="utf-8"))
+    skeptic_producer = next(item for item in registry_data["producers"] if item["artifact_type"] == "skeptic_review")
+    assert skeptic_producer["producer_id"] == "skeptic@1.2"
 
 
 def test_run_rejects_unsafe_run_id_before_writing_outside_research(tmp_path: Path) -> None:

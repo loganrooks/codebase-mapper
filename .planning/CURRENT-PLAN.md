@@ -41,6 +41,7 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 17. Run cross-vendor Opus audit of the recovery work and next plan. Status: completed; disposition accepted with revisions.
 18. Implement immediate readiness blockers from the audit: review-completion gate, run-id validation, and Codex subprocess timeout handling. Status: completed in `bd66d14`; final loop-status passed.
 19. Run live Codex CLI isolation probe. Status: completed; probe reported no access to parent-only session context.
+20. Add runtime skill loader and run skill-loaded Skeptic on MCP `src/git`. Status: completed as dispatch evidence; minimum-useful CBM not met because challenges are not yet structurally integrated and no interpretive challenge was produced.
 
 Recovery readiness is restored for the next narrow runtime-producer evidence track. Broad unattended `/goal` is allowed for that track only; Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific evidence exists.
 
@@ -48,7 +49,9 @@ Recovery readiness is restored for the next narrow runtime-producer evidence tra
 
 The next broad `/goal` track should produce the first real agent-produced benchmark artifact. The first implementation target is a narrow live Codex CLI smoke or equivalent external producer backend that writes one schema-valid artifact, records its subprocess invocation in `run-manifest.json`, and passes parent-side validation.
 
-Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, and the live isolation probe reported no access to parent-only session context. This proves subprocess dispatch, validation harness behavior, and a narrow isolation property for a bounded artifact. It does not prove the full runtime-agent mapping loop and does not meet the minimum-useful CBM floor. The next proof target is a skill-loaded Skeptic review that can raise at least one non-trivial cited challenge.
+Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, the live isolation probe reported no access to parent-only session context, and a skill-loaded `skeptic@1.2` subprocess produced a substantive defect finding. This proves subprocess dispatch, validation harness behavior, skill loading, skill-hash manifest recording, and a narrow isolation property for a bounded artifact. It does not meet the minimum-useful CBM floor because runtime Skeptic challenges are not structurally integrated into the ledger/contestation summary and the first skill-loaded run produced no interpretive challenge.
+
+The next proof target is structured runtime Skeptic challenge ingestion: model output must include challenge objects that the parent parser appends to the evidence ledger and reflects in `handoff.md`.
 
 This is not a Phase B+ pass claim. It is the first runtime-producer evidence slice.
 

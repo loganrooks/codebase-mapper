@@ -1,0 +1,97 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "producer_registry",
+  "backend": "codex-cli",
+  "producers": [
+    {
+      "artifact_type": "project_type_report",
+      "producer_id": "cbm-baseline-project-type@0.1",
+      "backend": "deterministic",
+      "execution_contract": "deterministic_baseline"
+    },
+    {
+      "artifact_type": "codebase_map",
+      "producer_id": "cbm-baseline-map@0.1",
+      "backend": "deterministic",
+      "execution_contract": "deterministic_baseline"
+    },
+    {
+      "artifact_type": "surface_map",
+      "producer_id": "cbm-baseline-surface@0.1",
+      "backend": "deterministic",
+      "execution_contract": "deterministic_baseline"
+    },
+    {
+      "artifact_type": "authority_map",
+      "producer_id": "cbm-baseline-authority@0.1",
+      "backend": "deterministic",
+      "execution_contract": "deterministic_baseline"
+    },
+    {
+      "artifact_type": "dependency_graph",
+      "producer_id": "cbm-baseline-dependency@0.1",
+      "backend": "deterministic",
+      "execution_contract": "deterministic_baseline"
+    },
+    {
+      "artifact_type": "verification_map",
+      "producer_id": "cbm-baseline-verification@0.1",
+      "backend": "deterministic",
+      "execution_contract": "deterministic_baseline"
+    },
+    {
+      "artifact_type": "synthesis_index",
+      "producer_id": "cbm-baseline-synthesis@0.1",
+      "backend": "deterministic",
+      "execution_contract": "deterministic_baseline"
+    },
+    {
+      "artifact_type": "goal_binding",
+      "producer_id": "cbm-baseline-bind@0.1",
+      "backend": "deterministic",
+      "execution_contract": "deterministic_baseline"
+    },
+    {
+      "artifact_type": "workflow_trace",
+      "producer_id": "dev-fixture-tracer@0.1",
+      "backend": "deterministic",
+      "execution_contract": "dev_fixture"
+    },
+    {
+      "artifact_type": "refinement_report",
+      "producer_id": "dev-fixture-refinement@0.1",
+      "backend": "deterministic",
+      "execution_contract": "dev_fixture"
+    },
+    {
+      "artifact_type": "approval_plan",
+      "producer_id": "dev-fixture-approval@0.1",
+      "backend": "deterministic",
+      "execution_contract": "dev_fixture"
+    },
+    {
+      "artifact_type": "skeptic_review",
+      "producer_id": "skeptic@1.2",
+      "backend": "codex-cli",
+      "execution_contract": "external_agent"
+    },
+    {
+      "artifact_type": "findings_card",
+      "producer_id": "dev-fixture-planner@0.1",
+      "backend": "deterministic",
+      "execution_contract": "dev_fixture"
+    },
+    {
+      "artifact_type": "intervention_card",
+      "producer_id": "dev-fixture-planner@0.1",
+      "backend": "deterministic",
+      "execution_contract": "dev_fixture"
+    },
+    {
+      "artifact_type": "handoff",
+      "producer_id": "cbm-baseline-handoff@0.1",
+      "backend": "deterministic",
+      "execution_contract": "deterministic_baseline"
+    }
+  ]
+}

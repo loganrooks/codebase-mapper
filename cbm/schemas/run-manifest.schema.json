@@ -71,6 +71,16 @@
               { "type": "null" }
             ]
           },
+          "skill": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "path", "sha256"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          },
           "started_at": { "type": "string", "format": "date-time" },
           "completed_at": { "type": "string", "format": "date-time" }
         }

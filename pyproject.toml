@@ -48,7 +48,7 @@ cbm-hook-stop = "cbm.cli:hook_stop_main"
 cbm-hook-start = "cbm.cli:hook_start_main"
 
 [tool.setuptools.package-data]
-cbm = ["goal_packs/*.json", "project_packs/*.json", "schemas/*.schema.json"]
+cbm = ["goal_packs/*.json", "project_packs/*.json", "schemas/*.schema.json", "runtime_skills/*.md"]
 
 [tool.setuptools.packages.find]
 include = ["cbm*"]
