@@ -42,6 +42,24 @@ This makes the guardrails load-bearing. Use all of them, always.
 - Do not use `BUILD-LOG.md` as the only place for forward-looking plans. It is an audit trail; plans belong in `.planning/`.
 - Completed or superseded plans are replaced by a successor plan. Do not keep editing an old plan to describe new work after its objective changes.
 
+## Per-phase artifact bundle
+
+Each implementation phase lives at `.planning/phases/<NN-slug>/`.
+
+Required files per phase:
+
+- `PLAN.md`: active during the phase.
+- `VERIFICATION.md`: filled at phase close.
+- `SUMMARY.md`: filled at phase close.
+
+Optional file:
+
+- `RESEARCH.md`: filled before or during the phase when research is required.
+
+Phase numbers are zero-padded two-digit decimals starting from `00`. Slug suffixes are kebab-case.
+
+Roadmap-level CBM "Phase A-F" maturity bands in `docs/roadmap.md` are graduation criteria, not work units. `.planning/phases/<NN-slug>/` directories are implementation phases.
+
 ## Checkpoint reviews
 
 A checkpoint review is a blocking review at a real boundary:

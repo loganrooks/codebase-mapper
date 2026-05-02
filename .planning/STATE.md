@@ -37,6 +37,7 @@ Current product state:
 - `RUNTIME-CONSTITUTION.md`: runtime-agent discipline; committed in `e309eaa`.
 - `.planning/STATE.md`: factual current state.
 - `.planning/CURRENT-PLAN.md`: active recovery plan and allowed next work.
+- `.planning/phases/`: implementation phase bundles with archived plans, verification, and summaries.
 - `BUILD-LOG.md`: chronological audit evidence, not a live plan.
 - `docs/roadmap.md`: original phase taxonomy and acceptance context; not current pass/fail status.
 
