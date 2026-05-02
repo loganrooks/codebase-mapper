@@ -1618,3 +1618,18 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 105 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
 - Boundary:
   - H1.S1 is complete only. The run deliberately skipped real Skeptic review with `--codex-skeptic-mode none`; H1.S2 remains the next horizon stage.
+
+## 2026-05-02 — Post-H1.S1 Opus review
+
+- Ran: `claude --setting-sources project -p --model opus --effort max --tools Read,Bash --permission-mode dontAsk --output-format text < .planning/reviews/2026-05-02-h1s1-opus-review/PROMPT.md > .planning/reviews/2026-05-02-h1s1-opus-review/OUTPUT.md`.
+- Note: `--setting-sources project` was required because the user-level Claude config file was corrupted and the CLI refused to start when loading it.
+- Output verdict: `ACCEPT_WITH_BLOCKERS_FOR_NEXT_STAGE`.
+- Disposition: accepted in `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md`.
+- Accepted blockers before H1.S2:
+  - fix handoff honesty for non-baseline Surface Mapper output;
+  - omit or clearly label/count dev-fixture Skeptic fallback output;
+  - replace the hard-coded `edge-unknown-001` producer requirement with unknown-edge lookup;
+  - add repair-pass regressions and preserve `logs/` plus `codex_outputs/`;
+  - preserve full live benchmark evidence or stop citing missing artifacts.
+- Boundary:
+  - H1.S1 remains accepted narrowly. H1.S2 live Skeptic work is blocked until the accepted remediation group is implemented and committed.

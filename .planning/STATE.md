@@ -27,6 +27,7 @@ Current product state:
 - the first skill-loaded `skeptic@1.2` run on MCP `src/git` produced a structurally ingested interpretive challenge;
 - the first runtime-producer/Skeptic evidence slice has passed on one pinned external benchmark;
 - H1.S1 produced a real non-baseline `surface-mapper@1.2` surface map on the pinned MCP `src/git` benchmark through the `codex-cli` backend;
+- post-H1.S1 Opus review returned `ACCEPT_WITH_BLOCKERS_FOR_NEXT_STAGE`; H1.S2 live Skeptic work is blocked until the accepted remediation group is complete;
 - all Tier 1 and Tier 5 R-OK recovery interventions from the 2026-05-02 Opus cross-vendor audit have been implemented and committed;
 - `.planning/HORIZONS.md` now translates `VISION.md` into autonomous `/goal` stages;
 - CBM schemas are packaged under `cbm/schemas/` so installed validation does not depend on a repo checkout or target-local schema copies;
@@ -86,7 +87,7 @@ Important examples:
 - `91f1f95` `feat: render baseline banner on handoff and cards`
 - `021a004` `docs: verify codex isolation through cbm run`
 - `65c19f2` `feat: add formal skill loader compatibility module`
-- pending next evidence slice: H1.S2 isolated Skeptic review over the H1.S1 Surface Mapper output
+- pending next work: post-H1.S1 Opus remediation before H1.S2 isolated Skeptic review
 
 ## Active Architecture Decision
 
@@ -158,6 +159,8 @@ Runtime-producer evidence status:
 ## `/goal` Readiness
 
 Recovery readiness is restored for H1.S2 in `.planning/HORIZONS.md`: the isolated Skeptic review evidence track. The checkpoint gate is accepted, cross-vendor audit blockers have been dispositioned, H1.S1 is complete, and final `cbm-loop-status` must pass again before the next autonomous slice proceeds.
+
+Post-H1.S1 review gate: `.planning/reviews/2026-05-02-h1s1-opus-review/OUTPUT.md` returned `ACCEPT_WITH_BLOCKERS_FOR_NEXT_STAGE`; `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md` accepts blockers for handoff honesty, dev-fixture Skeptic fallback labeling/removal, `edge-unknown-001` hardcoding, repair-pass tests/evidence preservation, and complete benchmark evidence preservation. Do not launch H1.S2 live Skeptic work until those are remediated.
 
 Broad unattended `/goal` is restored only for the current horizon/stage named by `.planning/CURRENT-PLAN.md`. It is not restored for Phase B+ pass claims, minimum-useful-CBM pass claims, unrelated kernel hardening, or treating deterministic baseline artifacts as runtime-agent output.
 

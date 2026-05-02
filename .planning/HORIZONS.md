@@ -109,7 +109,7 @@ Pushback handling:
 
 ### H1.S2 - Isolated Skeptic Review
 
-Status: current
+Status: current; blocked until post-H1.S1 Opus review blockers are remediated
 
 Objective:
 

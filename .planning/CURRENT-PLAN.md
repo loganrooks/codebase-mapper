@@ -1,6 +1,6 @@
 # Current Plan
 
-Status: active; recovery interventions complete, H1.S1 completed, H1.S2 pending
+Status: active; recovery interventions complete, H1.S1 completed, H1.S2 blocked on review remediation
 Last updated: 2026-05-02
 Supersedes: direct use of `docs/roadmap.md` as current execution plan
 Superseded by: none
@@ -52,18 +52,29 @@ Current boundary: the Tier 1 and Tier 5 R-OK interventions from `.planning/revie
 19. Run live Codex CLI isolation probe. Status: completed; probe reported no access to parent-only session context.
 20. Add runtime skill loader and run skill-loaded Skeptic on MCP `src/git`. Status: completed as runtime-producer/Skeptic evidence in `run-mcp-git-codex-skeptic-skill-4`.
 21. Apply all Tier 1 and Tier 5 R-OK interventions from the Opus cross-vendor audit. Status: completed across `f004657` through `65c19f2`.
+22. Run post-H1.S1 Opus review. Status: completed; disposition accepted with blockers at `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md`.
 
-H1.S1 is completed. Broad unattended `/goal` may proceed only to H1.S2 from `.planning/HORIZONS.md`. Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific horizon evidence and checkpoint evidence exist.
+H1.S1 is completed narrowly. Broad unattended `/goal` may not launch the H1.S2 live Skeptic until the accepted post-H1.S1 Opus review blockers are remediated. Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific horizon evidence and checkpoint evidence exist.
 
 ## Next `/goal` Track
 
-The next broad `/goal` track should execute H1.S2 from `.planning/HORIZONS.md`: run a real isolated Skeptic against the H1.S1 Surface Mapper artifact and ingest its challenges structurally.
+The next broad `/goal` track should first remediate the accepted blockers in `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md`, then execute H1.S2 from `.planning/HORIZONS.md`: run a real isolated Skeptic against the H1.S1 Surface Mapper artifact and ingest its challenges structurally.
 
 Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, the live isolation probe reported no access to parent-only session context, a skill-loaded `skeptic@1.2` subprocess produced an ingested interpretive challenge on the same pinned benchmark, and H1.S1 produced a real non-baseline `surface-mapper@1.2` surface map on MCP `src/git`.
 
 The full `VISION.md` minimum-useful CBM floor is not met yet. It remains open until CBM produces a real isolated Skeptic review over the H1.S1 map, carries contestation into a validated handoff, and obtains a non-current-model checkpoint. The next proof target is H1.S2, then H1.S3.
 
 This is not a Phase B+ pass claim and not a minimum-useful-CBM pass claim. It is the start of the H1 runtime-agent evidence track.
+
+## Pre-H1.S2 Review Blockers
+
+Accepted blockers from `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md`:
+
+- fix handoff coverage, summaries, caveats, and next action so non-baseline Surface Mapper output is not described as deterministic Phase A output;
+- omit or unmistakably label/count dev-fixture Skeptic fallback output when no real Skeptic ran;
+- remove the hard-coded `edge-unknown-001` producer requirement and use `kind: unknown` lookup instead;
+- add repair-pass regressions and preserve `logs/` plus `codex_outputs/` in live benchmark packets;
+- preserve the full `.research/<run_id>/` evidence tree, or stop making benchmark packets cite missing files.
 
 ## Allowed Next Code Work
 
