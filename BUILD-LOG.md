@@ -1469,3 +1469,17 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Diff check passed: `git diff --check -- cbm/cli.py tests/test_cli.py docs/contracts.md BUILD-LOG.md schemas/run-manifest.schema.json cbm/schemas/run-manifest.schema.json`.
 - Boundary:
   - This completes the timeout/run-id behavior; it does not implement the I-S4b stdout/stderr log hashing contract.
+
+## 2026-05-02 — Recovery slice: I-S4b Codex output-path and log hashing
+
+- Implemented: Codex CLI smoke runs tee non-empty subprocess stdout and stderr into `.research/<run_id>/logs/<step>.stdout|stderr`.
+- Implemented: successful smoke runs continue to parse only `--output-path`; stdout noise is preserved but never parsed as model JSON.
+- Implemented: nonzero Codex subprocess failures report the log path instead of printing raw subprocess stderr/stdout directly.
+- Implemented: run-manifest Codex steps record `stdout_sha256`, `stderr_sha256`, and `output_path_sha256`, using an empty-string sentinel for absent or empty files.
+- Verification run:
+  - Red tests initially failed as expected because stdout/stderr logs were absent and manifest log hashes were not recorded.
+  - Focused regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_codex_cli_smoke_fails_when_output_path_not_written tests/test_cli.py::test_codex_cli_smoke_tees_stderr_to_log_file tests/test_cli.py::test_codex_cli_smoke_records_log_shas_in_manifest tests/test_cli.py::test_codex_cli_smoke_tolerates_stdout_when_output_path_is_valid`.
+  - Cross-regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review tests/test_cli.py::test_run_backend_codex_cli_requires_explicit_live_flag tests/test_cli.py::test_init_map_handoff_and_citation_resolution tests/test_cli.py::test_run_orchestrates_phase_a_flow tests/test_cli.py::test_extract_citations_ignores_markdown_backticks`.
+  - Diff check passed: `git diff --check -- cbm/cli.py schemas/run-manifest.schema.json cbm/schemas/run-manifest.schema.json tests/test_cli.py BUILD-LOG.md`.
+- Boundary:
+  - Additive schema fields were used; no schema-version bump is required.

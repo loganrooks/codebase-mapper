@@ -131,6 +131,19 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n", encoding="utf-8")
 
 
+def write_text_if_nonempty(path: Path, text: str) -> None:
+    if not text:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def sha256_if_nonempty(path: Path) -> str:
+    if not path.exists() or path.stat().st_size == 0:
+        return ""
+    return sha256_file(path)
+
+
 def git(repo: Path, *args: str) -> str:
     proc = subprocess.run(
         ["git", "-C", str(repo), *args],
@@ -1011,6 +1024,16 @@ def build_run_manifest(args: argparse.Namespace, repo: Path, run_id: str, status
     if status == "refused":
         manifest["refusal_reason"] = refusal_reason(args)
     return manifest
+
+
+def annotate_codex_step_outputs(repo: Path, run_id: str, step: dict[str, Any]) -> None:
+    if step.get("backend") != "codex-cli":
+        return
+    run_dir = repo / ".research" / run_id
+    step_id = str(step["step_id"])
+    step["stdout_sha256"] = sha256_if_nonempty(run_dir / "logs" / f"{step_id}.stdout")
+    step["stderr_sha256"] = sha256_if_nonempty(run_dir / "logs" / f"{step_id}.stderr")
+    step["output_path_sha256"] = sha256_if_nonempty(run_dir / "codex-cli-smoke-output.json")
 
 
 def command_init(args: argparse.Namespace) -> int:
@@ -4077,8 +4100,17 @@ def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
             detail += f": {output.strip()}"
         print(detail, file=sys.stderr)
         return INTERRUPTED_EXIT_CODE
+    step_id = "codex-cli-skill-skeptic-review" if args.codex_skeptic_mode == "skill" else "codex-cli-smoke-skeptic-review"
+    logs_dir = paths.run_dir / "logs"
+    write_text_if_nonempty(logs_dir / f"{step_id}.stdout", proc.stdout)
+    write_text_if_nonempty(logs_dir / f"{step_id}.stderr", proc.stderr)
     if proc.returncode != 0:
-        print(proc.stderr.strip() or proc.stdout.strip() or "codex-cli smoke failed", file=sys.stderr)
+        detail = "codex-cli smoke failed"
+        if proc.stderr:
+            detail += f"; stderr logged at {(logs_dir / f'{step_id}.stderr').relative_to(repo)}"
+        elif proc.stdout:
+            detail += f"; stdout logged at {(logs_dir / f'{step_id}.stdout').relative_to(repo)}"
+        print(detail, file=sys.stderr)
         return proc.returncode
     if not output_path.exists():
         print("codex-cli smoke did not write output", file=sys.stderr)
@@ -4674,6 +4706,7 @@ def command_run(args: argparse.Namespace) -> int:
         step["status"] = "succeeded" if rc == 0 else "interrupted" if rc == INTERRUPTED_EXIT_CODE else "failed"
         if rc == INTERRUPTED_EXIT_CODE:
             step["cause"] = "timeout"
+        annotate_codex_step_outputs(repo, run_id, step)
         manifest_status = "running" if rc == 0 else "interrupted" if rc == INTERRUPTED_EXIT_CODE else "failed"
         write_json(paths.run_dir / "run-manifest.json", build_run_manifest(args, repo, run_id, manifest_status, steps))
         if rc != 0:

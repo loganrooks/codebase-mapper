@@ -72,6 +72,24 @@
             ]
           },
           "cause": { "enum": ["timeout"] },
+          "stdout_sha256": {
+            "anyOf": [
+              { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              { "const": "" }
+            ]
+          },
+          "stderr_sha256": {
+            "anyOf": [
+              { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              { "const": "" }
+            ]
+          },
+          "output_path_sha256": {
+            "anyOf": [
+              { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              { "const": "" }
+            ]
+          },
           "skill": {
             "type": "object",
             "additionalProperties": false,

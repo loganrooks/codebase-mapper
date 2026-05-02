@@ -639,6 +639,110 @@ def test_run_id_accepts_valid_identifiers(tmp_path: Path) -> None:
     assert (repo / ".research" / run_id / "state.json").exists()
 
 
+def write_fake_codex_script(path: Path, body: str) -> Path:
+    path.write_text("#!/usr/bin/env python3\n" + body, encoding="utf-8")
+    path.chmod(0o755)
+    return path
+
+
+def run_fake_codex(repo: Path, fake_codex: Path, run_id: str) -> int:
+    return main(
+        [
+            "run",
+            "--repo",
+            str(repo),
+            "--goal",
+            "understand this repo",
+            "--backend",
+            "codex-cli",
+            "--allow-live-codex",
+            "--codex-command",
+            str(fake_codex),
+            "--run-id",
+            run_id,
+        ]
+    )
+
+
+def test_codex_cli_smoke_fails_when_output_path_not_written(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = write_fake_codex_script(
+        tmp_path / "no-output-codex",
+        "import sys\n"
+        "print('stdout noise')\n"
+        "print('stderr noise', file=sys.stderr)\n",
+    )
+
+    run_id = "run-codex-no-output"
+    assert run_fake_codex(repo, fake_codex, run_id) == 1
+    captured = capsys.readouterr()
+    assert "did not write output" in captured.err
+
+
+def test_codex_cli_smoke_tees_stderr_to_log_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = write_fake_codex_script(
+        tmp_path / "stderr-codex",
+        "import json\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "print('diagnostic stderr noise', file=sys.stderr)\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "output_path.write_text(json.dumps({'body': 'valid file output', 'findings_logged': 0, 'challenge_ids': []}) + '\\n', encoding='utf-8')\n",
+    )
+
+    run_id = "run-codex-stderr-log"
+    assert run_fake_codex(repo, fake_codex, run_id) == 0
+    captured = capsys.readouterr()
+    assert "diagnostic stderr noise" not in captured.err
+    stderr_log = repo / ".research" / run_id / "logs" / "codex-cli-smoke-skeptic-review.stderr"
+    assert stderr_log.read_text(encoding="utf-8").strip() == "diagnostic stderr noise"
+
+
+def test_codex_cli_smoke_records_log_shas_in_manifest(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = write_fake_codex_script(
+        tmp_path / "sha-codex",
+        "import json\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "print('known stdout')\n"
+        "print('known stderr', file=sys.stderr)\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "output_path.write_text(json.dumps({'body': 'known output', 'findings_logged': 0, 'challenge_ids': []}) + '\\n', encoding='utf-8')\n",
+    )
+
+    run_id = "run-codex-log-shas"
+    assert run_fake_codex(repo, fake_codex, run_id) == 0
+    run_dir = repo / ".research" / run_id
+    manifest_data = json.loads((run_dir / "run-manifest.json").read_text(encoding="utf-8"))
+    codex_step = next(step for step in manifest_data["steps"] if step["backend"] == "codex-cli")
+    stdout_log = run_dir / "logs" / "codex-cli-smoke-skeptic-review.stdout"
+    stderr_log = run_dir / "logs" / "codex-cli-smoke-skeptic-review.stderr"
+    output_path = run_dir / "codex-cli-smoke-output.json"
+    assert codex_step["stdout_sha256"] == sha256_file(stdout_log)
+    assert codex_step["stderr_sha256"] == sha256_file(stderr_log)
+    assert codex_step["output_path_sha256"] == sha256_file(output_path)
+
+
+def test_codex_cli_smoke_tolerates_stdout_when_output_path_is_valid(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = write_fake_codex_script(
+        tmp_path / "stdout-noise-codex",
+        "import json\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "print('this is not json and must not be parsed')\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "output_path.write_text(json.dumps({'body': 'valid output path json', 'findings_logged': 0, 'challenge_ids': []}) + '\\n', encoding='utf-8')\n",
+    )
+
+    run_id = "run-codex-stdout-noise"
+    assert run_fake_codex(repo, fake_codex, run_id) == 0
+    stdout_log = repo / ".research" / run_id / "logs" / "codex-cli-smoke-skeptic-review.stdout"
+    assert "must not be parsed" in stdout_log.read_text(encoding="utf-8")
+
+
 def test_init_records_project_type_citations_in_ledger(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
