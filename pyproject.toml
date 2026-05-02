@@ -44,6 +44,7 @@ cbm-run-gate = "cbm.cli:run_gate_main"
 cbm-handoff = "cbm.cli:handoff_main"
 cbm-run = "cbm.cli:run_main"
 cbm-loop-status = "cbm.cli:loop_status_main"
+cbm-checkpoint = "cbm.cli:checkpoint_main"
 cbm-hook-stop = "cbm.cli:hook_stop_main"
 cbm-hook-start = "cbm.cli:hook_start_main"
 

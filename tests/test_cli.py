@@ -2501,6 +2501,10 @@ def write_checkpoint_packet(repo: Path, text: str, disposition: str = "Dispositi
     git(repo, "commit", "-m", "update checkpoint packet")
 
 
+def latest_checkpoint_file(repo: Path) -> Path:
+    return max((repo / ".planning" / "reviews").glob("*/CHECKPOINT.md"), key=lambda path: path.stat().st_mtime)
+
+
 def test_loop_status_blocks_pass_claim_with_missing_reviewer_model_id(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     write_checkpoint_packet(repo, "# Checkpoint\n\nDisposition: accept\n")
@@ -2555,6 +2559,106 @@ def test_loop_status_recovery_slice_tolerates_labeled_same_model_fallback(tmp_pa
     )
 
     assert main(["loop-status", "--repo", str(repo), "--scope", "recovery-slice", "--work-category", "loop-status"]) == 0
+
+
+def test_checkpoint_command_emits_packet_with_required_files(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+
+    assert main(["checkpoint", "--repo", str(repo), "--pass-criterion", "test criterion", "--scope", "recovery-slice"]) == 0
+    checkpoint = latest_checkpoint_file(repo)
+    packet = checkpoint.parent
+    assert (packet / "PROMPT.md").exists()
+    assert (packet / "DISPOSITION.md").exists()
+    checkpoint_text = checkpoint.read_text(encoding="utf-8")
+    assert "status: pending" in checkpoint_text
+    assert "scope: recovery-slice" in checkpoint_text
+    assert "pass_criterion: test criterion" in checkpoint_text
+
+
+def test_checkpoint_packet_includes_diff_since_last_checkpoint(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+    (repo / "AGENTS.md").write_text("# AGENTS\n\nnew checkpoint diff content\n", encoding="utf-8")
+    git(repo, "add", "AGENTS.md")
+    git(repo, "commit", "-m", "change agents")
+
+    assert main(["checkpoint", "--repo", str(repo), "--pass-criterion", "diff criterion", "--scope", "recovery-slice"]) == 0
+    prompt = sorted((repo / ".planning" / "reviews").glob("*/PROMPT.md"))[-1]
+    assert "new checkpoint diff content" in prompt.read_text(encoding="utf-8")
+
+
+def test_checkpoint_records_reviewer_model_id_when_provided(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+
+    assert main(["checkpoint", "--repo", str(repo), "--pass-criterion", "reviewer criterion", "--scope", "recovery-slice", "--reviewer", "claude-opus-4-7"]) == 0
+    checkpoint = latest_checkpoint_file(repo)
+    assert "reviewer_model_id: claude-opus-4-7" in checkpoint.read_text(encoding="utf-8")
+
+
+def test_checkpoint_recovery_slice_allows_same_model_fallback_with_flag(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+
+    assert (
+        main(
+            [
+                "checkpoint",
+                "--repo",
+                str(repo),
+                "--pass-criterion",
+                "fallback criterion",
+                "--scope",
+                "recovery-slice",
+                "--reviewer",
+                "gpt-5.5-pro",
+                "--reviewer-fallback-same-model",
+            ]
+        )
+        == 0
+    )
+    checkpoint = latest_checkpoint_file(repo)
+    text = checkpoint.read_text(encoding="utf-8")
+    assert "reviewer_model_id: gpt-5.5-pro" in text
+    assert "same_model_fallback: true" in text
+
+
+def test_checkpoint_pass_claim_warns_on_same_model_fallback(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+
+    assert (
+        main(
+            [
+                "checkpoint",
+                "--repo",
+                str(repo),
+                "--pass-criterion",
+                "pass claim criterion",
+                "--scope",
+                "pass-claim",
+                "--reviewer",
+                "gpt-5.5-pro",
+                "--reviewer-fallback-same-model",
+            ]
+        )
+        == 0
+    )
+    captured = capsys.readouterr()
+    assert "same-model fallback cannot clear pass-claim" in captured.err
+
+
+def test_loop_status_pass_claim_blocked_until_cross_model_disposition(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(repo, "# Checkpoint\n\nreviewer_model_id: gpt-5.5-pro\nDisposition: accept\n")
+    assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 1
+
+    checkpoint = repo / ".planning" / "reviews" / "checkpoint" / "CHECKPOINT.md"
+    checkpoint.write_text("# Checkpoint\n\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n", encoding="utf-8")
+    git(repo, "add", ".planning")
+    git(repo, "commit", "-m", "use cross model checkpoint")
+    assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 0
 
 
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:

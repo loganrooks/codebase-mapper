@@ -1507,3 +1507,19 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 83 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
 - Boundary:
   - The archived recovery plan preserves the original prose under `## Original Recovery Plan`; it is not rewritten into a rigid template.
+
+## 2026-05-02 — Recovery slice: I-X1 native checkpoint primitive
+
+- Implemented: `cbm checkpoint` creates `.planning/reviews/<date-slug>/` packets with `PROMPT.md`, `CHECKPOINT.md`, and `DISPOSITION.md`.
+- Implemented: checkpoint prompts include `.planning/STATE.md`, `.planning/CURRENT-PLAN.md`, the pass criterion, and a diff since the last tracked checkpoint across authority, docs, code, tests, schemas, and live planning files.
+- Implemented: checkpoint frontmatter records `reviewer_model_id`, `same_model_fallback`, `scope`, and `pass_criterion`.
+- Implemented: `cbm-checkpoint` console script and `docs/contracts.md` command documentation.
+- Decision: I-X1 tests use GPT/Codex as same-model and Claude as cross-model, matching `cbm/loop_status_config.json` for this active Codex/OpenAI implementation loop.
+- Verification run:
+  - Red tests initially failed as expected because `checkpoint` was not a recognized CLI subcommand.
+  - Focused regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_checkpoint_command_emits_packet_with_required_files tests/test_cli.py::test_checkpoint_packet_includes_diff_since_last_checkpoint tests/test_cli.py::test_checkpoint_records_reviewer_model_id_when_provided tests/test_cli.py::test_checkpoint_recovery_slice_allows_same_model_fallback_with_flag tests/test_cli.py::test_checkpoint_pass_claim_warns_on_same_model_fallback tests/test_cli.py::test_loop_status_pass_claim_blocked_until_cross_model_disposition`.
+  - Cross-regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_loop_status_blocks_broad_goal_on_orphaned_review_packet tests/test_cli.py::test_loop_status_blocks_broad_goal_on_empty_review_folder tests/test_cli.py::test_loop_status_blocks_pass_claim_with_missing_reviewer_model_id tests/test_cli.py::test_loop_status_blocks_pass_claim_with_same_model_reviewer tests/test_cli.py::test_loop_status_accepts_pass_claim_with_cross_model_reviewer tests/test_cli.py::test_loop_status_warns_on_repeated_rework_pattern tests/test_cli.py::test_loop_status_recovery_slice_tolerates_labeled_same_model_fallback tests/test_cli.py::test_loop_status_blocks_broad_goal_until_checkpoint_satisfies_resume tests/test_cli.py::test_loop_status_blocks_dirty_authority_docs_and_disallowed_work`.
+  - Diff check passed: `git diff --check -- cbm/cli.py cbm/loop_status_config.json tests/test_cli.py docs/contracts.md AGENTS.md BUILD-LOG.md pyproject.toml`.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 89 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Boundary:
+  - This builds the checkpoint packet primitive only. The actual minimum-useful-CBM pass-claim checkpoint must be created and reviewed separately by a non-current-model reviewer.

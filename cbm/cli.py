@@ -3745,6 +3745,11 @@ def sanitize_id(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "-", value).strip("-") or "gate"
 
 
+def sanitize_slug(value: str, max_len: int = 48) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return (slug[:max_len].strip("-") or "checkpoint")
+
+
 def declared_ci_gates(artifact: dict[str, Any]) -> list[dict[str, Any]]:
     gates = []
     if isinstance(artifact.get("ci_gates"), list):
@@ -4811,6 +4816,142 @@ def checkpoint_disposition_metadata(path: Path | None) -> dict[str, str]:
     return markdown_metadata(disposition.read_text(encoding="utf-8"))
 
 
+CHECKPOINT_DIFF_PATHS = [
+    "AGENTS.md",
+    "VISION.md",
+    "RUNTIME-CONSTITUTION.md",
+    "docs/architecture.md",
+    "docs/contracts.md",
+    "docs/roadmap.md",
+    "cbm/",
+    "tests/",
+    "schemas/",
+    "cbm/schemas/",
+    ".planning/STATE.md",
+    ".planning/CURRENT-PLAN.md",
+]
+
+
+def last_checkpoint_commit(repo: Path) -> str | None:
+    checkpoints = checkpoint_files(repo)
+    if not checkpoints:
+        return None
+    rel_paths = [path.relative_to(repo).as_posix() for path in checkpoints]
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(repo), "log", "-1", "--format=%H", "--", *rel_paths],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        return None
+    commit = proc.stdout.strip()
+    return commit or None
+
+
+def checkpoint_diff(repo: Path) -> str:
+    base = last_checkpoint_commit(repo)
+    if not base:
+        return "(No prior checkpoint commit found.)\n"
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(repo), "diff", f"{base}..HEAD", "--", *CHECKPOINT_DIFF_PATHS],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        return f"(git diff failed: {exc.stderr.strip()})\n"
+    return proc.stdout or "(No diff since previous checkpoint across tracked paths.)\n"
+
+
+def next_checkpoint_dir(repo: Path, pass_criterion: str) -> Path:
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    base = repo / ".planning" / "reviews" / f"{date}-{sanitize_slug(pass_criterion)}"
+    candidate = base
+    index = 2
+    while candidate.exists():
+        candidate = repo / ".planning" / "reviews" / f"{base.name}-{index}"
+        index += 1
+    return candidate
+
+
+def command_checkpoint(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    packet = next_checkpoint_dir(repo, args.pass_criterion)
+    packet.mkdir(parents=True, exist_ok=False)
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    reviewer = args.reviewer or ""
+    same_model_fallback = bool(args.reviewer_fallback_same_model)
+    if same_model_fallback and args.scope != "recovery-slice":
+        print("warning: same-model fallback cannot clear pass-claim, main-merge, or broad-goal-restart scope", file=sys.stderr)
+    state_path = repo / ".planning" / "STATE.md"
+    plan_path = repo / ".planning" / "CURRENT-PLAN.md"
+    state_text = state_path.read_text(encoding="utf-8") if state_path.exists() else "(missing STATE.md)\n"
+    plan_text = plan_path.read_text(encoding="utf-8") if plan_path.exists() else "(missing CURRENT-PLAN.md)\n"
+    diff_text = checkpoint_diff(repo)
+    prompt = f"""# Checkpoint Review Prompt
+
+Status: pending
+Date: {date}
+Scope: {args.scope}
+Pass criterion: {args.pass_criterion}
+
+## Task
+
+Review whether the pass criterion is supported by the current repo state. Return findings in CHECKPOINT.md and leave a clear disposition in DISPOSITION.md.
+
+## Pass Criterion
+
+{args.pass_criterion}
+
+## STATE.md
+
+```markdown
+{state_text.rstrip()}
+```
+
+## CURRENT-PLAN.md
+
+```markdown
+{plan_text.rstrip()}
+```
+
+## Diff Since Last Checkpoint
+
+```diff
+{diff_text.rstrip()}
+```
+"""
+    checkpoint = f"""---
+status: pending
+date: {date}
+reviewer_model_id: {reviewer}
+same_model_fallback: {str(same_model_fallback).lower()}
+scope: {args.scope}
+pass_criterion: {args.pass_criterion}
+confidence:
+disposition:
+---
+
+# Checkpoint
+
+"""
+    disposition = """# Checkpoint Disposition
+
+Status: pending
+Decision:
+"""
+    (packet / "PROMPT.md").write_text(prompt, encoding="utf-8")
+    (packet / "CHECKPOINT.md").write_text(checkpoint, encoding="utf-8")
+    (packet / "DISPOSITION.md").write_text(disposition, encoding="utf-8")
+    print(packet)
+    return 0
+
+
 def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scope: str) -> list[dict[str, str]]:
     if not path:
         return [{"code": "missing_checkpoint", "message": "no checkpoint review artifact found under .planning/reviews"}]
@@ -5314,6 +5455,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_loop_status.add_argument("--work-category")
     p_loop_status.add_argument("--json", action="store_true")
     p_loop_status.set_defaults(func=command_loop_status)
+    p_checkpoint = sub.add_parser("checkpoint")
+    p_checkpoint.add_argument("--repo", default=".")
+    p_checkpoint.add_argument("--pass-criterion", required=True)
+    p_checkpoint.add_argument("--scope", required=True, choices=["recovery-slice", "pass-claim", "main-merge", "broad-goal-restart"])
+    p_checkpoint.add_argument("--reviewer")
+    p_checkpoint.add_argument("--reviewer-fallback-same-model", action="store_true")
+    p_checkpoint.set_defaults(func=command_checkpoint)
     p_hook_stop = sub.add_parser("hook-stop")
     p_hook_stop.add_argument("--repo", default=".")
     p_hook_stop.add_argument("--run-id")
@@ -5444,6 +5592,10 @@ def run_main() -> int:
 
 def loop_status_main() -> int:
     return main(["loop-status", *sys.argv[1:]])
+
+
+def checkpoint_main() -> int:
+    return main(["checkpoint", *sys.argv[1:]])
 
 
 def hook_stop_main() -> int:

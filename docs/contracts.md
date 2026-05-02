@@ -107,6 +107,10 @@ Reader skill invocation. Identifies relevant artifacts from `.research/`; runs `
 
 Read-only recovery preflight. Checks that live planning files exist, authority/planning docs are not dirty, the requested recovery work category is allowed, review packets are complete, and checkpoint gates are satisfied for the requested scope. `--scope recovery-slice` tolerates same-model checkpoint fallback only when labeled with `same_model_fallback: true`; `--scope pass-claim` requires a `reviewer_model_id` from a configured non-current model family and an accepted disposition.
 
+### `cbm-checkpoint` / `cbm checkpoint` (recovery)
+
+Create a checkpoint review packet under `.planning/reviews/<date-slug>/`. Required inputs: `--pass-criterion <text>` and `--scope <recovery-slice|pass-claim|main-merge|broad-goal-restart>`. Optional inputs: `--reviewer <model-id>` and `--reviewer-fallback-same-model`. Outputs `PROMPT.md`, `CHECKPOINT.md`, and `DISPOSITION.md`; pass-claim acceptance is enforced later by `cbm-loop-status`.
+
 ### `cbm-bind <goal-string>`
 
 Produce `goal-binding.json`. Lists candidate surfaces with map citations and status flags (active/challenged/contested/contradicted). `cbm-bind` does **not** commit to a single intervention.

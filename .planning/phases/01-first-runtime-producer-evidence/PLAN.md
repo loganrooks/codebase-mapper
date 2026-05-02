@@ -17,7 +17,7 @@ Acceptance criterion: the minimum-useful-CBM floor in `VISION.md:41-43` is clear
 - I-S4b: Codex CLI output-path enforcement and stderr/stdout tee. Status: completed in `c165f79`.
 - I-S5: ADR ledger seed. Status: completed in `8d0239f`.
 - I-X2: per-phase artifact bundle convention. Status: in progress in this slice.
-- I-X1: CBM-native cross-model checkpoint primitive. Status: pending.
+- I-X1: CBM-native cross-model checkpoint primitive. Status: completed in this slice; actual pass-claim review packet remains out of scope.
 - I-S2: skill loader and first real Skeptic artifact on MCP `src/git`. Status: completed early in `3748d72` and `0a2b6f0`; must be reconciled with I-X1 before any pass claim.
 - I-S6: Codex CLI failure-mode regression set. Status: pending.
 - I-S7: honest-baseline banner on handoff/cards. Status: pending.
