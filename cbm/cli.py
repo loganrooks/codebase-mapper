@@ -114,6 +114,14 @@ def positive_int(value: str) -> int:
     return parsed
 
 
+def subprocess_text(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
+
+
 def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -4051,8 +4059,18 @@ def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
         )
     except subprocess.TimeoutExpired as exc:
         detail = f"codex-cli smoke timed out after {args.codex_timeout} seconds"
-        output = exc.output.decode("utf-8", errors="replace") if isinstance(exc.output, bytes) else exc.output
-        stderr = exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else exc.stderr
+        output = subprocess_text(exc.output)
+        stderr = subprocess_text(exc.stderr)
+        partial_chunks = []
+        if output:
+            partial_chunks.append("[stdout]\n" + output.rstrip())
+        if stderr:
+            partial_chunks.append("[stderr]\n" + stderr.rstrip())
+        if partial_chunks:
+            partial_dir = paths.run_dir / "codex_outputs"
+            partial_dir.mkdir(parents=True, exist_ok=True)
+            step_id = "codex-cli-skill-skeptic-review" if args.codex_skeptic_mode == "skill" else "codex-cli-smoke-skeptic-review"
+            partial_dir.joinpath(f"{step_id}.partial").write_text("\n\n".join(partial_chunks) + "\n", encoding="utf-8")
         if stderr:
             detail += f": {stderr.strip()}"
         elif output:
@@ -4654,6 +4672,8 @@ def command_run(args: argparse.Namespace) -> int:
         step["exit_code"] = rc
         step["completed_at"] = utc_now()
         step["status"] = "succeeded" if rc == 0 else "interrupted" if rc == INTERRUPTED_EXIT_CODE else "failed"
+        if rc == INTERRUPTED_EXIT_CODE:
+            step["cause"] = "timeout"
         manifest_status = "running" if rc == 0 else "interrupted" if rc == INTERRUPTED_EXIT_CODE else "failed"
         write_json(paths.run_dir / "run-manifest.json", build_run_manifest(args, repo, run_id, manifest_status, steps))
         if rc != 0:

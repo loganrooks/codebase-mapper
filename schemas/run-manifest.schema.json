@@ -71,6 +71,7 @@
               { "type": "null" }
             ]
           },
+          "cause": { "enum": ["timeout"] },
           "skill": {
             "type": "object",
             "additionalProperties": false,

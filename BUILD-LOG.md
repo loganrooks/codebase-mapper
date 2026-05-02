@@ -1456,3 +1456,16 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Pass-claim self-test blocked as expected: `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category loop-status --json` reported `same_model_checkpoint` for the historical same-model fallback checkpoint.
 - Boundary:
   - This builds the mechanical checkpoint gate; it does not create the future cross-model pass-claim review packet itself.
+
+## 2026-05-02 — Recovery slice: I-S4a Codex timeout and run-id hardening completion
+
+- Implemented: Codex CLI timeout handling now writes `cause: timeout` into the interrupted run-manifest step.
+- Implemented: timeout partial stdout/stderr is preserved under `.research/<run_id>/codex_outputs/<step>.partial` when a subprocess emits output before timing out.
+- Added exact I-S4a regression names for timeout manifest behavior, init/run path-traversal rejection, and valid run-id acceptance.
+- Verification run:
+  - Red test initially failed as expected because interrupted Codex steps had no `cause` field.
+  - Focused regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_codex_cli_subprocess_times_out_and_writes_interrupted_manifest tests/test_cli.py::test_run_id_rejects_path_traversal_in_init tests/test_cli.py::test_run_id_rejects_path_traversal_in_run tests/test_cli.py::test_run_id_accepts_valid_identifiers`.
+  - Cross-regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review tests/test_cli.py::test_run_backend_codex_cli_requires_explicit_live_flag tests/test_cli.py::test_init_map_handoff_and_citation_resolution tests/test_cli.py::test_run_orchestrates_phase_a_flow`.
+  - Diff check passed: `git diff --check -- cbm/cli.py tests/test_cli.py docs/contracts.md BUILD-LOG.md schemas/run-manifest.schema.json cbm/schemas/run-manifest.schema.json`.
+- Boundary:
+  - This completes the timeout/run-id behavior; it does not implement the I-S4b stdout/stderr log hashing contract.

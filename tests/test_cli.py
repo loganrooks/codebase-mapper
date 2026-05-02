@@ -562,6 +562,83 @@ def test_run_backend_codex_cli_timeout_marks_manifest_interrupted(tmp_path: Path
     assert codex_steps[0]["exit_code"] == 124
 
 
+def test_codex_cli_subprocess_times_out_and_writes_interrupted_manifest(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = tmp_path / "partial-slow-codex"
+    fake_codex.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "import time\n"
+        "print('partial stdout before timeout', flush=True)\n"
+        "print('partial stderr before timeout', file=sys.stderr, flush=True)\n"
+        "time.sleep(5)\n",
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o755)
+
+    run_id = "run-codex-cli-timeout-partial"
+    assert (
+        main(
+            [
+                "run",
+                "--repo",
+                str(repo),
+                "--goal",
+                "understand this repo",
+                "--backend",
+                "codex-cli",
+                "--allow-live-codex",
+                "--codex-command",
+                str(fake_codex),
+                "--codex-timeout",
+                "1",
+                "--run-id",
+                run_id,
+            ]
+        )
+        == 124
+    )
+
+    run_dir = repo / ".research" / run_id
+    run_manifest = run_dir / "run-manifest.json"
+    manifest_data = json.loads(run_manifest.read_text(encoding="utf-8"))
+    assert manifest_data["status"] == "interrupted"
+    codex_step = next(step for step in manifest_data["steps"] if step["backend"] == "codex-cli")
+    assert codex_step["status"] == "interrupted"
+    assert codex_step["cause"] == "timeout"
+    partial = run_dir / "codex_outputs" / "codex-cli-smoke-skeptic-review.partial"
+    assert partial.exists()
+    partial_text = partial.read_text(encoding="utf-8")
+    assert "partial stdout before timeout" in partial_text
+    assert "partial stderr before timeout" in partial_text
+
+
+def test_run_id_rejects_path_traversal_in_init(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+
+    with pytest.raises(SystemExit):
+        main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", "../../etc"])
+
+    assert not (tmp_path / "etc").exists()
+
+
+def test_run_id_rejects_path_traversal_in_run(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+
+    with pytest.raises(SystemExit):
+        main(["run", "--repo", str(repo), "--goal", "understand this repo", "--run-id", "../escape"])
+
+    assert not (tmp_path / "escape").exists()
+
+
+def test_run_id_accepts_valid_identifiers(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    run_id = "run-mcp-git-codex-smoke-4"
+
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert (repo / ".research" / run_id / "state.json").exists()
+
+
 def test_init_records_project_type_citations_in_ledger(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

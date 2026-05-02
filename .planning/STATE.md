@@ -21,7 +21,7 @@ Current product state:
 - `cbm-loop-status` now checks review-session completion for broad `/goal`;
 - `cbm-loop-status` now blocks pass-claim scope unless the latest checkpoint records a reviewer model from a configured non-current model family;
 - `cbm run` rejects unsafe run IDs before constructing `.research/<run_id>` paths;
-- Codex CLI subprocess calls now have a configurable timeout and interrupted manifest status;
+- Codex CLI subprocess calls now have a configurable timeout, interrupted manifest status, timeout cause recording, and partial-output preservation;
 - a live Codex CLI isolation probe reported no access to parent-only session context under current backend flags;
 - runtime skill loading exists for Codex CLI skill mode, and run manifests record the loaded Skeptic skill hash;
 - the first skill-loaded `skeptic@1.2` run on MCP `src/git` produced a structurally ingested interpretive challenge;
