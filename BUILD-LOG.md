@@ -1523,3 +1523,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 89 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
 - Boundary:
   - This builds the checkpoint packet primitive only. The actual minimum-useful-CBM pass-claim checkpoint must be created and reviewed separately by a non-current-model reviewer.
+
+## 2026-05-02 — Recovery slice: I-S6 Codex CLI failure-mode regressions
+
+- Implemented: completed the named Codex CLI failure-mode regression set for timeout, invalid JSON, missing output file, schema-invalid output, and stderr noise with valid output-path JSON.
+- Verification run:
+  - Focused regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_codex_cli_smoke_handles_subprocess_timeout tests/test_cli.py::test_codex_cli_smoke_rejects_invalid_json_output tests/test_cli.py::test_codex_cli_smoke_rejects_missing_output_file tests/test_cli.py::test_codex_cli_smoke_rejects_schema_invalid_output tests/test_cli.py::test_codex_cli_smoke_tolerates_stderr_noise_with_valid_json`.
+  - Cross-regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py -k codex_cli` reported 14 passed, 80 deselected, 2 warnings.
+  - Diff check passed: `git diff --check -- tests/test_cli.py BUILD-LOG.md .planning/phases/01-first-runtime-producer-evidence/PLAN.md`.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 94 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Boundary:
+  - This is regression coverage for existing adapter behavior; no runtime behavior was changed in this slice.

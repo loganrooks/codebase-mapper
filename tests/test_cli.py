@@ -743,6 +743,49 @@ def test_codex_cli_smoke_tolerates_stdout_when_output_path_is_valid(tmp_path: Pa
     assert "must not be parsed" in stdout_log.read_text(encoding="utf-8")
 
 
+def test_codex_cli_smoke_handles_subprocess_timeout(tmp_path: Path) -> None:
+    test_codex_cli_subprocess_times_out_and_writes_interrupted_manifest(tmp_path)
+
+
+def test_codex_cli_smoke_rejects_invalid_json_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = write_fake_codex_script(
+        tmp_path / "invalid-json-codex",
+        "import sys\n"
+        "from pathlib import Path\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "output_path.write_text('{not json}\\n', encoding='utf-8')\n",
+    )
+
+    assert run_fake_codex(repo, fake_codex, "run-codex-invalid-json") == 1
+    captured = capsys.readouterr()
+    assert "output invalid" in captured.err
+
+
+def test_codex_cli_smoke_rejects_missing_output_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    test_codex_cli_smoke_fails_when_output_path_not_written(tmp_path, capsys)
+
+
+def test_codex_cli_smoke_rejects_schema_invalid_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = write_fake_codex_script(
+        tmp_path / "schema-invalid-codex",
+        "import json\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "output_path.write_text(json.dumps({'body': 'missing required counters'}) + '\\n', encoding='utf-8')\n",
+    )
+
+    assert run_fake_codex(repo, fake_codex, "run-codex-schema-invalid") == 1
+    captured = capsys.readouterr()
+    assert "output invalid" in captured.err
+
+
+def test_codex_cli_smoke_tolerates_stderr_noise_with_valid_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    test_codex_cli_smoke_tees_stderr_to_log_file(tmp_path, capsys)
+
+
 def test_init_records_project_type_citations_in_ledger(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
