@@ -1561,3 +1561,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Both probe handoffs validated with `python3 -m cbm.cli validate`.
 - Boundary:
   - This verifies the current Codex CLI backend isolation property for parent-only token visibility; it does not prove cross-platform isolation or full runtime-agent quality.
+
+## 2026-05-02 — Recovery slice: I-S2 skill-loader compatibility surface
+
+- Implemented: added `cbm/skills.py` as the formal skill-loader compatibility module named by I-S2, wrapping the existing runtime `cbm.skill_loader` implementation.
+- Implemented: exposed `SkillNotFoundError` and a dict-shaped `load_skill(name)` result with `name`, `path`, `sha256`, and `body`.
+- Verification run:
+  - Focused regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_load_skill_returns_path_sha256_and_body tests/test_cli.py::test_load_skill_raises_skill_not_found_on_missing tests/test_cli.py::test_load_skill_is_pure tests/test_cli.py::test_run_backend_codex_cli_skill_mode_loads_skeptic_skill`.
+  - Diff check passed: `git diff --check -- cbm/skills.py tests/test_cli.py BUILD-LOG.md`.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 100 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Boundary:
+  - Compatibility wrapper only; the runtime Codex backend continues to use `cbm.skill_loader`.

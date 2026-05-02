@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from cbm import skills
 from cbm.cli import BASELINE_BANNER_TEXT, extract_citations, goal_pack, load_goal_packs, load_project_packs, main, render_card_title, render_handoff_body, sha256_file
 from cbm.skill_loader import load_skill
 
@@ -64,6 +65,26 @@ def test_load_skill_records_skeptic_hash() -> None:
     assert skill.name == "skeptic"
     assert skill.sha256 == sha256_file(SOURCE_ROOT / "skills" / "skeptic.md")
     assert "Skill: Skeptic" in skill.body
+
+
+def test_load_skill_returns_path_sha256_and_body() -> None:
+    skill = skills.load_skill("skeptic")
+    assert skill["name"] == "skeptic"
+    assert skill["sha256"] == sha256_file(SOURCE_ROOT / "skills" / "skeptic.md")
+    assert Path(skill["path"]).name == "skeptic.md"
+    assert "Skill: Skeptic" in str(skill["body"])
+
+
+def test_load_skill_raises_skill_not_found_on_missing() -> None:
+    with pytest.raises(skills.SkillNotFoundError):
+        skills.load_skill("nonexistent")
+
+
+def test_load_skill_is_pure() -> None:
+    first = skills.load_skill("skeptic")
+    second = skills.load_skill("skeptic")
+    assert first["sha256"] == second["sha256"]
+    assert first["body"] == second["body"]
 
 
 def test_extract_citations_ignores_markdown_backticks() -> None:
