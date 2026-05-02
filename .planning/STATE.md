@@ -17,9 +17,10 @@ Current product state:
 - deterministic smoke artifacts exist under `.research/`;
 - a guarded `codex-cli` smoke backend exists and can be tested with a fake executable;
 - the `codex-cli` smoke backend defaults to `gpt-5.4-mini` with medium reasoning for harness tests;
+- the first live Codex CLI smoke artifact has passed on the pinned MCP `src/git` benchmark;
 - CBM schemas are packaged under `cbm/schemas/` so installed validation does not depend on a repo checkout or target-local schema copies;
 - runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
-- no live Codex CLI model subprocess has been run through CBM yet;
+- no full runtime Surface Mapper or full isolated Skeptic pass has been run through CBM yet;
 - current deterministic artifacts must not be treated as proof of nuanced codebase understanding.
 
 ## Authority
@@ -67,7 +68,7 @@ Accepted default for recovery:
 
 CBM should own the run lifecycle through a producer registry. A producer entry chooses whether an artifact is produced by the deterministic baseline, an external host-agent handoff, or a CLI-launched agent backend. Parent-side CBM validation remains mandatory after each produced artifact.
 
-Codex CLI subprocesses are a candidate backend, not an assumption. The local CLI capability spike shows useful isolation controls exist, and the guarded backend now records a Codex CLI smoke step in `run-manifest.json`. The Skeptic role may use Codex subprocesses only after a live smoke proves model-visible isolation and output-schema behavior.
+Codex CLI subprocesses are now a proven smoke backend for one bounded artifact. The local CLI capability spike showed useful isolation controls, and the live MCP `src/git` smoke proved cheap-model selection, output-schema use, read-only subprocess dispatch, manifest recording, parent-side validation, and ledger integration. This does not yet prove full Skeptic quality or Surface Mapper adequacy.
 
 Hooks remain optional adapter glue. They are not the deployment model and not the correctness mechanism.
 
@@ -88,6 +89,12 @@ First deterministic external baseline:
 - Target: MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
 - Result artifact: `.planning/benchmarks/2026-05-01-mcp-git-baseline/RESULT.md`.
 - Status: deterministic baseline passed validation, but benchmark scope was polluted by copied CBM schemas at the time because schema loading expected `<target-repo>/schemas`. The harness gap is now fixed for future runs: validation can use CBM's own schema source without copying schemas into the target checkout.
+
+First live runtime-producer smoke:
+
+- Target: MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
+- Result artifact: `.planning/benchmarks/2026-05-02-mcp-git-codex-smoke/RESULT.md`.
+- Status: live Codex CLI smoke review passed validation and handoff gates with honest producer identity. This is runtime-producer evidence for one bounded smoke artifact, not the `VISION.md` minimum useful CBM floor.
 
 ## Known Risks
 
@@ -120,6 +127,10 @@ Last known full suite after the schema packaging slice: `pytest -q` reported `60
 
 Last known packaging verification: `python3 -m pip wheel . --no-deps -w /tmp/cbm-wheel-check` built `cbm-0.1.0-py3-none-any.whl`; wheel inspection found 19 `cbm/schemas/*.schema.json` entries and no unintended top-level packages beyond `cbm` and dist-info. Installed-package smoke also passed from `/tmp` with `PYTHONPATH` pointing only at the wheel target; import came from `/tmp/.../pkg/cbm/cli.py`, `cbm run` completed, and `cbm validate handoff.md` passed without target-local schemas.
 
+Last known live benchmark smoke: `python3 -m cbm.cli run --repo /tmp/cbm-live-mcp-servers-4503e2d/src/git --goal "understand MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-codex-smoke-4` exited 0.
+
+Last known full suite after the live Codex CLI smoke remediation slice: `pytest -q` reported `61 passed, 2 warnings`.
+
 This verifies the test suite, not `VISION.md` maturity.
 
 Required next verification:
@@ -134,4 +145,5 @@ Required next verification:
 - schema-source benchmark-harness slice: focused no-pollution regression passed; full `pytest -q` passed;
 - Codex CLI smoke model-control slice: focused fake-executable regression passed; full `pytest -q` passed;
 - schema packaging slice: package resource regression passed; wheel build/inspection passed; full `pytest -q` passed;
+- live Codex CLI smoke slice: focused regressions passed; MCP `src/git` live smoke passed; full `pytest -q` passed;
 - benchmark slice: generated artifacts must validate and show honest producer identity and coverage.

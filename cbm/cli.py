@@ -21,7 +21,7 @@ from jsonschema import Draft202012Validator, RefResolver
 
 
 SCHEMA_VERSION = "1.2"
-CITATION_RE = re.compile(r"(?P<path>[^:@\s]+):(?P<start>\d+)(?:-(?P<end>\d+))?@(?P<sha>[0-9a-f]{7,40})")
+CITATION_RE = re.compile(r"(?P<path>[^`:@\s]+):(?P<start>\d+)(?:-(?P<end>\d+))?@(?P<sha>[0-9a-f]{7,40})")
 DEFAULT_EXCLUDED = [
     ".git/**",
     ".research/**",
@@ -3790,6 +3790,10 @@ def codex_cli_reasoning_config(reasoning_effort: str) -> str:
     return f'model_reasoning_effort="{reasoning_effort}"'
 
 
+def codex_cli_approval_config() -> str:
+    return 'approval_policy="never"'
+
+
 def codex_cli_smoke_command_display(codex_command: str, repo: Path, run_id: str, model: str, reasoning_effort: str) -> str:
     run_dir = repo / ".research" / run_id
     output_path = run_dir / "codex-cli-smoke-output.json"
@@ -3802,6 +3806,8 @@ def codex_cli_smoke_command_display(codex_command: str, repo: Path, run_id: str,
             model,
             "-c",
             codex_cli_reasoning_config(reasoning_effort),
+            "-c",
+            codex_cli_approval_config(),
             "--ephemeral",
             "--ignore-user-config",
             "--ignore-rules",
@@ -3809,8 +3815,6 @@ def codex_cli_smoke_command_display(codex_command: str, repo: Path, run_id: str,
             str(repo),
             "-s",
             "read-only",
-            "-a",
-            "never",
             "--json",
             "-o",
             str(output_path),
@@ -3852,6 +3856,8 @@ def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
         args.codex_model,
         "-c",
         codex_cli_reasoning_config(args.codex_reasoning_effort),
+        "-c",
+        codex_cli_approval_config(),
         "--ephemeral",
         "--ignore-user-config",
         "--ignore-rules",
@@ -3859,8 +3865,6 @@ def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
         str(repo),
         "-s",
         "read-only",
-        "-a",
-        "never",
         "--json",
         "-o",
         str(output_path),
@@ -3904,15 +3908,32 @@ def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
         return 1
     skeptic_path = paths.run_dir / "skeptic-review" / "surface-map.md"
     skeptic_path.parent.mkdir(parents=True, exist_ok=True)
+    review_body = (
+        "# Codex CLI Smoke Review\n\n"
+        + output["body"].strip()
+        + "\n\n"
+        + f"Smoke citation anchor: {citation}\n"
+    )
     skeptic_path.write_text(
         "---\n"
         + yaml.safe_dump(frontmatter, sort_keys=False)
-        + "---\n# Codex CLI Smoke Review\n\n"
-        + output["body"].strip()
-        + "\n\n"
-        + f"Smoke citation anchor: {citation}\n",
+        + "---\n"
+        + review_body,
         encoding="utf-8",
     )
+    try:
+        append_citation_entries(
+            repo,
+            paths.run_dir / "evidence-ledger.jsonl",
+            paths.run_id,
+            sha,
+            str(skeptic_path.relative_to(repo)),
+            {"frontmatter": frontmatter, "body": review_body},
+            "codex-cli-smoke",
+        )
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
     print(skeptic_path)
     return 0
 

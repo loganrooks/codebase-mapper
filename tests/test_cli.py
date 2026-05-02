@@ -47,6 +47,10 @@ def test_package_schema_resources_match_root_schemas() -> None:
     assert package_schemas == root_schemas
 
 
+def test_extract_citations_ignores_markdown_backticks() -> None:
+    assert extract_citations("anchor `.gitignore:1@4503e2d12b79`") == [".gitignore:1@4503e2d12b79"]
+
+
 def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     expected = json.loads((SOURCE_ROOT / "tests" / "fixtures" / "expected_phase_a.json").read_text(encoding="utf-8"))
@@ -317,9 +321,6 @@ def test_run_backend_codex_cli_requires_explicit_live_flag(tmp_path: Path) -> No
 
 def test_run_backend_codex_cli_fake_producer_writes_agent_review(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
-    copy_contracts(SOURCE_ROOT, repo)
-    git(repo, "add", "schemas")
-    git(repo, "commit", "-m", "add schemas")
 
     fake_codex = tmp_path / "fake-codex"
     fake_codex.write_text(
@@ -331,6 +332,7 @@ def test_run_backend_codex_cli_fake_producer_writes_agent_review(tmp_path: Path)
         "assert sys.argv[sys.argv.index('-m') + 1] == 'gpt-5.4-mini'\n"
         "assert '-c' in sys.argv\n"
         "assert sys.argv[sys.argv.index('-c') + 1] == 'model_reasoning_effort=\"medium\"'\n"
+        "assert 'approval_policy=\"never\"' in sys.argv\n"
         "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
         "prompt = sys.stdin.read()\n"
         "assert 'surface-map.json' in prompt\n"
@@ -375,6 +377,14 @@ def test_run_backend_codex_cli_fake_producer_writes_agent_review(tmp_path: Path)
     assert review_frontmatter["produced_by"] == "codex-cli-smoke@0.1"
     assert review_frontmatter["findings_logged"] == 0
     assert "dev-fixture-skeptic@0.1" not in review_text
+    review_citations = set(extract_citations(review_text))
+    ledger_entries = [
+        json.loads(line)
+        for line in (run_dir / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    ledger_citations = {entry.get("citation") for entry in ledger_entries if entry.get("citation")}
+    assert review_citations <= ledger_citations
     manifest_data = json.loads(run_manifest.read_text(encoding="utf-8"))
     assert manifest_data["backend"] == "codex-cli"
     assert manifest_data["status"] == "succeeded"
@@ -382,9 +392,9 @@ def test_run_backend_codex_cli_fake_producer_writes_agent_review(tmp_path: Path)
     assert [step["step_id"] for step in codex_steps] == ["codex-cli-smoke-skeptic-review"]
     assert codex_steps[0]["producer_id"] == "codex-cli-smoke@0.1"
     assert codex_steps[0]["status"] == "succeeded"
-    assert "-m gpt-5.4-mini -c model_reasoning_effort=\"medium\"" in codex_steps[0]["command"]
+    assert "-m gpt-5.4-mini -c model_reasoning_effort=\"medium\" -c approval_policy=\"never\"" in codex_steps[0]["command"]
     assert "--ephemeral --ignore-user-config --ignore-rules" in codex_steps[0]["command"]
-    assert "-s read-only -a never" in codex_steps[0]["command"]
+    assert "-s read-only" in codex_steps[0]["command"]
     handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
     assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 0
 

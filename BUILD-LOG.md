@@ -1351,3 +1351,26 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Drift check: This supports clean external benchmark runs and installed validation, rather than adding new artifact policy.
   - Contract check: Package data and schema-source behavior are both tested; wheel contents were inspected directly.
   - Reviewer-eye check: Duplicating root schemas into package data creates drift risk. The content-equality regression is now the guard.
+
+## 2026-05-02 — Runtime-producer slice: live Codex CLI smoke on MCP git
+
+- Ran a live Codex CLI smoke on MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
+- Command: `python3 -m cbm.cli run --repo /tmp/cbm-live-mcp-servers-4503e2d/src/git --goal "understand MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-codex-smoke-4`.
+- Implemented during smoke remediation: `codex exec` approval policy is passed with `-c approval_policy="never"` instead of invalid `-a never`.
+- Implemented during smoke remediation: Codex smoke reviews append their introduced citations to `evidence-ledger.jsonl`.
+- Implemented during smoke remediation: citation parsing excludes Markdown backticks from citation paths.
+- Result artifact: `.planning/benchmarks/2026-05-02-mcp-git-codex-smoke/RESULT.md`.
+- Durable evidence copied into the result directory: `run-manifest.json`, `producer-registry.json`, `skeptic-review-surface-map.md`, and `handoff.md`.
+- Outcome: live run exited 0; run manifest status is `succeeded`; smoke review `produced_by` is `codex-cli-smoke@0.1`; handoff gate summary reports `citation_resolution.unresolved_count: 0` and `ledger_consistency.missing_citation_count: 0`.
+- Failed attempts preserved in the result:
+  - `run-mcp-git-codex-smoke-1`: invalid `-a never` for `codex exec`.
+  - `run-mcp-git-codex-smoke-2`: live smoke citation missing from ledger.
+  - `run-mcp-git-codex-smoke-3`: backticked citation parsed with a leading backtick.
+- Boundary: This is the first live Codex CLI-produced CBM artifact on the pinned external benchmark. It is not a Phase B+ pass claim and not the `VISION.md` minimum useful CBM floor, because the surface map remains deterministic baseline output and the live artifact is a bounded smoke review rather than a full isolated Skeptic review.
+- Verification run:
+  - Focused regressions passed: `pytest -q tests/test_cli.py::test_extract_citations_ignores_markdown_backticks tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review`.
+  - Live run passed: `run-mcp-git-codex-smoke-4`.
+- Self-critique:
+  - Drift check: This directly advances the runtime-producer evidence track and explicitly avoids Phase B+ overclaim.
+  - Contract check: Parent-side validation and handoff gates caught two integration defects before the successful run.
+  - Reviewer-eye check: The smoke review is deliberately shallow; the next quality target must be real Surface Mapper/Skeptic behavior, not more smoke infrastructure.

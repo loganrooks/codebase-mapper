@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "run_manifest",
+  "run_id": "run-mcp-git-codex-smoke-4",
+  "produced_at": "2026-05-02T02:42:18Z",
+  "backend": "codex-cli",
+  "mode": "lightweight",
+  "goal": "understand MCP git server surfaces",
+  "goal_class": "understand_repo",
+  "status": "succeeded",
+  "producer_registry": {
+    "path": ".research/run-mcp-git-codex-smoke-4/producer-registry.json",
+    "sha256": "61e260d53d870a0ad85934e1530697ed351ba80bfab0c362184ca2b55eddd0cd"
+  },
+  "steps": [
+    {
+      "step_id": "init",
+      "command": "init",
+      "artifact_type": "project_type_report",
+      "producer_id": "cbm-baseline-project-type@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-02T02:42:08Z",
+      "completed_at": "2026-05-02T02:42:08Z"
+    },
+    {
+      "step_id": "map",
+      "command": "map",
+      "artifact_type": "codebase_map",
+      "producer_id": "cbm-baseline-map@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-02T02:42:08Z",
+      "completed_at": "2026-05-02T02:42:08Z"
+    },
+    {
+      "step_id": "surface",
+      "command": "surface",
+      "artifact_type": "surface_map",
+      "producer_id": "cbm-baseline-surface@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-02T02:42:08Z",
+      "completed_at": "2026-05-02T02:42:08Z"
+    },
+    {
+      "step_id": "codex-cli-smoke-skeptic-review",
+      "command": "codex exec -m gpt-5.4-mini -c model_reasoning_effort=\"medium\" -c approval_policy=\"never\" --ephemeral --ignore-user-config --ignore-rules -C /private/tmp/cbm-live-mcp-servers-4503e2d/src/git -s read-only --json -o /private/tmp/cbm-live-mcp-servers-4503e2d/src/git/.research/run-mcp-git-codex-smoke-4/codex-cli-smoke-output.json --output-schema /private/tmp/cbm-live-mcp-servers-4503e2d/src/git/.research/run-mcp-git-codex-smoke-4/codex-cli-smoke-output.schema.json -",
+      "artifact_type": "skeptic_review",
+      "producer_id": "codex-cli-smoke@0.1",
+      "backend": "codex-cli",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-02T02:42:08Z",
+      "completed_at": "2026-05-02T02:42:17Z"
+    },
+    {
+      "step_id": "bind",
+      "command": "bind",
+      "artifact_type": "goal_binding",
+      "producer_id": "cbm-baseline-bind@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-02T02:42:17Z",
+      "completed_at": "2026-05-02T02:42:17Z"
+    },
+    {
+      "step_id": "handoff",
+      "command": "handoff",
+      "artifact_type": "handoff",
+      "producer_id": "cbm-baseline-handoff@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-02T02:42:17Z",
+      "completed_at": "2026-05-02T02:42:18Z"
+    }
+  ]
+}
