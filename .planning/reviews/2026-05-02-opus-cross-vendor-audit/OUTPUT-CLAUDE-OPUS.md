@@ -147,7 +147,7 @@ The deterministic baseline produces schema-valid intervention cards that look li
 `cbm-loop-status` checks: (a) every `<reviews>/<slug>/PROMPT.md` has a non-empty sibling `OUTPUT*.md` or a `STOP-NOTE.md`; (b) every `<reviews>/<slug>/CHECKPOINT.md` has a non-empty `DISPOSITION.md`; (c) every empty review folder is either deleted or has a `STOP-NOTE.md`. Failures block broad `/goal`.
 
 ### W2. Cross-model checkpoint mandatory for phase pass / main merge
-Codify in `AGENTS.md`. Same-model isolated reviews remain valid for narrow recovery slices and self-critique cadence at boundaries; they cannot clear a pass gate. Cross-model can be GSDR's `audit_delegation: cross_model:gpt-5.4` pattern (see GSDR section below) or a manual handoff to a different vendor.
+Codify in `AGENTS.md`. Same-model isolated reviews remain valid for narrow recovery slices and self-critique cadence at boundaries; they cannot clear a pass gate. Implemented natively as a CBM primitive — `cbm checkpoint` records `reviewer_model_id` in CHECKPOINT.md frontmatter and `cbm-loop-status` refuses pass-claim acceptance unless that id is from a non-current-model family. See `INTERVENTIONS.md` I-X1 and the GSDR/GSD-2 decision section below for why this is built natively rather than absorbed from GSDR.
 
 ### W3. ADR ledger
 Hoist load-bearing decisions ("hooks are adapter glue", "producer registry over outer orchestrator", "CBM owns the run lifecycle") from BUILD-LOG entries to immutable `.planning/decisions/ADR-NNN-<slug>.md`. ADRs are referenced by slug from STATE/PLAN. The next reset should not have to rediscover decisions.
@@ -221,41 +221,30 @@ The dev-agent / runtime-agent split is real and clean in the docs. In practice t
 
 Two specific gaps are worth naming:
 - **Subagent identity and provenance.** When a real Skeptic runs, its identity is `produced_by: skeptic@<version>` plus the skill SHA. The current run-manifest records the subprocess command but not the skill SHA. Add it (A2).
-- **Cross-model dispatch as an actual capability, not a doctrine.** AGENTS.md `:55` prefers cross-model checkpoints. Operationally that means: "the dev agent must remember to route the next checkpoint to a different vendor and produce an OUTPUT and a DISPOSITION." Nothing in the system makes that easy or automatic. GSDR's `gsdr:audit` with `audit_delegation: cross_model:gpt-5.4` is exactly this primitive (see next section).
+- **Cross-model dispatch as an actual capability, not a doctrine.** AGENTS.md `:55` prefers cross-model checkpoints. Operationally that means: "the dev agent must remember to route the next checkpoint to a different vendor and produce an OUTPUT and a DISPOSITION." Nothing in the system makes that easy or automatic. The user has rejected GSDR adoption (see next section), so this primitive must be built natively in CBM as `cbm checkpoint` + `reviewer_model_id` field + `cbm-loop-status` enforcement. `INTERVENTIONS.md` I-X1.
 
-## Beyond-Prompt: GSDR / GSD-2 Fit and Migration Sketch
+## Beyond-Prompt: GSDR / GSD-2 Fit and Decision
 
 (The user has GSDR 1.19.6 installed. They asked specifically about "GSD-2", which has a public GitHub page.)
 
 **GSD-2** (`https://github.com/gsd-build/gsd-2`) is the upstream Pi-SDK rewrite — TypeScript CLI, SQLite state, fresh-session-per-task, automated git worktree isolation, provider-agnostic via Pi SDK. **GSDR** (what's installed) is a community v1-lineage fork descending from `gsd-build/get-shit-done` v1.x with a reflection / signals / knowledge-base layer added.
 
-**Verdict: PARTIAL_FIT — for GSDR. POOR_FIT for GSD-2.**
+**Decision (2026-05-02): both rejected for this repo.**
 
-The split is sharper than the names suggest: GSDR is a Claude-Code-resident workflow tool that runs *above* the project; GSD-2 is a CLI that wants to *own* the run lifecycle. CBM's `RUNTIME-CONSTITUTION.md` and accepted recovery decision say *CBM* owns the run lifecycle through a producer registry. Two run-lifecycle owners is one too many. **GSD-2 conflicts at the architectural foundation; GSDR does not.**
+- **GSD-2** conflicts at the architectural foundation: it wants to *own* the run lifecycle (Pi SDK + SQLite + worktree isolation) and CBM's accepted recovery decision says *CBM* owns the run lifecycle through a producer registry. Two run-lifecycle owners is one too many.
+- **GSDR** had been a PARTIAL_FIT candidate — strong-fit for the dev-agent layer (per-phase PLAN/RESEARCH/VERIFICATION/SUMMARY bundle, 3-axis audit taxonomy with `audit_delegation: cross_model:*` as a first-class field, `gsdr:reflect` cross-run lesson distillation, `gsdr:health-check`, `gsdr-spike-runner`). But its strongest mapping subsystem (`gsdr:map-codebase` and `gsdr-codebase-mapper`) produces confident prose-style summary docs without claim register, citation discipline, Skeptic, or contestation. **CBM exists in opposition to that style.** Adopting the harness while disabling its mapper would have been workable but invites long-term identity drift, and the user has chosen not to pursue it.
 
-What GSDR *would* add to CBM (the dev-agent layer):
-- `.planning/phases/NN-slug/{PLAN,RESEARCH,VERIFICATION,SUMMARY}.md` lifecycle (currently ad hoc).
-- 3-axis audit taxonomy with `audit_delegation: cross_model:*` as a first-class field (closes W2 mechanically).
-- `gsdr-auditor`, `gsdr:audit-milestone`, `gsdr:validate-phase` (Nyquist gap auditing).
-- `gsdr:reflect` cross-run lesson distillation at `~/.gsd/knowledge/`.
-- `gsdr:health-check` for `.planning/` integrity.
-- `gsdr-spike-runner` + `.planning/spikes/` (directory already matches).
+**Implications.** Three things GSDR would have absorbed mechanically must now be built natively in CBM:
 
-What conflicts:
-- `gsdr:map-codebase` produces confident prose-style summary docs without claim register, citation discipline, Skeptic, or contestation. **CBM exists in opposition to that style.** Disable for this repo.
-- `gsdr-codebase-mapper` agent has the same epistemological problem; same disposition.
-- "Phase" terminology collides: CBM has Phases A-F (maturity bands with acceptance criteria), GSDR has phases NN-slug (work units). Rename CBM's to "Maturity Bands" or "Capability Phases" to free the word.
-- GSDR signal/lesson KB at `~/.gsd/knowledge/` is per-developer; CBM evidence ledger is per-run + append-only + citation-bound. Keep separate.
+1. **Cross-model checkpoint as a primitive.** GSDR offered `audit_delegation: cross_model:*`. CBM needs an equivalent: a `cbm checkpoint` command (or extension to existing review tooling) that records `reviewer_model_id` in CHECKPOINT.md frontmatter and refuses to mark `disposition: accept` on a pass-claim scope unless the reviewer is a non-current-model family. `cbm-loop-status` enforces. `INTERVENTIONS.md` I-X1.
+2. **Per-phase artifact bundle convention.** GSDR offered `phases/NN-slug/{PLAN,RESEARCH,VERIFICATION,SUMMARY}.md` automatically. CBM should adopt the directory convention natively (no GSDR involvement), formalize in `AGENTS.md`, and archive the recovery intervention as `.planning/phases/00-recovery-intervention/`. This also resolves the "Phase A-F maturity band vs. implementation phase" naming overlap by treating them as orthogonal layers (roadmap-level vs. implementation-level), with no rename needed. `INTERVENTIONS.md` I-X2.
+3. **Reviews-folder integrity check.** Extension of `cbm-loop-status` to detect every form of incomplete review packet. `INTERVENTIONS.md` I-X3.
 
-What must coexist:
-- CBM's runtime constitution + claim-register schema + evidence ledger stay untouched.
-- CBM's producer registry + `cbm run --backend` stays untouched.
-- CBM `BUILD-LOG.md` stays (GSDR's per-phase SUMMARY is not a chronological audit substitute).
-- Codex CLI parity for runtime agents (CBM-internal); Claude Code parity may use GSDR slash commands for *implementation work*, not for runtime agents.
+**Cross-run reflection (the GSDR `~/.gsd/knowledge/` analogue) is deferred to POST-MS** — already named in `VISION.md` open conjectures as v2.0 cross-run synthesis work.
 
-**Migration recommendation:** **adopt GSDR for the build harness; do not adopt GSD-2.** Rough cost is 2-4 focused sessions. Detailed sequence is in `INTERVENTIONS.md` (interventions I-G1 through I-G7).
+**Untouched by this decision.** CBM's runtime constitution, claim-register schema, evidence ledger, producer registry, `cbm run --backend`, BUILD-LOG, and Codex CLI parity remain exactly as planned. The recovery's narrow-track allowance (`AGENTS.md:30-34`) is unaffected.
 
-**Gating recommendation:** do *not* migrate during the active recovery intervention. The recovery's narrative does not fit GSDR's PLAN.md template, and migration churn would itself violate `AGENTS.md:30-34` ("No kernel-only hardening during recovery"). Migrate after the first real Skeptic artifact lands (S2), which is when the recovery officially closes.
+**Note for completeness.** The `gsdr-auditor` subagent and `gsdr:audit` slash command remain available on the user's machine and could in principle be invoked as an *external* reviewer behind I-X1's `cbm checkpoint` (i.e., shelling out to a non-Claude model via the user's existing tooling). That is an integration detail, not a CBM dependency. Whether to use it is the user's call when I-X1 is implemented.
 
 ## Beyond-Prompt: Uplift Brainstorm (Best-Possible-Product)
 
