@@ -70,6 +70,11 @@ def test_extract_citations_ignores_markdown_backticks() -> None:
     assert extract_citations("anchor `.gitignore:1@4503e2d12b79`") == [".gitignore:1@4503e2d12b79"]
 
 
+def test_extract_citations_rejects_json_pointer_noise() -> None:
+    noisy = ".research/run/surface-map.json#/coverage/result/files_examined_directly','.research/run/surface-map.json#/coverage/result/files_inspected_via_extractor','pyproject.toml:28-30@4503e2d12b79"
+    assert extract_citations(noisy) == ["pyproject.toml:28-30@4503e2d12b79"]
+
+
 def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     expected = json.loads((SOURCE_ROOT / "tests" / "fixtures" / "expected_phase_a.json").read_text(encoding="utf-8"))
@@ -431,12 +436,21 @@ def test_run_backend_codex_cli_skill_mode_loads_skeptic_skill(tmp_path: Path) ->
         "assert '<runtime_skill>' in prompt\n"
         "assert '# Skill: Skeptic' in prompt\n"
         "assert 'Runtime skill sha256:' in prompt\n"
+        "citation = [line for line in prompt.splitlines() if line.startswith('Required citation anchor')][0].split(': ', 1)[1]\n"
         "output_path.write_text(json.dumps({\n"
-        "    'body': '## Overall\\n\\nSkill-loaded review completed.\\n\\n## Interpretive challenges\\n\\nNo defensible challenge found in this fixture.',\n"
-        "    'findings_logged': 0,\n"
-        "    'challenge_ids': [],\n"
+        "    'body': '## Overall\\n\\nSkill-loaded review completed.\\n\\n## Interpretive challenges\\n\\nCHL-00001 preserves an alternate reading.',\n"
+        "    'findings_logged': 1,\n"
+        "    'challenge_ids': ['chl-00001'],\n"
         "    'factual_spot_checks': 1,\n"
-        "    'interpretive_challenges_attempted': 0\n"
+        "    'interpretive_challenges_attempted': 1,\n"
+        "    'challenges': [{\n"
+        "        'claim_id': 'edge-import-001',\n"
+        "        'competing_reading': 'The unknown dependency edge may be narrower than the baseline says because the cited file bounds the primary surface.',\n"
+        "        'competing_evidence': [citation],\n"
+        "        'interpretive_axis': 'scope',\n"
+        "        'relation_to_original': 'scope_dispute',\n"
+        "        'rationale': 'The runtime Skeptic must preserve this narrower reading for downstream planning.'\n"
+        "    }]\n"
         "}) + '\\n', encoding='utf-8')\n",
         encoding="utf-8",
     )
@@ -480,6 +494,20 @@ def test_run_backend_codex_cli_skill_mode_loads_skeptic_skill(tmp_path: Path) ->
     registry_data = json.loads((run_dir / "producer-registry.json").read_text(encoding="utf-8"))
     skeptic_producer = next(item for item in registry_data["producers"] if item["artifact_type"] == "skeptic_review")
     assert skeptic_producer["producer_id"] == "skeptic@1.2"
+    challenged_surface = json.loads((run_dir / "surface-map.json").read_text(encoding="utf-8"))
+    unknown_edge = next(edge for edge in challenged_surface["edges"] if edge["id"] == "edge-import-001")
+    assert unknown_edge["claim_status"] == "challenged"
+    assert unknown_edge["challenges"][0]["raised_by"] == "skeptic@1.2"
+    assert review_frontmatter["challenge_ids"] == [unknown_edge["challenges"][0]["challenge_id"]]
+    handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 1
+    assert handoff_frontmatter["contestation_summary"]["open_challenges"] == 1
+    ledger_entries = [
+        json.loads(line)
+        for line in (run_dir / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert any(entry["entry_kind"] == "claim_challenged" and entry["agent"] == "skeptic@1.2" for entry in ledger_entries)
 
 
 def test_run_rejects_unsafe_run_id_before_writing_outside_research(tmp_path: Path) -> None:

@@ -1,15 +1,15 @@
 {
   "schema_version": "1.2",
   "artifact_type": "run_manifest",
-  "run_id": "run-mcp-git-codex-skeptic-skill-2",
-  "produced_at": "2026-05-02T03:40:18Z",
+  "run_id": "run-mcp-git-codex-skeptic-skill-4",
+  "produced_at": "2026-05-02T03:50:47Z",
   "backend": "codex-cli",
   "mode": "lightweight",
   "goal": "understand MCP git server surfaces",
   "goal_class": "understand_repo",
   "status": "succeeded",
   "producer_registry": {
-    "path": ".research/run-mcp-git-codex-skeptic-skill-2/producer-registry.json",
+    "path": ".research/run-mcp-git-codex-skeptic-skill-4/producer-registry.json",
     "sha256": "47dd50f72fe9e4dfcfbe035407a4482954178eb3a175fb49eb8beeee58f0a5e4"
   },
   "steps": [
@@ -21,8 +21,8 @@
       "backend": "deterministic",
       "status": "succeeded",
       "exit_code": 0,
-      "started_at": "2026-05-02T03:38:15Z",
-      "completed_at": "2026-05-02T03:38:15Z"
+      "started_at": "2026-05-02T03:49:23Z",
+      "completed_at": "2026-05-02T03:49:23Z"
     },
     {
       "step_id": "map",
@@ -32,8 +32,8 @@
       "backend": "deterministic",
       "status": "succeeded",
       "exit_code": 0,
-      "started_at": "2026-05-02T03:38:15Z",
-      "completed_at": "2026-05-02T03:38:15Z"
+      "started_at": "2026-05-02T03:49:23Z",
+      "completed_at": "2026-05-02T03:49:23Z"
     },
     {
       "step_id": "surface",
@@ -43,12 +43,12 @@
       "backend": "deterministic",
       "status": "succeeded",
       "exit_code": 0,
-      "started_at": "2026-05-02T03:38:15Z",
-      "completed_at": "2026-05-02T03:38:15Z"
+      "started_at": "2026-05-02T03:49:23Z",
+      "completed_at": "2026-05-02T03:49:23Z"
     },
     {
       "step_id": "codex-cli-skill-skeptic-review",
-      "command": "codex exec -m gpt-5.4-mini -c model_reasoning_effort=\"medium\" -c approval_policy=\"never\" --ephemeral --ignore-user-config --ignore-rules -C /private/tmp/cbm-live-mcp-servers-4503e2d/src/git -s read-only --json -o /private/tmp/cbm-live-mcp-servers-4503e2d/src/git/.research/run-mcp-git-codex-skeptic-skill-2/codex-cli-smoke-output.json --output-schema /private/tmp/cbm-live-mcp-servers-4503e2d/src/git/.research/run-mcp-git-codex-skeptic-skill-2/codex-cli-smoke-output.schema.json -",
+      "command": "codex exec -m gpt-5.4-mini -c model_reasoning_effort=\"medium\" -c approval_policy=\"never\" --ephemeral --ignore-user-config --ignore-rules -C /private/tmp/cbm-live-mcp-servers-4503e2d/src/git -s read-only --json -o /private/tmp/cbm-live-mcp-servers-4503e2d/src/git/.research/run-mcp-git-codex-skeptic-skill-4/codex-cli-smoke-output.json --output-schema /private/tmp/cbm-live-mcp-servers-4503e2d/src/git/.research/run-mcp-git-codex-skeptic-skill-4/codex-cli-smoke-output.schema.json -",
       "artifact_type": "skeptic_review",
       "producer_id": "skeptic@1.2",
       "backend": "codex-cli",
@@ -59,8 +59,8 @@
         "path": "/Users/rookslog/Development/cbm/skills/skeptic.md",
         "sha256": "1d676f7d1a23660b00b150dcf4cb9441e4a00e6d02c46fe126999f1bc570de39"
       },
-      "started_at": "2026-05-02T03:38:15Z",
-      "completed_at": "2026-05-02T03:40:18Z"
+      "started_at": "2026-05-02T03:49:23Z",
+      "completed_at": "2026-05-02T03:50:46Z"
     },
     {
       "step_id": "bind",
@@ -70,8 +70,8 @@
       "backend": "deterministic",
       "status": "succeeded",
       "exit_code": 0,
-      "started_at": "2026-05-02T03:40:18Z",
-      "completed_at": "2026-05-02T03:40:18Z"
+      "started_at": "2026-05-02T03:50:46Z",
+      "completed_at": "2026-05-02T03:50:46Z"
     },
     {
       "step_id": "handoff",
@@ -81,8 +81,8 @@
       "backend": "deterministic",
       "status": "succeeded",
       "exit_code": 0,
-      "started_at": "2026-05-02T03:40:18Z",
-      "completed_at": "2026-05-02T03:40:18Z"
+      "started_at": "2026-05-02T03:50:46Z",
+      "completed_at": "2026-05-02T03:50:47Z"
     }
   ]
 }

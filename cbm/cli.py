@@ -22,7 +22,7 @@ from jsonschema import Draft202012Validator, RefResolver
 
 
 SCHEMA_VERSION = "1.2"
-CITATION_RE = re.compile(r"(?P<path>[^`:@\s]+):(?P<start>\d+)(?:-(?P<end>\d+))?@(?P<sha>[0-9a-f]{7,40})")
+CITATION_RE = re.compile(r"(?P<path>[^`:',#@\s]+):(?P<start>\d+)(?:-(?P<end>\d+))?@(?P<sha>[0-9a-f]{7,40})")
 DEFAULT_EXCLUDED = [
     ".git/**",
     ".research/**",
@@ -2507,6 +2507,68 @@ def command_challenge(args: argparse.Namespace) -> int:
     return 0
 
 
+def apply_runtime_skeptic_challenges(repo: Path, artifact_path: Path, data: dict[str, Any], output: dict[str, Any], raised_by: str) -> list[str]:
+    artifact_type = infer_artifact_type(artifact_path, data)
+    if artifact_type not in {"surface_map", "authority_map", "dependency_graph"}:
+        raise ValueError(f"{artifact_type} does not support runtime skeptic challenges")
+    challenges = output.get("challenges", [])
+    if not challenges:
+        return []
+    ledger_path = artifact_path.parent / "evidence-ledger.jsonl"
+    if not ledger_path.exists():
+        ledger_path = artifact_path.parents[1] / "evidence-ledger.jsonl"
+    ingested_ids: list[str] = []
+    for item in challenges:
+        claim_id = item["claim_id"]
+        claim = find_claim(data, claim_id)
+        if claim is None:
+            raise ValueError(f"runtime skeptic challenge references missing claim: {claim_id}")
+        evidence = item["competing_evidence"]
+        for citation in evidence:
+            ok, reason = resolve_citation(repo, citation)
+            if not ok:
+                raise ValueError(f"runtime skeptic evidence citation does not resolve: {citation}: {reason}")
+        challenge_id = next_challenge_id(all_artifact_claims(data))
+        challenge = {
+            "challenge_id": challenge_id,
+            "challenges_claim_id": claim_id,
+            "raised_by": raised_by,
+            "raised_at": utc_now(),
+            "competing_reading": item["competing_reading"],
+            "competing_evidence": evidence,
+            "interpretive_axis": item["interpretive_axis"],
+            "relation_to_original": item["relation_to_original"],
+            "status": "open",
+            "rationale": item["rationale"],
+        }
+        claim.setdefault("challenges", []).append(challenge)
+        claim["claim_status"] = "contested" if len(claim["challenges"]) > 1 else "challenged"
+        entry = {
+            "schema_version": SCHEMA_VERSION,
+            "entry_id": next_ledger_id(ledger_path),
+            "ts": utc_now(),
+            "entry_kind": "claim_challenged",
+            "agent": raised_by,
+            "skill_version": "1.2",
+            "run_id": data["run_id"],
+            "source_sha": data["source_sha"],
+            "artifact_path": str(artifact_path.relative_to(repo)),
+            "claim_id": claim_id,
+            "challenge_id": challenge_id,
+            "challenge": item["competing_reading"],
+            "competing_evidence": evidence,
+        }
+        append_ledger_entry(repo, ledger_path, entry)
+        ingested_ids.append(challenge_id)
+    errors = validate_data(repo, data, artifact_type)
+    errors.extend(extractor_registry_errors_for_artifact(repo, data))
+    errors.extend(check_claim_evidence(data, extractors_for_artifact(repo, data)))
+    if errors:
+        raise ValueError("\n".join(errors))
+    write_json(artifact_path, data)
+    return ingested_ids
+
+
 def find_challenge(data: dict[str, Any], challenge_id: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
     for claim in all_artifact_claims(data):
         for challenge in claim.get("challenges", []):
@@ -3813,11 +3875,38 @@ def codex_cli_smoke_output_schema() -> dict[str, Any]:
 
 def codex_cli_skill_skeptic_output_schema() -> dict[str, Any]:
     schema = codex_cli_smoke_output_schema()
-    schema["required"] = [*schema["required"], "factual_spot_checks", "interpretive_challenges_attempted"]
+    schema["required"] = [*schema["required"], "factual_spot_checks", "interpretive_challenges_attempted", "challenges"]
     schema["properties"] = {
         **schema["properties"],
         "factual_spot_checks": {"type": "integer", "minimum": 0},
         "interpretive_challenges_attempted": {"type": "integer", "minimum": 0},
+        "challenges": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "claim_id",
+                    "competing_reading",
+                    "competing_evidence",
+                    "interpretive_axis",
+                    "relation_to_original",
+                    "rationale",
+                ],
+                "properties": {
+                    "claim_id": {"type": "string", "minLength": 1},
+                    "competing_reading": {"type": "string", "minLength": 20},
+                    "competing_evidence": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {"type": "string", "pattern": r"^[^`:',#@\s]+:\d+(?:-\d+)?@[0-9a-f]{7,40}$"},
+                    },
+                    "interpretive_axis": {"enum": ["centrality", "scope", "salience", "classification", "framing", "completeness", "other"]},
+                    "relation_to_original": {"enum": ["complementary", "competing", "reframing", "scope_dispute"]},
+                    "rationale": {"type": "string", "minLength": 1},
+                },
+            },
+        },
     }
     return schema
 
@@ -3882,7 +3971,9 @@ def codex_cli_skill_prompt(skill: LoadedSkill, repo: Path, paths: RunPaths, surf
         "You are a CBM runtime Skeptic producer. Use the runtime skill below as your governing procedure. "
         "You may read the artifact under review, evidence ledger, uncertainty register, extractor registry, and source files needed to verify citations. "
         "Return JSON matching the supplied schema. The `body` field must be Markdown for the Skeptic review body and should include an Overall section plus any factual/inferential or interpretive challenges you can substantiate. "
-        "Do not invent challenges. If no non-trivial challenge is defensible, explain why in the body and set challenge counts to 0.\n\n"
+        "For every challenge that should affect CBM contestation state, include a matching object in `challenges` with a claim_id from the reviewed artifact and resolving competing_evidence citations. "
+        "`competing_evidence` must contain source citations only, formatted like `path/to/file.py:10-12@abcdef1`; do not put artifact JSON pointers or prose inside that array. "
+        "Do not invent challenges. If no non-trivial challenge is defensible, explain why in the body and set challenge counts to 0 with an empty challenges array.\n\n"
         f"Runtime skill: {skill.name}\n"
         f"Runtime skill path: {skill.path}\n"
         f"Runtime skill sha256: {skill.sha256}\n\n"
@@ -3982,6 +4073,20 @@ def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
         for error in output_errors:
             print(f"codex-cli smoke output invalid {error}", file=sys.stderr)
         return 1
+    challenge_ids = list(output.get("challenge_ids", []))
+    if skill:
+        try:
+            surface_data = read_json(surface_path)
+            challenge_ids = apply_runtime_skeptic_challenges(
+                repo,
+                surface_path,
+                surface_data,
+                output,
+                codex_cli_skeptic_producer_id(args.codex_skeptic_mode),
+            )
+        except ValueError as exc:
+            print(exc, file=sys.stderr)
+            return 1
     now = utc_now()
     frontmatter = {
         "schema_version": SCHEMA_VERSION,
@@ -3992,7 +4097,7 @@ def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
         "source_sha": sha,
         "artifact_reviewed": str(surface_path.relative_to(repo)),
         "findings_logged": int(output.get("findings_logged", 0)),
-        "challenge_ids": list(output.get("challenge_ids", [])),
+        "challenge_ids": challenge_ids,
     }
     errors = validate_data(repo, frontmatter, "skeptic_review")
     if errors:
