@@ -68,6 +68,10 @@ DETERMINISTIC_PRODUCERS = {
     "intervention_card": "dev-fixture-planner@0.1",
     "handoff": "cbm-baseline-handoff@0.1",
 }
+BASELINE_BANNER_TEXT = (
+    "This run includes deterministic baseline output. Cards and artifacts labeled cbm-baseline-* or dev-fixture-* are NOT runtime-agent readings; "
+    "they inherit baseline guarantees only (schema-valid, citation-resolved, evidence-table-checked). Do not act on them as if they had Skeptic review."
+)
 CODEX_CLI_SMOKE_PRODUCER = "codex-cli-smoke@0.1"
 CODEX_CLI_SKILL_SKEPTIC_PRODUCER = "skeptic@1.2"
 BACKEND_CHOICES = ["deterministic", "external", "codex-cli"]
@@ -4201,6 +4205,42 @@ def validate_existing_skeptic_review(repo: Path, skeptic_path: Path) -> list[str
     return validate_data(repo, frontmatter, "skeptic_review")
 
 
+def is_baseline_like_producer(produced_by: str | None) -> bool:
+    return bool(produced_by and (produced_by.startswith("cbm-baseline-") or produced_by.startswith("dev-fixture-")))
+
+
+def render_card_title(card_type: str, produced_by: str) -> str:
+    marker = "[BASELINE] " if is_baseline_like_producer(produced_by) else ""
+    title = "Goal-Bound Intervention Card" if card_type == "intervention_card" else "Phase A Structural Finding"
+    return f"# {marker}{title}"
+
+
+def render_handoff_body(include_baseline_banner: bool) -> str:
+    banner = f"> {BASELINE_BANNER_TEXT}\n\n" if include_baseline_banner else ""
+    return "# CBM Handoff\n\n" + banner + "Phase A mechanical gates produced a draft handoff. See frontmatter for gate summary and caveats.\n"
+
+
+def artifact_produced_by(repo: Path, artifact_path: Path) -> str:
+    if artifact_path.suffix == ".json":
+        try:
+            return str(read_json(artifact_path).get("produced_by", ""))
+        except Exception:
+            return ""
+    try:
+        frontmatter, _ = load_artifact_frontmatter(artifact_path)
+        return str(frontmatter.get("produced_by", ""))
+    except Exception:
+        return ""
+
+
+def handoff_includes_baseline_outputs(repo: Path, artifacts: list[dict[str, Any]]) -> bool:
+    for artifact in artifacts:
+        produced_by = artifact_produced_by(repo, repo / artifact["path"])
+        if is_baseline_like_producer(produced_by):
+            return True
+    return False
+
+
 def command_handoff(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     paths = run_paths(repo, args.run_id)
@@ -4474,10 +4514,11 @@ def command_handoff(args: argparse.Namespace) -> int:
         for item in card_coverage_check["violations"]:
             print(f"card-gate-fail coverage {item['field']}: {item['reason']}", file=sys.stderr)
         return 1
+    card_title = render_card_title(card_type, card_frontmatter["produced_by"])
     if card_type == "intervention_card":
-        card_body = "\n# Goal-Bound Intervention Card\n\nThis generated card carries the selected goal pack into a draft intervention artifact while preserving schema validation and citation resolution gates.\n"
+        card_body = f"\n{card_title}\n\nThis generated card carries the selected goal pack into a draft intervention artifact while preserving schema validation and citation resolution gates.\n"
     else:
-        card_body = "\n# Phase A Structural Finding\n\nThis generated card proves the mechanical gates are wired: schema validation and citation resolution operate on an evidence-bound artifact.\n"
+        card_body = f"\n{card_title}\n\nThis generated card proves the mechanical gates are wired: schema validation and citation resolution operate on an evidence-bound artifact.\n"
     card_path.write_text("---\n" + yaml.safe_dump(card_frontmatter, sort_keys=False) + "---\n" + card_body, encoding="utf-8")
     append_citation_entries(repo, ledger_path, paths.run_id, sha, str(card_path.relative_to(repo)), card_frontmatter, "dev-fixture-planner")
     artifacts = [
@@ -4575,8 +4616,9 @@ def command_handoff(args: argparse.Namespace) -> int:
             print(error, file=sys.stderr)
         return 1
     write_json(paths.run_dir / "handoff.json", handoff)
+    include_baseline_banner = handoff_includes_baseline_outputs(repo, artifacts)
     (paths.run_dir / "handoff.md").write_text(
-        "---\n" + yaml.safe_dump(handoff, sort_keys=False) + "---\n# CBM Handoff\n\nPhase A mechanical gates produced a draft handoff. See frontmatter for gate summary and caveats.\n",
+        "---\n" + yaml.safe_dump(handoff, sort_keys=False) + "---\n" + render_handoff_body(include_baseline_banner),
         encoding="utf-8",
     )
     print(paths.run_dir / "handoff.md")

@@ -1534,3 +1534,16 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 94 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
 - Boundary:
   - This is regression coverage for existing adapter behavior; no runtime behavior was changed in this slice.
+
+## 2026-05-02 — Recovery slice: I-S7 honest baseline banner
+
+- Implemented: handoff markdown renders the exact deterministic-baseline warning when listed artifacts/cards were produced by `cbm-baseline-*` or `dev-fixture-*`.
+- Implemented: baseline/dev-fixture findings and intervention cards render `[BASELINE]` in the card title.
+- Verification run:
+  - Red tests initially failed as expected because the banner/render helpers did not exist.
+  - Focused regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_handoff_renders_baseline_banner_when_any_card_is_baseline tests/test_cli.py::test_handoff_omits_baseline_banner_when_all_cards_are_runtime_agent tests/test_cli.py::test_handoff_marks_each_baseline_card_with_inline_marker`.
+  - Cross-regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py -k handoff` reported 11 passed, 86 deselected, 2 warnings.
+  - Diff check passed: `git diff --check -- cbm/cli.py tests/test_cli.py BUILD-LOG.md .planning/phases/01-first-runtime-producer-evidence/PLAN.md`.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 97 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Boundary:
+  - Presentation-only change; artifact schemas are unchanged.

@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from cbm.cli import extract_citations, goal_pack, load_goal_packs, load_project_packs, main, sha256_file
+from cbm.cli import BASELINE_BANNER_TEXT, extract_citations, goal_pack, load_goal_packs, load_project_packs, main, render_card_title, render_handoff_body, sha256_file
 from cbm.skill_loader import load_skill
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
@@ -943,6 +943,35 @@ def test_handoff_emits_goal_pack_card_type(tmp_path: Path) -> None:
     assert audit_frontmatter["goal_class"] == "audit"
     assert audit_frontmatter["primary_files"][0]["path"] == "tests/test_app.py"
     assert audit_frontmatter["primary_files"][0]["role"] != card_frontmatter["primary_files"][0]["role"]
+
+
+def test_handoff_renders_baseline_banner_when_any_card_is_baseline(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    run_id = "run-baseline-banner"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    handoff_text = (repo / ".research" / run_id / "handoff.md").read_text(encoding="utf-8")
+    assert BASELINE_BANNER_TEXT in handoff_text
+
+
+def test_handoff_omits_baseline_banner_when_all_cards_are_runtime_agent() -> None:
+    assert BASELINE_BANNER_TEXT not in render_handoff_body(include_baseline_banner=False)
+
+
+def test_handoff_marks_each_baseline_card_with_inline_marker(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    run_id = "run-baseline-marker"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    card_text = (repo / ".research" / run_id / "findings" / "int-0001.md").read_text(encoding="utf-8")
+    assert "# [BASELINE] Phase A Structural Finding" in card_text
+    assert "[BASELINE]" not in render_card_title("findings_card", "skeptic@1.2")
 
 
 def test_standard_run_writes_verification_map(tmp_path: Path) -> None:
