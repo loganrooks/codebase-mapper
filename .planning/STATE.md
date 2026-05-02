@@ -63,8 +63,8 @@ Important examples:
 - `5368a33` `feat: add run producer manifest`
 - `20af433` `docs: record codex cli isolation spike`
 - `9f618b2` `test: add external deterministic benchmark baseline`
-- pending readiness closure: accepted recovery checkpoint and final `/goal` readiness verification
-- pending cross-vendor audit closure: Opus audit disposition and immediate readiness blockers
+- `bd66d14` `feat: harden goal readiness after audit`
+- pending next evidence slice: live Codex isolation probe, then skill-loaded real Skeptic artifact
 
 ## Active Architecture Decision
 
@@ -115,7 +115,7 @@ Minimum-useful CBM status:
 
 ## `/goal` Readiness
 
-Recovery implementation is active again after the cross-vendor audit. The checkpoint gate is accepted, and immediate readiness blockers have been implemented pending commit and final `cbm-loop-status`.
+Recovery readiness is restored for the next narrow runtime-producer evidence track. The checkpoint gate is accepted, cross-vendor audit blockers have been dispositioned, and final `cbm-loop-status` passed.
 
 Broad unattended `/goal` is restored only for the next narrow runtime-producer evidence track: the first real agent-produced benchmark artifact. It is not restored for Phase B+ pass claims, unrelated kernel hardening, or treating deterministic baseline artifacts as runtime-agent output.
 
@@ -144,6 +144,8 @@ Last known full suite after the live Codex CLI smoke remediation slice: `pytest 
 Last known focused suite after the cross-vendor audit readiness blockers: `pytest -q tests/test_cli.py::test_loop_status_blocks_incomplete_review_sessions_for_broad_goal tests/test_cli.py::test_run_rejects_unsafe_run_id_before_writing_outside_research tests/test_cli.py::test_run_backend_codex_cli_timeout_marks_manifest_interrupted tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review tests/test_cli.py::test_package_schema_resources_match_root_schemas` reported `5 passed, 2 warnings`.
 
 Last known full suite after the cross-vendor audit readiness blockers: `pytest -q` reported `64 passed, 2 warnings`.
+
+Last known broad-goal preflight after committing readiness blockers: `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category loop-status --json` reported `status: ok`, no issues, and no warnings.
 
 This verifies the test suite, not `VISION.md` maturity.
 

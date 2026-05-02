@@ -39,9 +39,9 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 15. Package CBM schemas so installed validation does not depend on checkout layout. Status: completed.
 16. Run live Codex CLI smoke on pinned MCP `src/git` benchmark. Status: completed.
 17. Run cross-vendor Opus audit of the recovery work and next plan. Status: completed; disposition accepted with revisions.
-18. Implement immediate readiness blockers from the audit: review-completion gate, run-id validation, and Codex subprocess timeout handling. Status: completed; pending commit and final loop-status.
+18. Implement immediate readiness blockers from the audit: review-completion gate, run-id validation, and Codex subprocess timeout handling. Status: completed in `bd66d14`; final loop-status passed.
 
-Recovery implementation was reopened by the cross-vendor audit. Broad unattended `/goal` is allowed only after the immediate readiness blockers are committed and final `cbm-loop-status` succeeds.
+Recovery readiness is restored for the next narrow runtime-producer evidence track. Broad unattended `/goal` is allowed for that track only; Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific evidence exists.
 
 ## Next `/goal` Track
 

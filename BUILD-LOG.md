@@ -1392,6 +1392,7 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
 - Verification run:
   - Focused regressions passed: `pytest -q tests/test_cli.py::test_loop_status_blocks_incomplete_review_sessions_for_broad_goal tests/test_cli.py::test_run_rejects_unsafe_run_id_before_writing_outside_research tests/test_cli.py::test_run_backend_codex_cli_timeout_marks_manifest_interrupted tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review tests/test_cli.py::test_package_schema_resources_match_root_schemas`.
   - Full suite passed: `pytest -q` reported 64 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+  - Post-commit broad-goal preflight passed: `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category loop-status --json` reported `status: ok`, no issues, and no warnings.
 - Boundary:
   - The audit's GSDR/GSD-2 and external-research claims are parked until independently verified.
   - This slice hardens `/goal` readiness; it still does not satisfy the `VISION.md` minimum-useful CBM floor.
