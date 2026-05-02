@@ -105,7 +105,7 @@ Reader skill invocation. Identifies relevant artifacts from `.research/`; runs `
 
 ### `cbm-loop-status` (recovery)
 
-Read-only recovery preflight. Checks that live planning files exist, authority/planning docs are not dirty, the requested recovery work category is allowed, and the checkpoint gate is satisfied for broad `/goal` scope. `--scope recovery-slice` reports a pending checkpoint as a warning; `--scope broad-goal` exits nonzero until the checkpoint is accepted or waived.
+Read-only recovery preflight. Checks that live planning files exist, authority/planning docs are not dirty, the requested recovery work category is allowed, review packets are complete, and checkpoint gates are satisfied for the requested scope. `--scope recovery-slice` tolerates same-model checkpoint fallback only when labeled with `same_model_fallback: true`; `--scope pass-claim` requires a `reviewer_model_id` from a configured non-current model family and an accepted disposition.
 
 ### `cbm-bind <goal-string>`
 

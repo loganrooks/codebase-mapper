@@ -1438,3 +1438,21 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - This is real skill-loaded runtime-producer evidence, not just smoke.
   - It meets the narrow `VISION.md` minimum-useful CBM floor once.
   - It is still not a Phase B+ pass claim; repeatability and broader runtime-agent orchestration remain open.
+
+## 2026-05-02 — Recovery slice: I-S3 loop-status checkpoint gates
+
+- Implemented: `cbm-loop-status` now supports `--scope pass-claim` and blocks pass claims when the latest checkpoint lacks `reviewer_model_id`.
+- Implemented: pass-claim scope rejects reviewers matching the configured current dev-agent family from `cbm/loop_status_config.json`.
+- Implemented: same-model fallback is tolerated only for recovery-slice scope when the checkpoint records `same_model_fallback: true`.
+- Implemented: review-packet completion tests were expanded to cover orphaned prompt packets and empty review folders by name.
+- Implemented: a recent corrective-slice BUILD-LOG heuristic emits a non-blocking `repeated_rework_pattern` warning.
+- Updated the historical recovery checkpoint with `reviewer_model_id: gpt-5-codex-same-model-fallback` and `same_model_fallback: true`, matching its existing prose label.
+- Decision: configured current dev-agent families as `gpt`, `openai`, and `codex` because this active implementation loop is Codex/OpenAI. A Claude-family checkpoint is therefore cross-model for this loop; the old Codex checkpoint remains only a labeled same-model recovery fallback.
+- Verification run:
+  - Red tests initially failed as expected: `pass-claim` was not an accepted loop-status scope and `repeated_rework_pattern` was not emitted.
+  - Focused regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_loop_status_blocks_broad_goal_on_orphaned_review_packet tests/test_cli.py::test_loop_status_blocks_broad_goal_on_empty_review_folder tests/test_cli.py::test_loop_status_blocks_pass_claim_with_missing_reviewer_model_id tests/test_cli.py::test_loop_status_blocks_pass_claim_with_same_model_reviewer tests/test_cli.py::test_loop_status_accepts_pass_claim_with_cross_model_reviewer tests/test_cli.py::test_loop_status_warns_on_repeated_rework_pattern tests/test_cli.py::test_loop_status_recovery_slice_tolerates_labeled_same_model_fallback`.
+  - Cross-regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_loop_status_blocks_broad_goal_until_checkpoint_satisfies_resume tests/test_cli.py::test_loop_status_blocks_dirty_authority_docs_and_disallowed_work`.
+  - Self-test passed: `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category loop-status --json` reported `status: ok`, no issues, and no warnings.
+  - Pass-claim self-test blocked as expected: `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category loop-status --json` reported `same_model_checkpoint` for the historical same-model fallback checkpoint.
+- Boundary:
+  - This builds the mechanical checkpoint gate; it does not create the future cross-model pass-claim review packet itself.

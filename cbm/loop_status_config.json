@@ -1,0 +1,8 @@
+{
+  "current_dev_agent_model_families": [
+    "gpt",
+    "openai",
+    "codex"
+  ],
+  "rework_warning_threshold": 6
+}

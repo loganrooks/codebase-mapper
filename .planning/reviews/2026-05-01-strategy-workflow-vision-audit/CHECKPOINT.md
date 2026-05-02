@@ -5,6 +5,8 @@ Last updated: 2026-05-01
 Satisfies resume gate: yes
 Disposition: accept
 Reviewer: Codex adversarial checkpoint reviewer, same-model fallback
+reviewer_model_id: gpt-5-codex-same-model-fallback
+same_model_fallback: true
 
 ## Scope Reviewed
 

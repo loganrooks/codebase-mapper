@@ -2292,6 +2292,90 @@ def test_loop_status_blocks_incomplete_review_sessions_for_broad_goal(tmp_path: 
     assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "loop-status"]) == 0
 
 
+def test_loop_status_blocks_broad_goal_on_orphaned_review_packet(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+    review = repo / ".planning" / "reviews" / "orphan-review"
+    review.mkdir()
+    (review / "PROMPT.md").write_text("# Prompt\n", encoding="utf-8")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "loop-status"]) == 1
+
+
+def test_loop_status_blocks_broad_goal_on_empty_review_folder(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+    (repo / ".planning" / "reviews" / "empty-review").mkdir()
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "loop-status"]) == 1
+
+
+def write_checkpoint_packet(repo: Path, text: str, disposition: str = "Disposition: accept\n") -> None:
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+    checkpoint = repo / ".planning" / "reviews" / "checkpoint" / "CHECKPOINT.md"
+    checkpoint.write_text(text, encoding="utf-8")
+    disposition_path = checkpoint.with_name("DISPOSITION.md")
+    disposition_path.write_text(f"# Disposition\n\n{disposition}", encoding="utf-8")
+    git(repo, "add", ".planning")
+    git(repo, "commit", "-m", "update checkpoint packet")
+
+
+def test_loop_status_blocks_pass_claim_with_missing_reviewer_model_id(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(repo, "# Checkpoint\n\nDisposition: accept\n")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 1
+
+
+def test_loop_status_blocks_pass_claim_with_same_model_reviewer(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(repo, "# Checkpoint\n\nreviewer_model_id: gpt-5.5-pro\nDisposition: accept\n")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 1
+
+
+def test_loop_status_accepts_pass_claim_with_cross_model_reviewer(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(repo, "# Checkpoint\n\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 0
+
+
+def test_loop_status_warns_on_repeated_rework_pattern(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+    entries = []
+    for idx in range(6):
+        entries.append(
+            f"## 2026-05-02 — Recovery slice: fix retry {idx}\n\n"
+            "- Implemented: corrective repair for `cbm/cli.py` after a failed regression.\n"
+        )
+    (repo / "BUILD-LOG.md").write_text("\n".join(entries), encoding="utf-8")
+    git(repo, "add", "BUILD-LOG.md")
+    git(repo, "commit", "-m", "add build log")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "recovery-slice", "--work-category", "loop-status"]) == 0
+    captured = capsys.readouterr()
+    assert "repeated_rework_pattern" in captured.err
+
+    (repo / "BUILD-LOG.md").write_text("\n".join(entries[:5]), encoding="utf-8")
+    git(repo, "add", "BUILD-LOG.md")
+    git(repo, "commit", "-m", "trim build log")
+    assert main(["loop-status", "--repo", str(repo), "--scope", "recovery-slice", "--work-category", "loop-status"]) == 0
+    captured = capsys.readouterr()
+    assert "repeated_rework_pattern" not in captured.err
+
+
+def test_loop_status_recovery_slice_tolerates_labeled_same_model_fallback(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(
+        repo,
+        "# Checkpoint\n\nreviewer_model_id: gpt-5.5-pro\nsame_model_fallback: true\nDisposition: accept\n",
+    )
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "recovery-slice", "--work-category", "loop-status"]) == 0
+
+
 def test_validate_rejects_malformed_codebase_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)

@@ -19,6 +19,7 @@ Current product state:
 - the `codex-cli` smoke backend defaults to `gpt-5.4-mini` with medium reasoning for harness tests;
 - the first live Codex CLI smoke artifact has passed on the pinned MCP `src/git` benchmark;
 - `cbm-loop-status` now checks review-session completion for broad `/goal`;
+- `cbm-loop-status` now blocks pass-claim scope unless the latest checkpoint records a reviewer model from a configured non-current model family;
 - `cbm run` rejects unsafe run IDs before constructing `.research/<run_id>` paths;
 - Codex CLI subprocess calls now have a configurable timeout and interrupted manifest status;
 - a live Codex CLI isolation probe reported no access to parent-only session context under current backend flags;
@@ -122,6 +123,7 @@ Minimum-useful CBM status:
 - `cbm/cli.py` remains a large monolith; splitting should follow producer-registry work, not precede it as churn.
 - Planning docs can become process theater if they are not tied to checkpoint review and concrete verification.
 - Review packets can become orphaned artifacts if prompt/output/disposition completion is not mechanically gated; the current `loop-status` slice addresses this for broad `/goal`.
+- Pass-claim checkpoints can be accidentally cleared by a same-model fallback if reviewer identity is not explicit; `loop-status` now requires `reviewer_model_id` and blocks configured same-model families for pass-claim scope.
 
 ## `/goal` Readiness
 

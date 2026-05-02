@@ -48,6 +48,8 @@ RECOVERY_ALLOWED_WORK_CATEGORIES = {
     "benchmark",
     "codex-isolation",
     "loop-status",
+    "recovery-governance",
+    "runtime-producer",
 }
 DETERMINISTIC_PRODUCERS = {
     "project_type_report": "cbm-baseline-project-type@0.1",
@@ -4694,6 +4696,108 @@ def checkpoint_satisfies_resume(path: Path) -> bool:
     return any(marker in text for marker in accepted_markers)
 
 
+def load_loop_status_config() -> dict[str, Any]:
+    try:
+        config_text = resources.files("cbm").joinpath("loop_status_config.json").read_text(encoding="utf-8")
+        config = json.loads(config_text)
+    except (FileNotFoundError, json.JSONDecodeError, ModuleNotFoundError):
+        config = {}
+    families = config.get("current_dev_agent_model_families") or ["gpt", "openai", "codex"]
+    return {
+        "current_dev_agent_model_families": [str(item).lower() for item in families],
+        "rework_warning_threshold": int(config.get("rework_warning_threshold", 6)),
+    }
+
+
+def markdown_metadata(text: str) -> dict[str, str]:
+    metadata: dict[str, str] = {}
+    if text.startswith("---\n"):
+        _, frontmatter, _ = text.split("---", 2)
+        parsed = yaml.safe_load(frontmatter) or {}
+        if isinstance(parsed, dict):
+            for key, value in parsed.items():
+                normalized_key = str(key).strip().lower().replace(" ", "_").replace("-", "_")
+                metadata[normalized_key] = "" if value is None else str(value).strip()
+    for line in text.splitlines():
+        if ":" not in line or line.startswith("#"):
+            continue
+        key, value = line.split(":", 1)
+        normalized_key = key.strip().lower().replace(" ", "_").replace("-", "_")
+        if normalized_key in {
+            "reviewer_model_id",
+            "same_model_fallback",
+            "disposition",
+            "status",
+            "satisfies_resume_gate",
+        }:
+            metadata.setdefault(normalized_key, value.strip())
+    return metadata
+
+
+def model_matches_family(model_id: str, families: list[str]) -> bool:
+    normalized = model_id.lower()
+    return any(family and family in normalized for family in families)
+
+
+def truthy(value: str | None) -> bool:
+    return str(value or "").strip().lower() in {"true", "yes", "1"}
+
+
+def checkpoint_metadata(path: Path | None) -> dict[str, str]:
+    if not path:
+        return {}
+    return markdown_metadata(path.read_text(encoding="utf-8"))
+
+
+def checkpoint_disposition_metadata(path: Path | None) -> dict[str, str]:
+    if not path:
+        return {}
+    disposition = path.with_name("DISPOSITION.md")
+    if not nonempty(disposition):
+        return {}
+    return markdown_metadata(disposition.read_text(encoding="utf-8"))
+
+
+def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scope: str) -> list[dict[str, str]]:
+    if not path:
+        return [{"code": "missing_checkpoint", "message": "no checkpoint review artifact found under .planning/reviews"}]
+    metadata = checkpoint_metadata(path)
+    reviewer_model_id = metadata.get("reviewer_model_id", "").strip()
+    if not reviewer_model_id:
+        return [
+            {
+                "code": "missing_reviewer_model_id",
+                "message": f"{path} has no reviewer_model_id field for {scope} scope",
+            }
+        ]
+    same_model = model_matches_family(reviewer_model_id, list(config["current_dev_agent_model_families"]))
+    same_model_fallback = truthy(metadata.get("same_model_fallback"))
+    if same_model and scope == "pass-claim":
+        return [
+            {
+                "code": "same_model_checkpoint",
+                "message": f"{path} reviewer_model_id '{reviewer_model_id}' matches the current dev-agent model family",
+            }
+        ]
+    if same_model and scope == "recovery-slice" and not same_model_fallback:
+        return [
+            {
+                "code": "unlabeled_same_model_checkpoint",
+                "message": f"{path} uses same-model reviewer '{reviewer_model_id}' without same_model_fallback: true",
+            }
+        ]
+    disposition = checkpoint_disposition_metadata(path)
+    disposition_value = (metadata.get("disposition") or disposition.get("disposition") or "").lower()
+    if scope == "pass-claim" and disposition_value not in {"accept", "accepted", "waived-by-user"}:
+        return [
+            {
+                "code": "checkpoint_disposition_not_accepted",
+                "message": f"{path} has no accepted disposition for pass-claim scope",
+            }
+        ]
+    return []
+
+
 def nonempty(path: Path) -> bool:
     return path.is_file() and path.stat().st_size > 0
 
@@ -4729,10 +4833,38 @@ def review_session_completion_issues(repo: Path) -> list[dict[str, str]]:
     return issues
 
 
+def rework_pattern_warnings(repo: Path, threshold: int) -> list[dict[str, str]]:
+    build_log = repo / "BUILD-LOG.md"
+    if not build_log.exists():
+        return []
+    text = build_log.read_text(encoding="utf-8")
+    slices = [block for block in re.split(r"(?=^##\s)", text, flags=re.MULTILINE) if block.startswith("##")]
+    recent_slices = slices[-threshold:]
+    path_counts: dict[str, int] = {}
+    corrective_re = re.compile(r"\b(fix|fixed|repair|correct|corrective|retry|failed|failure|regression|rework|remediat)", re.IGNORECASE)
+    path_re = re.compile(r"`((?:\.planning|\.research|cbm|tests|schemas|docs|skills|platform|VISION|AGENTS|RUNTIME-CONSTITUTION|BUILD-LOG)[^`]*\.(?:md|json|py|toml|txt|schema\.json))`")
+    for block in recent_slices:
+        if not corrective_re.search(block):
+            continue
+        for path in path_re.findall(block):
+            path_counts[path] = path_counts.get(path, 0) + 1
+    warnings: list[dict[str, str]] = []
+    for path, count in sorted(path_counts.items()):
+        if count >= threshold:
+            warnings.append(
+                {
+                    "code": "repeated_rework_pattern",
+                    "message": f"{path} appears in {count} corrective BUILD-LOG slices",
+                }
+            )
+    return warnings
+
+
 def command_loop_status(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     issues: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
+    config = load_loop_status_config()
 
     current_plan = repo / ".planning" / "CURRENT-PLAN.md"
     state = repo / ".planning" / "STATE.md"
@@ -4763,7 +4895,7 @@ def command_loop_status(args: argparse.Namespace) -> int:
     checkpoint_ok = checkpoint_satisfies_resume(checkpoint_path) if checkpoint_path else False
     if not checkpoint_path:
         issue = {"code": "missing_checkpoint", "message": "no checkpoint review artifact found under .planning/reviews"}
-        if args.scope == "broad-goal":
+        if args.scope in {"broad-goal", "pass-claim", "main-merge", "broad-goal-restart"}:
             issues.append(issue)
         else:
             warnings.append(issue)
@@ -4772,16 +4904,23 @@ def command_loop_status(args: argparse.Namespace) -> int:
             "code": "checkpoint_pending",
             "message": f"checkpoint does not satisfy resume gate: {checkpoint_path.relative_to(repo).as_posix()}",
         }
-        if args.scope == "broad-goal":
+        if args.scope in {"broad-goal", "broad-goal-restart"}:
             issues.append(issue)
         else:
             warnings.append(issue)
+
+    if args.scope == "pass-claim":
+        issues.extend(checkpoint_pass_claim_issues(checkpoint_path, config, args.scope))
+    elif args.scope == "recovery-slice":
+        recovery_model_issues = checkpoint_pass_claim_issues(checkpoint_path, config, args.scope)
+        issues.extend(item for item in recovery_model_issues if item["code"] == "unlabeled_same_model_checkpoint")
 
     review_issues = review_session_completion_issues(repo)
     if args.scope == "broad-goal":
         issues.extend(review_issues)
     else:
         warnings.extend(review_issues)
+    warnings.extend(rework_pattern_warnings(repo, int(config["rework_warning_threshold"])))
 
     result = {
         "status": "fail" if issues else "ok",
@@ -5118,7 +5257,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.set_defaults(func=command_run)
     p_loop_status = sub.add_parser("loop-status")
     p_loop_status.add_argument("--repo", default=".")
-    p_loop_status.add_argument("--scope", choices=["recovery-slice", "broad-goal"], default="recovery-slice")
+    p_loop_status.add_argument("--scope", choices=["recovery-slice", "pass-claim", "main-merge", "broad-goal", "broad-goal-restart"], default="recovery-slice")
     p_loop_status.add_argument("--work-category")
     p_loop_status.add_argument("--json", action="store_true")
     p_loop_status.set_defaults(func=command_loop_status)
