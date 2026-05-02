@@ -1,6 +1,6 @@
 # Current Plan
 
-Status: active
+Status: active; recovery interventions complete, pass-claim checkpoint pending
 Last updated: 2026-05-02
 Supersedes: direct use of `docs/roadmap.md` as current execution plan
 Superseded by: none
@@ -12,6 +12,8 @@ Recover the project to a state where `/goal` can run again without repeating the
 The current work is an intervention, not a product feature sprint. Its purpose is to install enough architecture clarity, planning discipline, and immediate code correction that the next autonomous loop has a narrow, falsifiable path.
 
 Implementation phase bundle: `.planning/phases/01-first-runtime-producer-evidence/`.
+
+Current boundary: the Tier 1 and Tier 5 R-OK interventions from `.planning/reviews/2026-05-02-opus-cross-vendor-audit/INTERVENTIONS.md` are implemented. The remaining gate before a pass claim is an external or non-current-model checkpoint using the native `cbm checkpoint` packet.
 
 ## Locked Decisions
 
@@ -46,22 +48,23 @@ Implementation phase bundle: `.planning/phases/01-first-runtime-producer-evidenc
 18. Implement immediate readiness blockers from the audit: review-completion gate, run-id validation, and Codex subprocess timeout handling. Status: completed in `bd66d14`; final loop-status passed.
 19. Run live Codex CLI isolation probe. Status: completed; probe reported no access to parent-only session context.
 20. Add runtime skill loader and run skill-loaded Skeptic on MCP `src/git`. Status: completed as minimum-useful CBM evidence in `run-mcp-git-codex-skeptic-skill-4`.
+21. Apply all Tier 1 and Tier 5 R-OK interventions from the Opus cross-vendor audit. Status: completed across `f004657` through `65c19f2`.
 
-Recovery readiness is restored for the next narrow runtime-producer evidence track. Broad unattended `/goal` is allowed for that track only; Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific evidence exists.
+Recovery readiness is restored for the next narrow runtime-producer evidence track. Broad unattended `/goal` is allowed for that track only; Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific checkpoint evidence exists.
 
 ## Next `/goal` Track
 
-The next broad `/goal` track should produce the first real agent-produced benchmark artifact. The first implementation target is a narrow live Codex CLI smoke or equivalent external producer backend that writes one schema-valid artifact, records its subprocess invocation in `run-manifest.json`, and passes parent-side validation.
+The next broad `/goal` track should either close the minimum-useful-CBM pass claim with a cross-model checkpoint or produce repeatability evidence on a second small external runtime-producer target. The target artifact must be schema-valid, record its subprocess invocation in `run-manifest.json`, and pass parent-side validation.
 
 Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, the live isolation probe reported no access to parent-only session context, and a skill-loaded `skeptic@1.2` subprocess produced an ingested interpretive challenge on the same pinned benchmark. This proves subprocess dispatch, validation harness behavior, skill loading, skill-hash manifest recording, parent-side runtime challenge ingestion, and a narrow isolation property for a bounded artifact.
 
-The narrow `VISION.md` minimum-useful CBM floor is met. The next proof target is repeatability and phase-boundary review: run at least one additional small external target or checkpoint the recovery close before moving into broader roadmap/maturity-band work.
+The narrow `VISION.md` minimum-useful CBM floor is met as implementation evidence. The next proof target is phase-boundary review: create a `cbm checkpoint` packet for the minimum-useful-CBM pass criterion, have a non-current-model reviewer disposition it, and only then treat `cbm-loop-status --scope pass-claim` as clear. After that, run at least one additional small external target before moving into broader roadmap/maturity-band work.
 
 This is not a Phase B+ pass claim. It is the first runtime-producer evidence slice.
 
 ## Allowed Next Code Work
 
-Only these code categories are allowed before the first real agent-produced benchmark artifact exists:
+Only these code categories are allowed before the cross-model pass claim and repeatability evidence exist:
 
 - false-provenance and coverage-honesty repair;
 - producer-registry scaffolding;
@@ -85,7 +88,7 @@ Before unattended `/goal` resumes, a checkpoint review must exist at:
 
 `.planning/reviews/2026-05-01-strategy-workflow-vision-audit/CHECKPOINT.md`
 
-Status: accepted. The original checkpoint gate is satisfied, but the cross-vendor audit added immediate readiness blockers that must be closed before broad `/goal` resumes.
+Status: accepted. The original checkpoint gate is satisfied, and the cross-vendor audit's Tier 1 plus Tier 5 R-OK readiness blockers are closed.
 
 The checkpoint must review:
 
@@ -99,6 +102,8 @@ The checkpoint can be produced by an external model or a bounded reviewer agent.
 
 Broad unattended `/goal` also requires `cbm-loop-status` to return success. Success means the command can see this active plan, confirm the next work is in the allowed categories, detect uncommitted authority-doc changes, and confirm the checkpoint gate is accepted.
 
+Pass-claim scope has a stricter gate: the latest relevant checkpoint must record a non-current-model `reviewer_model_id` and an accepted disposition. Same-model fallback checkpoints can only clear recovery-slice scope.
+
 ## Benchmark Default
 
 Default benchmark candidate:
@@ -111,14 +116,16 @@ If this target is too large or too noisy, choose a smaller MCP server snapshot a
 
 ## Verification
 
-For this intervention commit:
+For the completed recovery intervention track:
 
 - `git diff --check -- .planning AGENTS.md VISION.md docs/architecture.md docs/roadmap.md BUILD-LOG.md`
+- `TMPDIR=/var/tmp pytest -q`
+- `python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category runtime-producer --json`
+- `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category runtime-producer --json`
+- expected block: `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json`
 
 For the next code slice:
 
-- focused regression for minimal `cbm-loop-status`;
-- focused regression tests for honest `produced_by`;
-- focused regression tests for `files_examined_directly`;
-- smoke artifact inspection for deterministic `baseline_only`;
-- full `pytest -q`.
+- create and review a `cbm checkpoint` pass-claim packet;
+- run `cbm-loop-status --scope pass-claim` after the cross-model disposition;
+- then select the next narrow runtime-producer target.

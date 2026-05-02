@@ -1572,3 +1572,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 100 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
 - Boundary:
   - Compatibility wrapper only; the runtime Codex backend continues to use `cbm.skill_loader`.
+
+## 2026-05-02 — Recovery intervention completion audit
+
+- Completed: all Tier 1 and Tier 5 R-OK interventions from `.planning/reviews/2026-05-02-opus-cross-vendor-audit/INTERVENTIONS.md` are implemented and committed.
+- Updated: `.planning/STATE.md`, `.planning/CURRENT-PLAN.md`, and `.planning/phases/01-first-runtime-producer-evidence/` now record the completion boundary.
+- Verification run:
+  - `TMPDIR=/var/tmp pytest -q` reported 100 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+  - `python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category runtime-producer --json` reported `status: ok`, no issues, and no warnings.
+  - `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category runtime-producer --json` reported `status: ok`, no issues, and no warnings.
+  - `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` reported `status: fail` with `same_model_checkpoint`.
+- Boundary:
+  - The pass-claim failure is intentional. The next claim-level gate requires a non-current-model checkpoint disposition; this loop did not fabricate that review.

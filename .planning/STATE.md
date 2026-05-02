@@ -26,9 +26,11 @@ Current product state:
 - runtime skill loading exists for Codex CLI skill mode, and run manifests record the loaded Skeptic skill hash;
 - the first skill-loaded `skeptic@1.2` run on MCP `src/git` produced a structurally ingested interpretive challenge;
 - the narrow `VISION.md` minimum-useful CBM floor is met on one pinned external benchmark;
+- all Tier 1 and Tier 5 R-OK recovery interventions from the 2026-05-02 Opus cross-vendor audit have been implemented and committed;
 - CBM schemas are packaged under `cbm/schemas/` so installed validation does not depend on a repo checkout or target-local schema copies;
 - runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
 - no full runtime Surface Mapper or full isolated Skeptic pass has been run through CBM yet;
+- no cross-model pass-claim checkpoint has accepted the minimum-useful-CBM claim yet;
 - current deterministic artifacts must not be treated as proof of nuanced codebase understanding.
 
 ## Authority
@@ -70,7 +72,17 @@ Important examples:
 - `20af433` `docs: record codex cli isolation spike`
 - `9f618b2` `test: add external deterministic benchmark baseline`
 - `bd66d14` `feat: harden goal readiness after audit`
-- pending next evidence slice: repeatability check or recovery-close checkpoint
+- `1803acb` `feat: gate pass claims on cross model checkpoints`
+- `6c52a84` `feat: record codex timeout cause and partial output`
+- `c165f79` `feat: tee codex logs and hash output files`
+- `8d0239f` `docs: seed adr ledger for recovery decisions`
+- `dc6b43b` `docs: introduce per phase artifact bundles`
+- `f0efb2e` `feat: add native checkpoint packet command`
+- `879afb7` `test: complete codex cli failure mode regressions`
+- `91f1f95` `feat: render baseline banner on handoff and cards`
+- `021a004` `docs: verify codex isolation through cbm run`
+- `65c19f2` `feat: add formal skill loader compatibility module`
+- pending next evidence slice: cross-model pass-claim checkpoint, then repeatability check or next narrow `/goal` track
 
 ## Active Architecture Decision
 
@@ -132,9 +144,11 @@ Minimum-useful CBM status:
 
 ## `/goal` Readiness
 
-Recovery readiness is restored for the next narrow runtime-producer evidence track. The checkpoint gate is accepted, cross-vendor audit blockers have been dispositioned, and final `cbm-loop-status` passed.
+Recovery readiness is restored for the next narrow runtime-producer evidence track. The checkpoint gate is accepted, cross-vendor audit blockers have been dispositioned, and final `cbm-loop-status` passed for `recovery-slice` and `broad-goal`.
 
-Broad unattended `/goal` is restored only for the next narrow runtime-producer evidence track: the first real agent-produced benchmark artifact. It is not restored for Phase B+ pass claims, unrelated kernel hardening, or treating deterministic baseline artifacts as runtime-agent output.
+Broad unattended `/goal` is restored only for the next narrow runtime-producer evidence track. It is not restored for Phase B+ pass claims, unrelated kernel hardening, or treating deterministic baseline artifacts as runtime-agent output.
+
+Pass-claim scope is deliberately blocked until a non-current-model checkpoint is created and dispositioned. Current self-check: `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` fails with `same_model_checkpoint`, because the accepted recovery checkpoint is labeled as a same-model fallback.
 
 ## Verification Status
 
@@ -175,6 +189,14 @@ Last known full suite after structured runtime challenge ingestion: `TMPDIR=/var
 Last known skill package verification: a temp wheel built under `/var/tmp` contained 7 `cbm/runtime_skills/*.md` package entries.
 
 Last known skill-loaded live benchmark run: `TMPDIR=/var/tmp python3 -m cbm.cli run --repo /tmp/cbm-live-mcp-servers-4503e2d/src/git --goal "understand MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-skeptic-mode skill --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-codex-skeptic-skill-4` exited 0; `handoff.md` reported `skeptic_review.challenges_logged: 1` and `contestation_summary.open_challenges: 1`.
+
+Last known full suite after all Tier 1 and Tier 5 R-OK interventions: `TMPDIR=/var/tmp pytest -q` reported `100 passed, 2 warnings`.
+
+Last known loop-status after all Tier 1 and Tier 5 R-OK interventions:
+
+- `python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category runtime-producer --json` reported `status: ok`, no issues, and no warnings.
+- `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category runtime-producer --json` reported `status: ok`, no issues, and no warnings.
+- `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` reported `status: fail` with `same_model_checkpoint`; this is the intended block before cross-model pass-claim review.
 
 This verifies the test suite, not `VISION.md` maturity.
 
