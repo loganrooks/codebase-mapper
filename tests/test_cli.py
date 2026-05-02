@@ -360,6 +360,7 @@ def test_run_backend_codex_cli_fake_producer_writes_agent_review(tmp_path: Path)
         "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
         "prompt = sys.stdin.read()\n"
         "assert 'surface-map.json' in prompt\n"
+        "assert 'User goal/probe objective: understand this repo' in prompt\n"
         "output_path.write_text(json.dumps({\n"
         "    'body': 'The smoke reviewer confirms the artifact is readable and cites the supplied anchor.',\n"
         "    'findings_logged': 0,\n"

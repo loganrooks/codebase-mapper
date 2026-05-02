@@ -1547,3 +1547,17 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 97 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
 - Boundary:
   - Presentation-only change; artifact schemas are unchanged.
+
+## 2026-05-02 — Recovery slice: I-S1 supplemental CBM-run isolation probe
+
+- Implemented: passed the `cbm run --goal` text into the Codex CLI smoke subprocess prompt so CBM-run isolation probes can actually carry the probe objective.
+- Ran two live `cbm run --backend codex-cli` probes on tiny `/var/tmp` scratch repos with parent-only token values kept out of files and command arguments.
+- Added formal spike artifact `.planning/spikes/2026-05-02-codex-isolation-live.md`.
+- Outcome: `verified`; neither run emitted a concrete `isolation-probe-xxxxxxxx` token string, and Probe B explicitly reported no parent conversation context.
+- Verification run:
+  - Focused Codex CLI regression passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_run_backend_codex_cli_fake_producer_writes_agent_review tests/test_cli.py -k codex_cli` reported 14 passed, 83 deselected, 2 warnings.
+  - Probe A and Probe B live runs exited 0.
+  - Regex search for `isolation-probe-[0-9a-f]{8}` across both run directories returned no matches.
+  - Both probe handoffs validated with `python3 -m cbm.cli validate`.
+- Boundary:
+  - This verifies the current Codex CLI backend isolation property for parent-only token visibility; it does not prove cross-platform isolation or full runtime-agent quality.

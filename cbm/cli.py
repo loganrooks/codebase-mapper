@@ -4054,6 +4054,7 @@ def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
             "unless the artifact is unreadable.\n\n"
             f"Repository: {repo}\n"
             f"Run id: {paths.run_id}\n"
+            f"User goal/probe objective: {args.goal}\n"
             f"Artifact under review: {surface_path.relative_to(repo)}\n"
             f"Required citation anchor to include in your reasoning: {citation}\n"
         )
@@ -4681,6 +4682,7 @@ def command_run(args: argparse.Namespace) -> int:
                     codex_reasoning_effort=args.codex_reasoning_effort,
                     codex_timeout=args.codex_timeout,
                     codex_skeptic_mode=args.codex_skeptic_mode,
+                    goal=args.goal,
                 ),
             )
         )
