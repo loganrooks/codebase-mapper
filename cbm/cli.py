@@ -74,6 +74,7 @@ BASELINE_BANNER_TEXT = (
     "they inherit baseline guarantees only (schema-valid, citation-resolved, evidence-table-checked). Do not act on them as if they had Skeptic review."
 )
 CODEX_CLI_SMOKE_PRODUCER = "codex-cli-smoke@0.1"
+CODEX_CLI_SKILL_SURFACE_PRODUCER = "surface-mapper@1.2"
 CODEX_CLI_SKILL_SKEPTIC_PRODUCER = "skeptic@1.2"
 BACKEND_CHOICES = ["deterministic", "external", "codex-cli"]
 DEFAULT_CODEX_CLI_MODEL = "gpt-5.4-mini"
@@ -925,7 +926,13 @@ def producer_execution_contract(producer_id: str) -> str:
     return "external_agent"
 
 
+def codex_cli_surface_producer_id(mode: str) -> str:
+    return CODEX_CLI_SKILL_SURFACE_PRODUCER if mode == "skill" else DETERMINISTIC_PRODUCERS["surface_map"]
+
+
 def codex_cli_skeptic_producer_id(mode: str) -> str:
+    if mode == "none":
+        return DETERMINISTIC_PRODUCERS["skeptic_review"]
     return CODEX_CLI_SKILL_SKEPTIC_PRODUCER if mode == "skill" else CODEX_CLI_SMOKE_PRODUCER
 
 
@@ -933,7 +940,7 @@ def skill_manifest(skill: LoadedSkill) -> dict[str, str]:
     return {"name": skill.name, "path": skill.path, "sha256": skill.sha256}
 
 
-def build_producer_registry(backend: str, codex_skeptic_mode: str = "smoke") -> dict[str, Any]:
+def build_producer_registry(backend: str, codex_skeptic_mode: str = "smoke", codex_surface_mode: str = "baseline") -> dict[str, Any]:
     producers = []
     if backend == "deterministic":
         for artifact_type, producer_id in DETERMINISTIC_PRODUCERS.items():
@@ -947,7 +954,11 @@ def build_producer_registry(backend: str, codex_skeptic_mode: str = "smoke") -> 
             )
     elif backend == "codex-cli":
         for artifact_type, producer_id in DETERMINISTIC_PRODUCERS.items():
-            if artifact_type == "skeptic_review":
+            if artifact_type == "surface_map" and codex_surface_mode == "skill":
+                producer_id = codex_cli_surface_producer_id(codex_surface_mode)
+                producer_backend = "codex-cli"
+                execution_contract = "external_agent"
+            elif artifact_type == "skeptic_review" and codex_skeptic_mode != "none":
                 producer_id = codex_cli_skeptic_producer_id(codex_skeptic_mode)
                 producer_backend = "codex-cli"
                 execution_contract = "external_agent"
@@ -1038,7 +1049,8 @@ def annotate_codex_step_outputs(repo: Path, run_id: str, step: dict[str, Any]) -
     step_id = str(step["step_id"])
     step["stdout_sha256"] = sha256_if_nonempty(run_dir / "logs" / f"{step_id}.stdout")
     step["stderr_sha256"] = sha256_if_nonempty(run_dir / "logs" / f"{step_id}.stderr")
-    step["output_path_sha256"] = sha256_if_nonempty(run_dir / "codex-cli-smoke-output.json")
+    output_name = "codex-cli-surface-output.json" if step_id == "codex-cli-skill-surface-map" else "codex-cli-smoke-output.json"
+    step["output_path_sha256"] = sha256_if_nonempty(run_dir / output_name)
 
 
 def command_init(args: argparse.Namespace) -> int:
@@ -1161,7 +1173,11 @@ def command_init(args: argparse.Namespace) -> int:
     write_json(paths.run_dir / "extractor-registry.json", registry)
     write_json(
         paths.run_dir / "producer-registry.json",
-        build_producer_registry(getattr(args, "backend", "deterministic"), getattr(args, "codex_skeptic_mode", "smoke")),
+        build_producer_registry(
+            getattr(args, "backend", "deterministic"),
+            getattr(args, "codex_skeptic_mode", "smoke"),
+            getattr(args, "codex_surface_mode", "baseline"),
+        ),
     )
     write_json(paths.run_dir / "project-type.json", project_type_report)
     (paths.run_dir / "evidence-ledger.jsonl").touch()
@@ -3899,6 +3915,19 @@ def first_citable_file(repo: Path, codebase_map: dict[str, Any], sha: str) -> tu
     raise SystemExit("no citable source file found")
 
 
+def codex_cli_surface_output_schema() -> dict[str, Any]:
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["surface_map_json", "notes"],
+        "properties": {
+            "surface_map_json": {"type": "string", "minLength": 2},
+            "notes": {"type": "string"},
+        },
+    }
+
+
 def codex_cli_smoke_output_schema() -> dict[str, Any]:
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -3965,6 +3994,14 @@ def parse_json_object_output(text: str) -> dict[str, Any]:
     return data
 
 
+def codex_cli_surface_output_path(repo: Path, run_id: str) -> Path:
+    return repo / ".research" / run_id / "codex-cli-surface-output.json"
+
+
+def codex_cli_surface_schema_path(repo: Path, run_id: str) -> Path:
+    return repo / ".research" / run_id / "codex-cli-surface-output.schema.json"
+
+
 def validate_json_with_schema(data: Any, schema: dict[str, Any]) -> list[str]:
     validator = Draft202012Validator(schema)
     return [f"{'/'.join(str(p) for p in error.absolute_path) or '<root>'}: {error.message}" for error in validator.iter_errors(data)]
@@ -4009,6 +4046,87 @@ def codex_cli_smoke_command_display(codex_command: str, repo: Path, run_id: str,
     )
 
 
+def codex_cli_surface_command_display(codex_command: str, repo: Path, run_id: str, model: str, reasoning_effort: str) -> str:
+    output_path = codex_cli_surface_output_path(repo, run_id)
+    output_schema_path = codex_cli_surface_schema_path(repo, run_id)
+    return " ".join(
+        [
+            codex_command,
+            "exec",
+            "-m",
+            model,
+            "-c",
+            codex_cli_reasoning_config(reasoning_effort),
+            "-c",
+            codex_cli_approval_config(),
+            "--ephemeral",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "-C",
+            str(repo),
+            "-s",
+            "read-only",
+            "--json",
+            "-o",
+            str(output_path),
+            "--output-schema",
+            str(output_schema_path),
+            "-",
+        ]
+    )
+
+
+def codex_cli_surface_prompt(skill: LoadedSkill, repo: Path, paths: RunPaths, citation: str) -> str:
+    codebase_path = paths.run_dir / "codebase-map.json"
+    intake_path = paths.run_dir / "intake.json"
+    state_path = paths.run_dir / "state.json"
+    registry_path = paths.run_dir / "extractor-registry.json"
+    return (
+        "You are a CBM runtime Surface Mapper producer. Use the runtime skill below as your governing procedure. "
+        "Read the CBM baseline artifacts and directly inspect the source files needed for any interpretive claim you make. "
+        "Return JSON matching the supplied schema. The `surface_map_json` field must be a string containing one complete JSON object for the surface map. The parent process will parse that string and validate the object against `schemas/surface-map.schema.json`, "
+        "verify every citation against source bytes at the recorded SHA, reject baseline/dev-fixture producer identities, and reject zero direct file examination for this producer. "
+        "The surface map must use `produced_by: surface-mapper@1.2`, `artifact_type: surface_map`, the exact run id and source SHA below, and source citations only in `path:line@sha` or `path:start-end@sha` form. "
+        "Do not cite `.research/` artifacts as claim evidence. In `inputs`, include the four CBM input artifacts and their sha256 values shown below. "
+        "Keep coverage honest: `files_examined_directly` is the number of source files you opened and read; `files_inspected_via_extractor` is the baseline extractor count; `files_unread_in_scope` is the remaining in-scope count.\n\n"
+        "Schema-critical checklist before you answer:\n"
+        "- Top-level surface map requires `status: \"draft\"`, `staleness`, `coverage.result.files_in_scope`, `coverage.result.files_examined_directly`, `coverage.result.files_inspected_via_extractor`, and `coverage.result.files_unread_in_scope`.\n"
+        "- Authority `kind` must be one of: routing, config, schema, policy, registry, build, ci_gate, test_suite, doc_contract, other. Use `test_suite`, not `test`; use `doc_contract`, not `doc`.\n"
+        "- Every edge, including `kind: \"unknown\"`, must include `claim_register`, `claim_status`, `evidence_kinds`, `corroboration_count`, and `confidence`; low or medium confidence edges also need `rationale`.\n"
+        "- Include at least one explicit unknown edge with `id: \"edge-unknown-001\"`; the current handoff gate depends on that stable claim id for dependency-closure caveats.\n"
+        "- Do not set `claim_status` to challenged/contested/contradicted unless you also include the required `challenges` or `contradicted_by` fields. Prefer `claim_status: \"active\"` for this first map.\n"
+        "- `verification` must contain exactly `tests`, `ci_gates`, and `coverage_summary`. Each test exercise must use `target_path`, optional `target_symbol`, `citations`, `claim_register`, and `evidence_kinds`; do not use `target` or `symbol` keys.\n\n"
+        f"Runtime skill: {skill.name}\n"
+        f"Runtime skill path: {skill.path}\n"
+        f"Runtime skill sha256: {skill.sha256}\n\n"
+        "<runtime_skill>\n"
+        f"{skill.body}\n"
+        "</runtime_skill>\n\n"
+        f"Repository: {repo}\n"
+        f"Run id: {paths.run_id}\n"
+        f"Source sha: {source_sha(repo)}\n"
+        f"Codebase map input: {codebase_path.relative_to(repo)} sha256={sha256_file(codebase_path)}\n"
+        f"Intake input: {intake_path.relative_to(repo)} sha256={sha256_file(intake_path)}\n"
+        f"State input: {state_path.relative_to(repo)} sha256={sha256_file(state_path)}\n"
+        f"Extractor registry input: {registry_path.relative_to(repo)} sha256={sha256_file(registry_path)}\n"
+        f"Required citation anchor available for format checking: {citation}\n"
+    )
+
+
+def codex_cli_surface_repair_prompt(original_prompt: str, rejected_output: str, errors: list[str]) -> str:
+    return (
+        original_prompt
+        + "\n\n<parent_validation_errors>\n"
+        + "\n".join(f"- {error}" for error in errors)
+        + "\n</parent_validation_errors>\n\n"
+        + "<rejected_output>\n"
+        + rejected_output
+        + "\n</rejected_output>\n\n"
+        + "Return corrected JSON matching the same outer schema. Preserve source-grounded claims where possible, but fix every parent validation error. "
+        "Do not explain outside the `notes` string. The `surface_map_json` value must parse as one complete schema-valid surface map object.\n"
+    )
+
+
 def codex_cli_skill_prompt(skill: LoadedSkill, repo: Path, paths: RunPaths, surface_path: Path, citation: str) -> str:
     return (
         "You are a CBM runtime Skeptic producer. Use the runtime skill below as your governing procedure. "
@@ -4028,6 +4146,222 @@ def codex_cli_skill_prompt(skill: LoadedSkill, repo: Path, paths: RunPaths, surf
         f"Artifact under review: {surface_path.relative_to(repo)}\n"
         f"Required citation anchor available for spot-checking: {citation}\n"
     )
+
+
+def surface_map_parent_validation_errors(repo: Path, paths: RunPaths, surface: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    sha = source_sha(repo)
+    if surface.get("artifact_type") != "surface_map":
+        errors.append("surface_map.artifact_type must be surface_map")
+    if surface.get("run_id") != paths.run_id:
+        errors.append(f"surface_map.run_id must be {paths.run_id}")
+    surface_sha = str(surface.get("source_sha", ""))
+    if not (surface_sha.startswith(sha) or sha.startswith(surface_sha)):
+        errors.append(f"surface_map.source_sha must match current source sha {sha}")
+    produced_by = str(surface.get("produced_by", ""))
+    if produced_by != CODEX_CLI_SKILL_SURFACE_PRODUCER:
+        errors.append(f"surface_map.produced_by must be {CODEX_CLI_SKILL_SURFACE_PRODUCER}")
+    if is_baseline_like_producer(produced_by):
+        errors.append("surface_map.produced_by must not be a baseline or dev-fixture producer")
+    coverage_result = surface.get("coverage", {}).get("result", {})
+    try:
+        files_examined_directly = int(coverage_result.get("files_examined_directly", 0) or 0)
+    except (TypeError, ValueError):
+        files_examined_directly = 0
+    if files_examined_directly < 1:
+        errors.append("surface_map.coverage.result.files_examined_directly must be >= 1 for codex-cli Surface Mapper output")
+    claim_registers = [
+        claim.get("claim_register")
+        for claim in [*surface.get("authorities", []), *surface.get("edges", [])]
+        if isinstance(claim, dict)
+    ]
+    if not any(register in {"factual", "inferential", "interpretive"} for register in claim_registers):
+        errors.append("surface_map must contain at least one factual, inferential, or interpretive claim")
+    citations = sorted(set(extract_citations(surface)))
+    if not citations:
+        errors.append("surface_map must contain at least one source citation")
+    if not any(isinstance(edge, dict) and edge.get("id") == "edge-unknown-001" for edge in surface.get("edges", [])):
+        errors.append('surface_map.edges must include stable unknown edge id "edge-unknown-001" for the handoff gate')
+    for citation in citations:
+        parts = citation_parts(citation)
+        if not parts:
+            errors.append(f"{citation}: invalid citation format")
+            continue
+        if parts["path"].startswith(".research/"):
+            errors.append(f"{citation}: citations must point to source files, not .research artifacts")
+        citation_sha = str(parts["sha"])
+        if not (citation_sha.startswith(sha) or sha.startswith(citation_sha)):
+            errors.append(f"{citation}: citation sha must match current source sha {sha}")
+            continue
+        ok, reason = resolve_citation(repo, citation)
+        if not ok:
+            errors.append(f"{citation}: {reason}")
+    errors.extend(validate_data(repo, surface, "surface_map"))
+    return errors
+
+
+def command_codex_cli_surface_map(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    codebase_path = paths.run_dir / "codebase-map.json"
+    if not codebase_path.exists():
+        print("codex-cli Surface Mapper requires codebase-map.json", file=sys.stderr)
+        return 1
+    sha = source_sha(repo)
+    codebase_map = read_codebase_map(paths.run_dir)
+    citation_path, citation_line = first_citable_file(repo, codebase_map, sha)
+    citation = f"{citation_path}:{citation_line}@{sha}"
+    output_schema_path = codex_cli_surface_schema_path(repo, paths.run_id)
+    output_path = codex_cli_surface_output_path(repo, paths.run_id)
+    output_schema = codex_cli_surface_output_schema()
+    write_json(output_schema_path, output_schema)
+    skill = load_skill("surface-mapping", repo)
+    prompt = codex_cli_surface_prompt(skill, repo, paths, citation)
+    command = [
+        args.codex_command,
+        "exec",
+        "-m",
+        args.codex_model,
+        "-c",
+        codex_cli_reasoning_config(args.codex_reasoning_effort),
+        "-c",
+        codex_cli_approval_config(),
+        "--ephemeral",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "-C",
+        str(repo),
+        "-s",
+        "read-only",
+        "--json",
+        "-o",
+        str(output_path),
+        "--output-schema",
+        str(output_schema_path),
+        "-",
+    ]
+    step_id = "codex-cli-skill-surface-map"
+    try:
+        proc = subprocess.run(
+            command,
+            input=prompt,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=args.codex_timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        detail = f"codex-cli Surface Mapper timed out after {args.codex_timeout} seconds"
+        output = subprocess_text(exc.output)
+        stderr = subprocess_text(exc.stderr)
+        partial_chunks = []
+        if output:
+            partial_chunks.append("[stdout]\n" + output.rstrip())
+        if stderr:
+            partial_chunks.append("[stderr]\n" + stderr.rstrip())
+        if partial_chunks:
+            partial_dir = paths.run_dir / "codex_outputs"
+            partial_dir.mkdir(parents=True, exist_ok=True)
+            partial_dir.joinpath(f"{step_id}.partial").write_text("\n\n".join(partial_chunks) + "\n", encoding="utf-8")
+        if stderr:
+            detail += f": {stderr.strip()}"
+        elif output:
+            detail += f": {output.strip()}"
+        print(detail, file=sys.stderr)
+        return INTERRUPTED_EXIT_CODE
+    logs_dir = paths.run_dir / "logs"
+    write_text_if_nonempty(logs_dir / f"{step_id}.stdout", proc.stdout)
+    write_text_if_nonempty(logs_dir / f"{step_id}.stderr", proc.stderr)
+    if proc.returncode != 0:
+        detail = "codex-cli Surface Mapper failed"
+        if proc.stderr:
+            detail += f"; stderr logged at {(logs_dir / f'{step_id}.stderr').relative_to(repo)}"
+        elif proc.stdout:
+            detail += f"; stdout logged at {(logs_dir / f'{step_id}.stdout').relative_to(repo)}"
+        print(detail, file=sys.stderr)
+        return proc.returncode
+    def parse_surface_output() -> tuple[dict[str, Any] | None, list[str]]:
+        if not output_path.exists():
+            return None, ["codex-cli Surface Mapper did not write output"]
+        try:
+            output = parse_json_object_output(output_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, ValueError) as exc:
+            return None, [f"codex-cli Surface Mapper output invalid: {exc}"]
+        output_errors = validate_json_with_schema(output, output_schema)
+        if output_errors:
+            return None, [f"codex-cli Surface Mapper output invalid {error}" for error in output_errors]
+        try:
+            surface_obj = json.loads(output["surface_map_json"])
+        except (json.JSONDecodeError, TypeError) as exc:
+            return None, [f"codex-cli Surface Mapper output invalid: surface_map_json must contain a JSON object: {exc}"]
+        if not isinstance(surface_obj, dict):
+            return None, ["codex-cli Surface Mapper output invalid: surface_map_json must contain a JSON object"]
+        validation_errors = surface_map_parent_validation_errors(repo, paths, surface_obj)
+        return surface_obj, validation_errors
+
+    surface, errors = parse_surface_output()
+    if errors and output_path.exists():
+        rejected_text = output_path.read_text(encoding="utf-8")
+        repair_dir = paths.run_dir / "codex_outputs"
+        repair_dir.mkdir(parents=True, exist_ok=True)
+        repair_dir.joinpath(f"{step_id}.rejected-1.json").write_text(rejected_text, encoding="utf-8")
+        try:
+            repair_proc = subprocess.run(
+                command,
+                input=codex_cli_surface_repair_prompt(prompt, rejected_text, errors),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=args.codex_timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            detail = f"codex-cli Surface Mapper repair timed out after {args.codex_timeout} seconds"
+            output = subprocess_text(exc.output)
+            stderr = subprocess_text(exc.stderr)
+            partial_chunks = []
+            if output:
+                partial_chunks.append("[stdout]\n" + output.rstrip())
+            if stderr:
+                partial_chunks.append("[stderr]\n" + stderr.rstrip())
+            if partial_chunks:
+                repair_dir.joinpath(f"{step_id}.repair.partial").write_text("\n\n".join(partial_chunks) + "\n", encoding="utf-8")
+            print(detail, file=sys.stderr)
+            return INTERRUPTED_EXIT_CODE
+        combined_stdout = "\n".join(part for part in [proc.stdout, "[repair attempt]\n" + repair_proc.stdout if repair_proc.stdout else ""] if part)
+        combined_stderr = "\n".join(part for part in [proc.stderr, "[repair attempt]\n" + repair_proc.stderr if repair_proc.stderr else ""] if part)
+        write_text_if_nonempty(logs_dir / f"{step_id}.stdout", combined_stdout)
+        write_text_if_nonempty(logs_dir / f"{step_id}.stderr", combined_stderr)
+        if repair_proc.returncode != 0:
+            detail = "codex-cli Surface Mapper repair failed"
+            if repair_proc.stderr:
+                detail += f"; stderr logged at {(logs_dir / f'{step_id}.stderr').relative_to(repo)}"
+            elif repair_proc.stdout:
+                detail += f"; stdout logged at {(logs_dir / f'{step_id}.stdout').relative_to(repo)}"
+            print(detail, file=sys.stderr)
+            return repair_proc.returncode
+        surface, errors = parse_surface_output()
+    if errors:
+        for error in errors:
+            print(f"codex-cli Surface Mapper rejected output: {error}", file=sys.stderr)
+        return 1
+    assert surface is not None
+    surface_path = paths.run_dir / "surface-map.json"
+    try:
+        append_citation_entries(
+            repo,
+            paths.run_dir / "evidence-ledger.jsonl",
+            paths.run_id,
+            sha,
+            str(surface_path.relative_to(repo)),
+            surface,
+            CODEX_CLI_SKILL_SURFACE_PRODUCER,
+        )
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    write_json(surface_path, surface)
+    print(surface_path)
+    return 0
 
 
 def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
@@ -4641,7 +4975,7 @@ def command_run(args: argparse.Namespace) -> int:
     run_id = args.run_id or f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{source_sha(repo)}"
     paths = run_paths(repo, run_id)
     paths.run_dir.mkdir(parents=True, exist_ok=True)
-    write_json(paths.run_dir / "producer-registry.json", build_producer_registry(args.backend, args.codex_skeptic_mode))
+    write_json(paths.run_dir / "producer-registry.json", build_producer_registry(args.backend, args.codex_skeptic_mode, args.codex_surface_mode))
     if args.backend == "external" or (args.backend == "codex-cli" and not args.allow_live_codex):
         manifest = build_run_manifest(args, repo, run_id, "refused", [])
         write_json(paths.run_dir / "run-manifest.json", manifest)
@@ -4655,14 +4989,39 @@ def command_run(args: argparse.Namespace) -> int:
         run_id=run_id,
         backend=args.backend,
         codex_skeptic_mode=args.codex_skeptic_mode,
+        codex_surface_mode=args.codex_surface_mode,
     )
     map_args = argparse.Namespace(repo=str(repo), run_id=run_id)
     commands = [
         (run_manifest_step("init", "init", "project_type_report", DETERMINISTIC_PRODUCERS["project_type_report"]), command_init, init_args),
         (run_manifest_step("map", "map", "codebase_map", DETERMINISTIC_PRODUCERS["codebase_map"]), command_map, map_args),
-        (run_manifest_step("surface", "surface", "surface_map", DETERMINISTIC_PRODUCERS["surface_map"]), command_surface, map_args),
     ]
-    if args.backend == "codex-cli":
+    if args.backend == "codex-cli" and args.codex_surface_mode == "skill":
+        surface_skill = load_skill("surface-mapping", repo)
+        commands.append(
+            (
+                run_manifest_step(
+                    "codex-cli-skill-surface-map",
+                    codex_cli_surface_command_display(args.codex_command, repo, run_id, args.codex_model, args.codex_reasoning_effort),
+                    "surface_map",
+                    CODEX_CLI_SKILL_SURFACE_PRODUCER,
+                    backend="codex-cli",
+                    skill=skill_manifest(surface_skill),
+                ),
+                command_codex_cli_surface_map,
+                argparse.Namespace(
+                    repo=str(repo),
+                    run_id=run_id,
+                    codex_command=args.codex_command,
+                    codex_model=args.codex_model,
+                    codex_reasoning_effort=args.codex_reasoning_effort,
+                    codex_timeout=args.codex_timeout,
+                ),
+            )
+        )
+    else:
+        commands.append((run_manifest_step("surface", "surface", "surface_map", DETERMINISTIC_PRODUCERS["surface_map"]), command_surface, map_args))
+    if args.backend == "codex-cli" and args.codex_skeptic_mode != "none":
         skill = load_skill("skeptic", repo) if args.codex_skeptic_mode == "skill" else None
         commands.append(
             (
@@ -5550,7 +5909,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--codex-command", default="codex")
     p_run.add_argument("--codex-model", default=DEFAULT_CODEX_CLI_MODEL)
     p_run.add_argument("--codex-reasoning-effort", default=DEFAULT_CODEX_CLI_REASONING_EFFORT, choices=["low", "medium", "high", "xhigh"])
-    p_run.add_argument("--codex-skeptic-mode", default="smoke", choices=["smoke", "skill"])
+    p_run.add_argument("--codex-surface-mode", default="baseline", choices=["baseline", "skill"])
+    p_run.add_argument("--codex-skeptic-mode", default="smoke", choices=["none", "smoke", "skill"])
     p_run.add_argument("--codex-timeout", type=positive_int, default=DEFAULT_CODEX_CLI_TIMEOUT_SECONDS)
     p_run.add_argument("--run-id")
     p_run.set_defaults(func=command_run)

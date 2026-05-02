@@ -1,6 +1,6 @@
 # Phase 01 Verification
 
-Status: partial; intervention track closed, H1 minimum-useful floor pending
+Status: partial; intervention track closed, H1.S1 complete, H1 minimum-useful floor pending
 Last updated: 2026-05-02
 
 ## Completed Intervention Evidence
@@ -25,7 +25,7 @@ Last updated: 2026-05-02
 
 ## Remaining Close Evidence
 
-- Real Surface Mapper artifact exists for H1.S1.
+- Real Surface Mapper artifact exists for H1.S1. Status: completed in `.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/RESULT.md`.
 - Real isolated Skeptic review exists for H1.S2.
 - Validated handoff exists for H1.S3.
 - `cbm checkpoint` packet exists for the H1 minimum-useful-CBM pass claim.

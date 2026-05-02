@@ -1,11 +1,11 @@
 # Current Plan
 
-Status: active; recovery interventions complete, H1.S1 pending
+Status: active; recovery interventions complete, H1.S1 completed, H1.S2 pending
 Last updated: 2026-05-02
 Supersedes: direct use of `docs/roadmap.md` as current execution plan
 Superseded by: none
 Current horizon: H1
-Current stage: H1.S1
+Current stage: H1.S2
 
 ## Objective
 
@@ -53,24 +53,25 @@ Current boundary: the Tier 1 and Tier 5 R-OK interventions from `.planning/revie
 20. Add runtime skill loader and run skill-loaded Skeptic on MCP `src/git`. Status: completed as runtime-producer/Skeptic evidence in `run-mcp-git-codex-skeptic-skill-4`.
 21. Apply all Tier 1 and Tier 5 R-OK interventions from the Opus cross-vendor audit. Status: completed across `f004657` through `65c19f2`.
 
-Recovery readiness is restored for the next narrow runtime-producer evidence track. Broad unattended `/goal` is allowed for H1.S1 only. Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific horizon evidence and checkpoint evidence exist.
+H1.S1 is completed. Broad unattended `/goal` may proceed only to H1.S2 from `.planning/HORIZONS.md`. Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific horizon evidence and checkpoint evidence exist.
 
 ## Next `/goal` Track
 
-The next broad `/goal` track should execute H1.S1 from `.planning/HORIZONS.md`: produce a real Surface Mapper artifact on a pinned external repo target. The target artifact must be schema-valid, record producer identity/backend in `run-manifest.json`, cite source bytes, and pass parent-side validation.
+The next broad `/goal` track should execute H1.S2 from `.planning/HORIZONS.md`: run a real isolated Skeptic against the H1.S1 Surface Mapper artifact and ingest its challenges structurally.
 
-Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, the live isolation probe reported no access to parent-only session context, and a skill-loaded `skeptic@1.2` subprocess produced an ingested interpretive challenge on the same pinned benchmark. This proves subprocess dispatch, validation harness behavior, skill loading, skill-hash manifest recording, parent-side runtime challenge ingestion, and a narrow isolation property for a bounded artifact.
+Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, the live isolation probe reported no access to parent-only session context, a skill-loaded `skeptic@1.2` subprocess produced an ingested interpretive challenge on the same pinned benchmark, and H1.S1 produced a real non-baseline `surface-mapper@1.2` surface map on MCP `src/git`.
 
-The full `VISION.md` minimum-useful CBM floor is not met yet. It remains open until CBM produces real Surface Mapper output, a real isolated Skeptic review, at least one non-trivial cited interpretive claim or challenge, and a validated handoff. The next proof target is H1.S1, then H1.S2, then H1.S3 with a non-current-model checkpoint.
+The full `VISION.md` minimum-useful CBM floor is not met yet. It remains open until CBM produces a real isolated Skeptic review over the H1.S1 map, carries contestation into a validated handoff, and obtains a non-current-model checkpoint. The next proof target is H1.S2, then H1.S3.
 
 This is not a Phase B+ pass claim and not a minimum-useful-CBM pass claim. It is the start of the H1 runtime-agent evidence track.
 
 ## Allowed Next Code Work
 
-Only these code categories are allowed while executing H1.S1:
+Only these code categories are allowed while executing H1.S2:
 
-- producer-registry scaffolding;
-- Surface Mapper runtime producer implementation or dispatch;
+- Skeptic runtime producer implementation or dispatch;
+- isolated context/backend checks required for Skeptic;
+- challenge ingestion and contestation ledger fixes required by Skeptic output;
 - `--backend` and run-manifest plumbing;
 - benchmark harness or fixture work;
 - Codex isolation spike support;
@@ -129,7 +130,7 @@ For the completed recovery intervention track:
 
 For the next code slice:
 
-- implement H1.S1 real Surface Mapper producer evidence;
-- validate the produced artifact, citations, and run manifest;
+- implement H1.S2 real isolated Skeptic review evidence over the H1.S1 surface map;
+- validate the Skeptic artifact, citations, challenge ingestion, and run manifest;
 - run `cbm-loop-status --scope broad-goal --work-category runtime-producer`;
-- update `.planning/STATE.md`, `.planning/CURRENT-PLAN.md`, and `.planning/HORIZONS.md` before moving to H1.S2.
+- update `.planning/STATE.md`, `.planning/CURRENT-PLAN.md`, and `.planning/HORIZONS.md` before moving to H1.S3.

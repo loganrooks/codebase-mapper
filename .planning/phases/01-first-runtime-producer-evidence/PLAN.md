@@ -21,12 +21,14 @@ Acceptance criterion: recovery interventions are complete, runtime-producer/Skep
 - I-S2: skill loader and first real Skeptic artifact on MCP `src/git`. Status: completed early in `3748d72` and `0a2b6f0`; must be reconciled with I-X1 before any pass claim.
 - I-S6: Codex CLI failure-mode regression set. Status: completed in `879afb7`.
 - I-S7: honest-baseline banner on handoff/cards. Status: completed in `91f1f95`.
+- H1.S1: real Surface Mapper producer on pinned MCP `src/git`. Status: completed; evidence at `.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/RESULT.md`.
 
 ## Verification
 
 - Per-slice focused regressions and cross-regressions as listed in `.planning/reviews/2026-05-02-opus-cross-vendor-audit/INTERVENTIONS.md`.
 - Full `TMPDIR=/var/tmp pytest -q` after each intervention.
 - Post-commit `python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category <category> --json`.
+- H1.S1 artifact validation, citation resolution, evidence check, and handoff validation as recorded in `.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/RESULT.md`.
 
 ## Stop Conditions
 

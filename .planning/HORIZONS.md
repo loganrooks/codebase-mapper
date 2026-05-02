@@ -52,7 +52,7 @@ Vision link: `VISION.md` requires one runtime-agent-produced run on a pinned ext
 
 ### H1.S1 - Real Surface Mapper Producer
 
-Status: current
+Status: completed
 
 Objective:
 
@@ -94,6 +94,13 @@ Verification:
 - `TMPDIR=/var/tmp pytest -q`;
 - `cbm-loop-status --scope broad-goal --work-category runtime-producer`.
 
+Completion evidence:
+
+- Benchmark artifact: `.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/RESULT.md`.
+- Run id: `run-mcp-git-surface-mapper-h1s1-6`.
+- Producer: `surface-mapper@1.2` through backend `codex-cli`.
+- Boundary: H1.S2 remains pending; this run deliberately used `--codex-skeptic-mode none`.
+
 Pushback handling:
 
 - If the map is templated or shallow, revise the producer contract or skill and rerun.
@@ -102,7 +109,7 @@ Pushback handling:
 
 ### H1.S2 - Isolated Skeptic Review
 
-Status: pending
+Status: current
 
 Objective:
 

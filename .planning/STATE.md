@@ -26,11 +26,12 @@ Current product state:
 - runtime skill loading exists for Codex CLI skill mode, and run manifests record the loaded Skeptic skill hash;
 - the first skill-loaded `skeptic@1.2` run on MCP `src/git` produced a structurally ingested interpretive challenge;
 - the first runtime-producer/Skeptic evidence slice has passed on one pinned external benchmark;
+- H1.S1 produced a real non-baseline `surface-mapper@1.2` surface map on the pinned MCP `src/git` benchmark through the `codex-cli` backend;
 - all Tier 1 and Tier 5 R-OK recovery interventions from the 2026-05-02 Opus cross-vendor audit have been implemented and committed;
 - `.planning/HORIZONS.md` now translates `VISION.md` into autonomous `/goal` stages;
 - CBM schemas are packaged under `cbm/schemas/` so installed validation does not depend on a repo checkout or target-local schema copies;
-- runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
-- no real Surface Mapper producer has produced a non-baseline runtime surface map yet;
+- full runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
+- H1.S1 real Surface Mapper evidence exists for one pinned external target, but repeatability and full orchestration are not proven;
 - no full runtime Surface Mapper or full isolated Skeptic pass has been run through CBM yet;
 - no cross-model pass-claim checkpoint has accepted the minimum-useful-CBM claim yet;
 - current deterministic artifacts must not be treated as proof of nuanced codebase understanding.
@@ -85,7 +86,7 @@ Important examples:
 - `91f1f95` `feat: render baseline banner on handoff and cards`
 - `021a004` `docs: verify codex isolation through cbm run`
 - `65c19f2` `feat: add formal skill loader compatibility module`
-- pending next evidence slice: H1.S1 real Surface Mapper producer evidence
+- pending next evidence slice: H1.S2 isolated Skeptic review over the H1.S1 Surface Mapper output
 
 ## Active Architecture Decision
 
@@ -131,10 +132,18 @@ First skill-loaded runtime Skeptic run:
 - Result artifact: `.planning/benchmarks/2026-05-02-mcp-git-skeptic-skill/RESULT.md`.
 - Status: skill-loaded `skeptic@1.2` produced a structurally ingested interpretive challenge and passed handoff gates. This is the first runtime-producer/Skeptic evidence slice, not the full `VISION.md` minimum-useful floor.
 
+First real runtime Surface Mapper run:
+
+- Target: MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
+- Result artifact: `.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/RESULT.md`.
+- Run id: `run-mcp-git-surface-mapper-h1s1-6`.
+- Status: `surface-mapper@1.2` produced a non-baseline `surface-map.json` through backend `codex-cli`; the map, manifest, citations, evidence checks, and handoff validation passed. This satisfies H1.S1 only. The run deliberately skipped a real Skeptic pass with `--codex-skeptic-mode none`.
+
 Runtime-producer evidence status:
 
 - The first runtime-producer/Skeptic evidence slice passed once on MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
-- This is not the full `VISION.md` minimum-useful CBM floor. H1 remains active until a real Surface Mapper artifact, isolated Skeptic review, non-trivial cited interpretive claim or challenge, and validated handoff exist.
+- H1.S1 real Surface Mapper evidence passed once on MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
+- This is not the full `VISION.md` minimum-useful CBM floor. H1 remains active until an isolated Skeptic review over the H1.S1 map, non-trivial cited contestation or explicit no-challenge finding, validated handoff, and cross-model pass-claim checkpoint exist.
 - Still not a Phase B+ pass claim. Repeatability, quality review, and broader runtime-agent orchestration remain open.
 
 ## Known Risks
@@ -148,7 +157,7 @@ Runtime-producer evidence status:
 
 ## `/goal` Readiness
 
-Recovery readiness is restored for H1.S1 in `.planning/HORIZONS.md`: the real Surface Mapper producer evidence track. The checkpoint gate is accepted, cross-vendor audit blockers have been dispositioned, and final `cbm-loop-status` passed for `recovery-slice` and `broad-goal`.
+Recovery readiness is restored for H1.S2 in `.planning/HORIZONS.md`: the isolated Skeptic review evidence track. The checkpoint gate is accepted, cross-vendor audit blockers have been dispositioned, H1.S1 is complete, and final `cbm-loop-status` must pass again before the next autonomous slice proceeds.
 
 Broad unattended `/goal` is restored only for the current horizon/stage named by `.planning/CURRENT-PLAN.md`. It is not restored for Phase B+ pass claims, minimum-useful-CBM pass claims, unrelated kernel hardening, or treating deterministic baseline artifacts as runtime-agent output.
 
@@ -193,6 +202,10 @@ Last known full suite after structured runtime challenge ingestion: `TMPDIR=/var
 Last known skill package verification: a temp wheel built under `/var/tmp` contained 7 `cbm/runtime_skills/*.md` package entries.
 
 Last known skill-loaded live benchmark run: `TMPDIR=/var/tmp python3 -m cbm.cli run --repo /tmp/cbm-live-mcp-servers-4503e2d/src/git --goal "understand MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-skeptic-mode skill --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-codex-skeptic-skill-4` exited 0; `handoff.md` reported `skeptic_review.challenges_logged: 1` and `contestation_summary.open_challenges: 1`.
+
+Last known H1.S1 live Surface Mapper benchmark run: `TMPDIR=/var/tmp python3 -m cbm.cli run --repo /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git --goal "produce real Surface Mapper map for MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-surface-mode skill --codex-skeptic-mode none --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-surface-mapper-h1s1-6 --codex-timeout 600` exited 0. Validation passed for `surface-map.json`, `run-manifest.json`, and `handoff.md`; `verify-citations surface-map.json` resolved all source citations; `check-evidence surface-map.json` passed.
+
+Last known full suite after H1.S1 Surface Mapper slice: `TMPDIR=/var/tmp pytest -q` reported `105 passed, 2 warnings`.
 
 Last known full suite after all Tier 1 and Tier 5 R-OK interventions: `TMPDIR=/var/tmp pytest -q` reported `100 passed, 2 warnings`.
 

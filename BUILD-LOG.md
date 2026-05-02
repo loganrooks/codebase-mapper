@@ -1599,3 +1599,22 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Diff check passed: `git diff --check -- .planning AGENTS.md README.md cbm/cli.py tests/test_cli.py docs/contracts.md BUILD-LOG.md`.
 - Boundary:
   - This does not rewrite `VISION.md`; it adds an executable bridge and enforcement. H1.S1 remains the next implementation target.
+
+## 2026-05-02 — H1.S1 real Surface Mapper producer
+
+- Implemented: `cbm run --backend codex-cli` can now dispatch the Surface Mapper as `surface-mapper@1.2` with `--codex-surface-mode skill`.
+- Implemented: parent-side Surface Mapper validation rejects baseline/dev-fixture producer identities, mismatched run/source metadata, zero direct-examination coverage, missing source citations, unresolved citations, missing substantive claims, and the missing `edge-unknown-001` handoff dependency.
+- Implemented: Codex Surface Mapper output uses a strict outer response schema plus a parsed `surface_map_json` payload. If the first payload fails parent validation, the same producer gets one bounded repair pass with the concrete validation errors and rejected output.
+- Implemented: `--codex-skeptic-mode none` keeps H1.S1 scoped to Surface Mapper evidence and leaves real Skeptic review for H1.S2.
+- Live benchmark: `TMPDIR=/var/tmp python3 -m cbm.cli run --repo /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git --goal "produce real Surface Mapper map for MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-surface-mode skill --codex-skeptic-mode none --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-surface-mapper-h1s1-6 --codex-timeout 600` exited 0.
+- Evidence: `.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/RESULT.md` preserves the map, manifest, registry, handoff, goal binding, Codex output, ledger, codebase map, and extractor registry.
+- Verification run:
+  - Focused regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_run_backend_codex_cli_skill_surface_writes_non_baseline_surface_map tests/test_cli.py::test_run_backend_codex_cli_skill_surface_rejects_baseline_producer`.
+  - Surface artifact validation passed: `TMPDIR=/var/tmp python3 -m cbm.cli validate /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git/.research/run-mcp-git-surface-mapper-h1s1-6/surface-map.json --repo /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git`.
+  - Citation resolution passed: `TMPDIR=/var/tmp python3 -m cbm.cli verify-citations /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git/.research/run-mcp-git-surface-mapper-h1s1-6/surface-map.json --repo /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git`.
+  - Evidence validation passed: `TMPDIR=/var/tmp python3 -m cbm.cli check-evidence /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git/.research/run-mcp-git-surface-mapper-h1s1-6/surface-map.json --repo /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git`.
+  - Manifest and handoff validation passed for the same run.
+  - Diff check passed: `git diff --check -- cbm/cli.py tests/test_cli.py .planning BUILD-LOG.md`.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 105 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+- Boundary:
+  - H1.S1 is complete only. The run deliberately skipped real Skeptic review with `--codex-skeptic-mode none`; H1.S2 remains the next horizon stage.

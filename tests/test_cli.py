@@ -532,6 +532,198 @@ def test_run_backend_codex_cli_skill_mode_loads_skeptic_skill(tmp_path: Path) ->
     assert any(entry["entry_kind"] == "claim_challenged" and entry["agent"] == "skeptic@1.2" for entry in ledger_entries)
 
 
+def test_run_backend_codex_cli_skill_surface_writes_non_baseline_surface_map(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = tmp_path / "fake-surface-codex"
+    fake_codex.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json\n"
+        "import re\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "prompt = sys.stdin.read()\n"
+        "assert '<runtime_skill>' in prompt\n"
+        "assert '# Skill: Surface Mapping' in prompt\n"
+        "assert 'Runtime skill sha256:' in prompt\n"
+        "assert 'produced_by: surface-mapper@1.2' in prompt\n"
+        "run_id = re.search(r'Run id: (.+)', prompt).group(1).strip()\n"
+        "source_sha = re.search(r'Source sha: ([0-9a-f]+)', prompt).group(1)\n"
+        "citation = f'tests/test_app.py:1@{source_sha}'\n"
+        "inputs = []\n"
+        "for label in ['Codebase map input', 'Intake input', 'State input', 'Extractor registry input']:\n"
+        "    match = re.search(label + r': (.+) sha256=([0-9a-f]{64})', prompt)\n"
+        "    inputs.append({'path': match.group(1), 'sha256': match.group(2)})\n"
+        "surface = {\n"
+        "    'schema_version': '1.2',\n"
+        "    'artifact_type': 'surface_map',\n"
+        "    'run_id': run_id,\n"
+        "    'produced_at': '2026-05-02T00:00:00Z',\n"
+        "    'produced_by': 'surface-mapper@1.2',\n"
+        "    'source_sha': source_sha,\n"
+        "    'inputs': inputs,\n"
+        "    'status': 'draft',\n"
+        "    'coverage': {\n"
+        "        'scope': {'included_globs': ['**/*'], 'excluded_globs': ['.git/**', '.research/**']},\n"
+        "        'result': {'files_in_scope': 3, 'files_examined_directly': 1, 'files_inspected_via_extractor': 3, 'files_unread_in_scope': 2},\n"
+        "        'limitations': ['Fake Surface Mapper directly examined one file for a bounded regression test.'],\n"
+        "    },\n"
+        "    'staleness': {'stale_if_input_hash_changes': True, 'depends_on_paths': ['pyproject.toml', 'src/app.py', 'tests/test_app.py'], 'scope_signature': 'fake-scope'},\n"
+        "    'authorities': [{\n"
+        "        'id': 'auth-001',\n"
+        "        'kind': 'test_suite',\n"
+        "        'path': 'tests/test_app.py',\n"
+        "        'citations': [citation],\n"
+        "        'authority_source': 'test',\n"
+        "        'claim_register': 'inferential',\n"
+        "        'claim_status': 'active',\n"
+        "        'evidence_kinds': ['static_structure'],\n"
+        "        'corroboration_count': 1,\n"
+        "        'rationale': 'The cited test file is interpreted as the available test-suite surface for this small repo.',\n"
+        "        'confidence': 'medium',\n"
+        "    }],\n"
+        "    'edges': [{\n"
+        "        'id': 'edge-import-001',\n"
+        "        'kind': 'import',\n"
+        "        'from': {'path': 'tests/test_app.py'},\n"
+        "        'to': {'path': 'src/app.py'},\n"
+        "        'citations': [citation],\n"
+        "        'extractor_id': 'ext-python-imports-v1',\n"
+        "        'claim_register': 'factual',\n"
+        "        'claim_status': 'active',\n"
+        "        'evidence_kinds': ['static_relation'],\n"
+        "        'corroboration_count': 1,\n"
+        "        'confidence': 'high',\n"
+        "    }, {\n"
+        "        'id': 'edge-unknown-001',\n"
+        "        'kind': 'unknown',\n"
+        "        'from': {'path': 'pyproject.toml'},\n"
+        "        'to': {'path': 'src/app.py'},\n"
+        "        'claim_register': 'interpretive',\n"
+        "        'claim_status': 'active',\n"
+        "        'evidence_kinds': ['static_structure'],\n"
+        "        'corroboration_count': 1,\n"
+        "        'confidence': 'low',\n"
+        "        'rationale': 'The mapper preserves an explicit unknown relation for packaging-to-runtime behavior it did not execute.',\n"
+        "    }],\n"
+        "    'verification': {'tests': [], 'ci_gates': [], 'coverage_summary': {'files_with_tests': 1, 'files_without_tests': 2, 'coverage_unknown': 1}},\n"
+        "    'unknowns': {'edge_unknowns_present': True, 'summary': 'Fake mapper leaves runtime and packaging edges unresolved.'},\n"
+        "}\n"
+        "output_path.write_text(json.dumps({'surface_map_json': json.dumps(surface), 'notes': 'fake bounded surface'}) + '\\n', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o755)
+
+    run_id = "run-codex-cli-surface-skill"
+    assert (
+        main(
+            [
+                "run",
+                "--repo",
+                str(repo),
+                "--goal",
+                "understand this repo",
+                "--backend",
+                "codex-cli",
+                "--allow-live-codex",
+                "--codex-command",
+                str(fake_codex),
+                "--codex-surface-mode",
+                "skill",
+                "--codex-skeptic-mode",
+                "none",
+                "--run-id",
+                run_id,
+            ]
+        )
+        == 0
+    )
+
+    run_dir = repo / ".research" / run_id
+    surface_map = run_dir / "surface-map.json"
+    run_manifest = run_dir / "run-manifest.json"
+    producer_registry = run_dir / "producer-registry.json"
+    assert main(["validate", str(surface_map), "--repo", str(repo)]) == 0
+    assert main(["verify-citations", str(surface_map), "--repo", str(repo)]) == 0
+    assert main(["validate", str(run_manifest), "--repo", str(repo)]) == 0
+    surface_data = json.loads(surface_map.read_text(encoding="utf-8"))
+    assert surface_data["produced_by"] == "surface-mapper@1.2"
+    assert surface_data["coverage"]["result"]["files_examined_directly"] == 1
+    registry_data = json.loads(producer_registry.read_text(encoding="utf-8"))
+    surface_producer = next(item for item in registry_data["producers"] if item["artifact_type"] == "surface_map")
+    skeptic_producer = next(item for item in registry_data["producers"] if item["artifact_type"] == "skeptic_review")
+    assert surface_producer["producer_id"] == "surface-mapper@1.2"
+    assert surface_producer["backend"] == "codex-cli"
+    assert skeptic_producer["producer_id"] == "dev-fixture-skeptic@0.1"
+    manifest_data = json.loads(run_manifest.read_text(encoding="utf-8"))
+    codex_steps = [step for step in manifest_data["steps"] if step["backend"] == "codex-cli"]
+    assert [step["step_id"] for step in codex_steps] == ["codex-cli-skill-surface-map"]
+    assert codex_steps[0]["producer_id"] == "surface-mapper@1.2"
+    assert codex_steps[0]["skill"]["name"] == "surface-mapping"
+    assert codex_steps[0]["skill"]["sha256"] == sha256_file(SOURCE_ROOT / "skills" / "surface-mapping.md")
+    assert codex_steps[0]["output_path_sha256"] == sha256_file(run_dir / "codex-cli-surface-output.json")
+    handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    assert handoff_frontmatter["gate_summary"]["schema_validation"]["failed_artifacts"] == []
+    assert handoff_frontmatter["gate_summary"]["citation_resolution"]["unresolved_count"] == 0
+
+
+def test_run_backend_codex_cli_skill_surface_rejects_baseline_producer(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = tmp_path / "fake-baseline-surface-codex"
+    fake_codex.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json\n"
+        "import re\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "prompt = sys.stdin.read()\n"
+        "run_id = re.search(r'Run id: (.+)', prompt).group(1).strip()\n"
+        "source_sha = re.search(r'Source sha: ([0-9a-f]+)', prompt).group(1)\n"
+        "citation = re.search(r'Required citation anchor available for format checking: (.+)', prompt).group(1).strip()\n"
+        "surface = {\n"
+        "    'schema_version': '1.2', 'artifact_type': 'surface_map', 'run_id': run_id,\n"
+        "    'produced_at': '2026-05-02T00:00:00Z', 'produced_by': 'cbm-baseline-surface@0.1', 'source_sha': source_sha,\n"
+        "    'inputs': [{'path': '.research/' + run_id + '/codebase-map.json', 'sha256': '0' * 64}], 'status': 'draft',\n"
+        "    'coverage': {'scope': {'included_globs': ['**/*'], 'excluded_globs': []}, 'result': {'files_in_scope': 1, 'files_examined_directly': 1, 'files_inspected_via_extractor': 1, 'files_unread_in_scope': 0}, 'limitations': []},\n"
+        "    'staleness': {'stale_if_input_hash_changes': True, 'depends_on_paths': ['tests/test_app.py']},\n"
+        "    'authorities': [],\n"
+        "    'edges': [{'id': 'edge-import-001', 'kind': 'import', 'from': {'path': 'tests/test_app.py'}, 'to': {'path': 'src/app.py'}, 'citations': [citation], 'extractor_id': 'ext-python-imports-v1', 'claim_register': 'factual', 'claim_status': 'active', 'evidence_kinds': ['static_relation'], 'corroboration_count': 1, 'confidence': 'high'}],\n"
+        "    'verification': {'tests': [], 'ci_gates': [], 'coverage_summary': {'files_with_tests': 0, 'files_without_tests': 1, 'coverage_unknown': 0}},\n"
+        "    'unknowns': {'edge_unknowns_present': True, 'summary': 'fake unknowns'}\n"
+        "}\n"
+        "output_path.write_text(json.dumps({'surface_map_json': json.dumps(surface), 'notes': 'baseline rejection fixture'}) + '\\n', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o755)
+
+    run_id = "run-codex-cli-surface-reject-baseline"
+    rc = main(
+        [
+            "run",
+            "--repo",
+            str(repo),
+            "--goal",
+            "understand this repo",
+            "--backend",
+            "codex-cli",
+            "--allow-live-codex",
+            "--codex-command",
+            str(fake_codex),
+            "--codex-surface-mode",
+            "skill",
+            "--codex-skeptic-mode",
+            "none",
+            "--run-id",
+            run_id,
+        ]
+    )
+    captured = capsys.readouterr()
+    assert rc == 1
+    assert "surface_map.produced_by must be surface-mapper@1.2" in captured.err
+    assert "must not be a baseline or dev-fixture producer" in captured.err
+
+
 def test_run_rejects_unsafe_run_id_before_writing_outside_research(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
 
