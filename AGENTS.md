@@ -2,9 +2,10 @@
 
 1. **`VISION.md`** — the destination. Maturity criteria, the ideal version, anti-vision. Read in full before starting; re-read at phase boundaries.
 2. **`.planning/STATE.md`** — current factual state. Which roadmap items are done, partial, stale, or blocked. Read before assuming phase status.
-3. **`.planning/CURRENT-PLAN.md`** — live execution plan. This supersedes stale roadmap sequencing when it explicitly says so.
-4. **`docs/roadmap.md`** — baseline roadmap and original phase taxonomy. Use it as intent and acceptance context, not as current status unless `.planning/STATE.md` says it is current.
-5. **`README.md`** — file map and orientation for the rest of the kit.
+3. **`.planning/HORIZONS.md`** — autonomous execution ladder. It translates the vision into bounded `/goal` horizons and stages.
+4. **`.planning/CURRENT-PLAN.md`** — live execution plan. This names the current horizon/stage and supersedes stale roadmap sequencing when it explicitly says so.
+5. **`docs/roadmap.md`** — baseline roadmap and original phase taxonomy. Use it as intent and acceptance context, not as current status unless `.planning/STATE.md` says it is current.
+6. **`README.md`** — file map and orientation for the rest of the kit.
 
 ## Identity
 
@@ -14,7 +15,7 @@ You are the agent building CBM. The runtime CBM agents (Surface Mapper, Skeptic,
 
 The user runs you as a continuous loop (e.g., Codex `/goal`). Your default is **proceed inside the active plan**, not "proceed anywhere." Decisions get logged; the user reviews asynchronously via `.planning/`, `BUILD-LOG.md`, and git history.
 
-Proceed only when `.planning/CURRENT-PLAN.md` authorizes the work category and names the expected verification. If the next useful task falls outside the active plan, write a `STOP-NOTE.md` in the relevant `.planning/` area, log the reason in `BUILD-LOG.md`, and surface to the user.
+Proceed only when `.planning/CURRENT-PLAN.md` authorizes the work category, names the current horizon/stage from `.planning/HORIZONS.md`, and names the expected verification. If the next useful task falls outside the active plan, write a `STOP-NOTE.md` in the relevant `.planning/` area, log the reason in `BUILD-LOG.md`, and surface to the user.
 
 This makes the guardrails load-bearing. Use all of them, always.
 
@@ -27,6 +28,7 @@ This makes the guardrails load-bearing. Use all of them, always.
 - **Atomic commits.** Each commit is a coherent unit with a descriptive message. Commits are checkpoints; you can roll back to any of them.
 - **`BUILD-LOG.md`** at the implementation's root. Append for every: decision made, kit deviation considered or taken, alternative weighed, question that came up. The log is the user's primary asynchronous review surface; write it for that audience.
 - **`.planning/STATE.md` and `.planning/CURRENT-PLAN.md` stay current.** The build log is chronological evidence, not a live plan. When implementation reality diverges from `docs/roadmap.md`, update `.planning/STATE.md` before relying on phase labels.
+- **`.planning/HORIZONS.md` is the autonomous ladder.** `VISION.md` is the north star; do not execute it directly as a giant task. `/goal` advances the current horizon/stage named by `.planning/CURRENT-PLAN.md`.
 - **No kernel-only hardening during recovery.** Until `.planning/CURRENT-PLAN.md` records a real agent-produced benchmark artifact that passes existing gates, do not add new kernel-only validators, gates, rejection rules, or artifact-strictness slices. Work that directly supports runtime producers, benchmark evidence, producer provenance, or run manifests is allowed. Deterministic baseline boundary: `.planning/decisions/ADR-004-deterministic-baseline-is-not-runtime-evidence.md`.
 - **Checkpoint gate.** Phase pass claims, merges to main, and resuming broad unattended `/goal` require an accepted checkpoint review artifact, unless the user explicitly waives the gate and the waiver is logged.
 - **Loop-status preflight.** Once `cbm-loop-status` exists, run it before broad unattended `/goal` resumes and at recovery slice boundaries. A nonzero result is a stop-and-surface condition unless the active plan explicitly authorizes the current slice despite the warning.
@@ -35,12 +37,33 @@ This makes the guardrails load-bearing. Use all of them, always.
 ## Planning and review surface
 
 - `.planning/STATE.md` is the short current-state ledger. Update it when phase status, roadmap freshness, deployment shape, verification status, or major open questions change.
-- `.planning/CURRENT-PLAN.md` is the active plan. It should name the next concrete work, expected write set, verification checks, and open decisions.
+- `.planning/HORIZONS.md` is the staged bridge from `VISION.md` to autonomous execution. It should define horizon objective, entry criteria, allowed/disallowed work, acceptance criteria, verification, checkpoint requirements, and pushback handling.
+- `.planning/CURRENT-PLAN.md` is the active plan. It should name the current horizon, current stage, next concrete work, expected write set, verification checks, and open decisions.
 - `.planning/reviews/<date-slug>/` holds external or cross-model reviews. Each review session should include `REVIEW-SPEC.md`, `PROMPT.md`, `OUTPUT.md`, and `DISPOSITION.md`.
 - A review session that is started but not completed must have a `STOP-NOTE.md` or an aborted disposition. Do not leave empty review directories or prompt-only packets as ambiguous state.
 - Mark planning docs with `Status`, `Last updated`, and `Supersedes/Superseded by` when relevant. Do not let stale docs look authoritative.
 - Do not use `BUILD-LOG.md` as the only place for forward-looking plans. It is an audit trail; plans belong in `.planning/`.
 - Completed or superseded plans are replaced by a successor plan. Do not keep editing an old plan to describe new work after its objective changes.
+
+## Autonomous horizon execution
+
+When `/goal` is active, execute one horizon stage at a time:
+
+1. Confirm `.planning/CURRENT-PLAN.md` names `Current horizon: H<N>` and `Current stage: <stage-id>`.
+2. Confirm `.planning/HORIZONS.md` contains the named horizon and stage.
+3. Execute only that stage's allowed work.
+4. Run the stage's verification before advancing.
+5. Update `.planning/STATE.md`, `.planning/CURRENT-PLAN.md`, `.planning/HORIZONS.md`, and the phase bundle when the stage status changes.
+6. Commit the stage or intervention atomically.
+7. Do not mark a horizon complete until its checkpoint requirement is satisfied.
+
+When pushback occurs, classify it before acting:
+
+- `bug`: implementation fails the stated contract. Fix within the current stage, verify, and commit.
+- `plan_gap`: the stage is under-specified or missing a local task. Update `.planning/CURRENT-PLAN.md`, log the reason, then proceed.
+- `tooling_gap`: the guardrail or harness cannot express the needed check. Add the smallest enforcement change allowed by the current horizon.
+- `vision_ambiguity`: two reasonable interpretations of `VISION.md` would produce substantially different systems. Stop unless the user authorizes a vision revision.
+- `out_of_scope`: useful work belongs to a later horizon or separate goal. Park it in `.planning/HORIZONS.md` or a stop note; do not implement it in the current stage.
 
 ## Per-phase artifact bundle
 

@@ -1436,7 +1436,7 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Live benchmark run passed: `run-mcp-git-codex-skeptic-skill-4`; handoff validation and run-manifest validation both passed.
 - Boundary:
   - This is real skill-loaded runtime-producer evidence, not just smoke.
-  - It meets the narrow `VISION.md` minimum-useful CBM floor once.
+  - Correction recorded on 2026-05-02: this is a runtime-producer/Skeptic evidence slice, not the full `VISION.md` minimum-useful CBM floor. The full floor requires real Surface Mapper output, isolated Skeptic review, a non-trivial cited interpretive claim or challenge, and a validated handoff.
   - It is still not a Phase B+ pass claim; repeatability and broader runtime-agent orchestration remain open.
 
 ## 2026-05-02 — Recovery slice: I-S3 loop-status checkpoint gates
@@ -1584,3 +1584,18 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` reported `status: fail` with `same_model_checkpoint`.
 - Boundary:
   - The pass-claim failure is intentional. The next claim-level gate requires a non-current-model checkpoint disposition; this loop did not fabricate that review.
+
+## 2026-05-02 — Governance slice: horizon ladder for autonomous `/goal`
+
+- Implemented: added `.planning/HORIZONS.md` as the autonomous execution ladder between `VISION.md` and `/goal`.
+- Corrected: planning docs now classify the current evidence as a runtime-producer/Skeptic slice, not the full `VISION.md` minimum-useful CBM floor.
+- Implemented: `.planning/CURRENT-PLAN.md` now names `Current horizon: H1` and `Current stage: H1.S1`.
+- Implemented: `AGENTS.md` now requires horizon/stage-bounded autonomous execution and classifies pushback as `bug`, `plan_gap`, `tooling_gap`, `vision_ambiguity`, or `out_of_scope`.
+- Implemented: `cbm-loop-status` now blocks broad unattended scopes when `.planning/HORIZONS.md` is missing or `.planning/CURRENT-PLAN.md` points to an unknown/missing horizon stage.
+- Verification run:
+  - Focused regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_loop_status_blocks_broad_goal_when_horizons_missing tests/test_cli.py::test_loop_status_blocks_broad_goal_when_current_plan_has_unknown_horizon tests/test_cli.py::test_loop_status_blocks_broad_goal_when_current_plan_lacks_stage tests/test_cli.py::test_loop_status_blocks_dirty_authority_docs_and_disallowed_work tests/test_cli.py::test_checkpoint_command_emits_packet_with_required_files` reported 5 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+  - Loop-status/checkpoint regression band passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py -k 'loop_status or checkpoint'` reported 19 passed, 84 deselected, 2 existing `jsonschema.RefResolver` deprecation warnings.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 103 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+  - Diff check passed: `git diff --check -- .planning AGENTS.md README.md cbm/cli.py tests/test_cli.py docs/contracts.md BUILD-LOG.md`.
+- Boundary:
+  - This does not rewrite `VISION.md`; it adds an executable bridge and enforcement. H1.S1 remains the next implementation target.

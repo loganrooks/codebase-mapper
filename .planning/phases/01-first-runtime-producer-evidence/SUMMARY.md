@@ -15,9 +15,10 @@ Completed:
 - `cbm-loop-status` blocks orphaned review packets and pass-claim checkpoints from the current model family.
 - Deterministic baseline/dev-fixture outputs are labeled in handoffs and card titles.
 - Per-phase planning artifacts now exist under `.planning/phases/`.
+- `.planning/HORIZONS.md` now translates `VISION.md` into autonomous `/goal` stages.
 
 Not yet complete:
 
-- The minimum-useful-CBM pass claim still needs a non-current-model checkpoint disposition.
+- The true minimum-useful-CBM floor still needs real Surface Mapper output, isolated Skeptic review, a validated handoff, and a non-current-model checkpoint disposition.
 - Phase B+ runtime-agent orchestration is still not implemented.
 - The next runtime-producer track should prove repeatability on another small external target before broader maturity claims.

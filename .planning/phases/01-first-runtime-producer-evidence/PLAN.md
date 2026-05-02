@@ -5,9 +5,9 @@ Last updated: 2026-05-02
 
 ## Objective
 
-Clear the minimum-useful CBM floor with runtime-producer evidence, then make the claim auditable through a cross-model pass-claim checkpoint.
+Build the runtime-producer evidence substrate required before the true `VISION.md` minimum-useful CBM floor can be cleared.
 
-Acceptance criterion: the minimum-useful-CBM floor in `VISION.md:41-43` is cleared with a substantive Skeptic artifact and the first cross-model-reviewed pass-claim checkpoint is dispositioned `accept`.
+Acceptance criterion: recovery interventions are complete, runtime-producer/Skeptic evidence exists, and planning truthfully routes the next `/goal` to H1 in `.planning/HORIZONS.md`. The true minimum-useful-CBM pass claim remains open until H1.S1-H1.S3 are complete and cross-model reviewed.
 
 ## Intervention Track
 

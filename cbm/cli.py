@@ -38,6 +38,7 @@ AUTHORITY_DOC_PATHS = [
     "VISION.md",
     "RUNTIME-CONSTITUTION.md",
     ".planning/STATE.md",
+    ".planning/HORIZONS.md",
     ".planning/CURRENT-PLAN.md",
 ]
 RECOVERY_ALLOWED_WORK_CATEGORIES = {
@@ -4872,6 +4873,7 @@ CHECKPOINT_DIFF_PATHS = [
     "schemas/",
     "cbm/schemas/",
     ".planning/STATE.md",
+    ".planning/HORIZONS.md",
     ".planning/CURRENT-PLAN.md",
 ]
 
@@ -4933,8 +4935,10 @@ def command_checkpoint(args: argparse.Namespace) -> int:
     if same_model_fallback and args.scope != "recovery-slice":
         print("warning: same-model fallback cannot clear pass-claim, main-merge, or broad-goal-restart scope", file=sys.stderr)
     state_path = repo / ".planning" / "STATE.md"
+    horizons_path = repo / ".planning" / "HORIZONS.md"
     plan_path = repo / ".planning" / "CURRENT-PLAN.md"
     state_text = state_path.read_text(encoding="utf-8") if state_path.exists() else "(missing STATE.md)\n"
+    horizons_text = horizons_path.read_text(encoding="utf-8") if horizons_path.exists() else "(missing HORIZONS.md)\n"
     plan_text = plan_path.read_text(encoding="utf-8") if plan_path.exists() else "(missing CURRENT-PLAN.md)\n"
     diff_text = checkpoint_diff(repo)
     prompt = f"""# Checkpoint Review Prompt
@@ -4956,6 +4960,12 @@ Review whether the pass criterion is supported by the current repo state. Return
 
 ```markdown
 {state_text.rstrip()}
+```
+
+## HORIZONS.md
+
+```markdown
+{horizons_text.rstrip()}
 ```
 
 ## CURRENT-PLAN.md
@@ -5098,6 +5108,51 @@ def rework_pattern_warnings(repo: Path, threshold: int) -> list[dict[str, str]]:
     return warnings
 
 
+def horizon_plan_issues(repo: Path) -> list[dict[str, str]]:
+    horizons = repo / ".planning" / "HORIZONS.md"
+    current_plan = repo / ".planning" / "CURRENT-PLAN.md"
+    issues: list[dict[str, str]] = []
+    if not horizons.exists():
+        return [{"code": "missing_horizons", "message": ".planning/HORIZONS.md is missing"}]
+    if not current_plan.exists():
+        return issues
+    horizons_text = horizons.read_text(encoding="utf-8")
+    plan_text = current_plan.read_text(encoding="utf-8")
+    horizon_match = re.search(r"(?im)^Current horizon:\s*(H\d+)\b", plan_text)
+    stage_match = re.search(r"(?im)^Current stage:\s*([A-Za-z0-9._-]+)\b", plan_text)
+    if not horizon_match:
+        issues.append(
+            {
+                "code": "missing_current_horizon",
+                "message": ".planning/CURRENT-PLAN.md must name `Current horizon: H<N>` for autonomous /goal work",
+            }
+        )
+    else:
+        horizon_id = horizon_match.group(1)
+        if not re.search(rf"(?m)^##\s+{re.escape(horizon_id)}\b", horizons_text):
+            issues.append(
+                {
+                    "code": "unknown_current_horizon",
+                    "message": f".planning/CURRENT-PLAN.md names {horizon_id}, but .planning/HORIZONS.md has no matching heading",
+                }
+            )
+    if not stage_match:
+        issues.append(
+            {
+                "code": "missing_current_stage",
+                "message": ".planning/CURRENT-PLAN.md must name `Current stage: <stage-id>` for autonomous /goal work",
+            }
+        )
+    elif stage_match.group(1) not in horizons_text:
+        issues.append(
+            {
+                "code": "unknown_current_stage",
+                "message": f".planning/CURRENT-PLAN.md names stage {stage_match.group(1)}, but .planning/HORIZONS.md does not contain that stage id",
+            }
+        )
+    return issues
+
+
 def command_loop_status(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     issues: list[dict[str, str]] = []
@@ -5127,6 +5182,12 @@ def command_loop_status(args: argparse.Namespace) -> int:
                 "message": f"work category '{args.work_category}' is not allowed during recovery",
             }
         )
+
+    horizon_issues = horizon_plan_issues(repo)
+    if args.scope in {"broad-goal", "broad-goal-restart", "pass-claim", "main-merge"}:
+        issues.extend(horizon_issues)
+    else:
+        warnings.extend(horizon_issues)
 
     checkpoints = checkpoint_files(repo)
     checkpoint_path = checkpoints[0] if checkpoints else None

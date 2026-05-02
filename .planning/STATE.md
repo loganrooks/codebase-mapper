@@ -25,10 +25,12 @@ Current product state:
 - a live Codex CLI isolation probe reported no access to parent-only session context under current backend flags;
 - runtime skill loading exists for Codex CLI skill mode, and run manifests record the loaded Skeptic skill hash;
 - the first skill-loaded `skeptic@1.2` run on MCP `src/git` produced a structurally ingested interpretive challenge;
-- the narrow `VISION.md` minimum-useful CBM floor is met on one pinned external benchmark;
+- the first runtime-producer/Skeptic evidence slice has passed on one pinned external benchmark;
 - all Tier 1 and Tier 5 R-OK recovery interventions from the 2026-05-02 Opus cross-vendor audit have been implemented and committed;
+- `.planning/HORIZONS.md` now translates `VISION.md` into autonomous `/goal` stages;
 - CBM schemas are packaged under `cbm/schemas/` so installed validation does not depend on a repo checkout or target-local schema copies;
 - runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
+- no real Surface Mapper producer has produced a non-baseline runtime surface map yet;
 - no full runtime Surface Mapper or full isolated Skeptic pass has been run through CBM yet;
 - no cross-model pass-claim checkpoint has accepted the minimum-useful-CBM claim yet;
 - current deterministic artifacts must not be treated as proof of nuanced codebase understanding.
@@ -38,6 +40,7 @@ Current product state:
 - `VISION.md`: destination and maturity target; committed in `e309eaa`; surgically amended during the recovery intervention.
 - `RUNTIME-CONSTITUTION.md`: runtime-agent discipline; committed in `e309eaa`.
 - `.planning/STATE.md`: factual current state.
+- `.planning/HORIZONS.md`: autonomous execution ladder from vision to bounded `/goal` targets.
 - `.planning/CURRENT-PLAN.md`: active recovery plan and allowed next work.
 - `.planning/phases/`: implementation phase bundles with archived plans, verification, and summaries.
 - `BUILD-LOG.md`: chronological audit evidence, not a live plan.
@@ -82,7 +85,7 @@ Important examples:
 - `91f1f95` `feat: render baseline banner on handoff and cards`
 - `021a004` `docs: verify codex isolation through cbm run`
 - `65c19f2` `feat: add formal skill loader compatibility module`
-- pending next evidence slice: cross-model pass-claim checkpoint, then repeatability check or next narrow `/goal` track
+- pending next evidence slice: H1.S1 real Surface Mapper producer evidence
 
 ## Active Architecture Decision
 
@@ -126,11 +129,12 @@ First skill-loaded runtime Skeptic run:
 
 - Target: MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
 - Result artifact: `.planning/benchmarks/2026-05-02-mcp-git-skeptic-skill/RESULT.md`.
-- Status: skill-loaded `skeptic@1.2` produced a structurally ingested interpretive challenge and passed handoff gates. This is the first minimum-useful CBM evidence slice.
+- Status: skill-loaded `skeptic@1.2` produced a structurally ingested interpretive challenge and passed handoff gates. This is the first runtime-producer/Skeptic evidence slice, not the full `VISION.md` minimum-useful floor.
 
-Minimum-useful CBM status:
+Runtime-producer evidence status:
 
-- Met once, narrowly, on MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
+- The first runtime-producer/Skeptic evidence slice passed once on MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
+- This is not the full `VISION.md` minimum-useful CBM floor. H1 remains active until a real Surface Mapper artifact, isolated Skeptic review, non-trivial cited interpretive claim or challenge, and validated handoff exist.
 - Still not a Phase B+ pass claim. Repeatability, quality review, and broader runtime-agent orchestration remain open.
 
 ## Known Risks
@@ -144,9 +148,9 @@ Minimum-useful CBM status:
 
 ## `/goal` Readiness
 
-Recovery readiness is restored for the next narrow runtime-producer evidence track. The checkpoint gate is accepted, cross-vendor audit blockers have been dispositioned, and final `cbm-loop-status` passed for `recovery-slice` and `broad-goal`.
+Recovery readiness is restored for H1.S1 in `.planning/HORIZONS.md`: the real Surface Mapper producer evidence track. The checkpoint gate is accepted, cross-vendor audit blockers have been dispositioned, and final `cbm-loop-status` passed for `recovery-slice` and `broad-goal`.
 
-Broad unattended `/goal` is restored only for the next narrow runtime-producer evidence track. It is not restored for Phase B+ pass claims, unrelated kernel hardening, or treating deterministic baseline artifacts as runtime-agent output.
+Broad unattended `/goal` is restored only for the current horizon/stage named by `.planning/CURRENT-PLAN.md`. It is not restored for Phase B+ pass claims, minimum-useful-CBM pass claims, unrelated kernel hardening, or treating deterministic baseline artifacts as runtime-agent output.
 
 Pass-claim scope is deliberately blocked until a non-current-model checkpoint is created and dispositioned. Current self-check: `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` fails with `same_model_checkpoint`, because the accepted recovery checkpoint is labeled as a same-model fallback.
 

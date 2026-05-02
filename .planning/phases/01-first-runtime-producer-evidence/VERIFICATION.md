@@ -1,6 +1,6 @@
 # Phase 01 Verification
 
-Status: partial; intervention track closed, pass-claim checkpoint pending
+Status: partial; intervention track closed, H1 minimum-useful floor pending
 Last updated: 2026-05-02
 
 ## Completed Intervention Evidence
@@ -21,11 +21,14 @@ Last updated: 2026-05-02
 - `TMPDIR=/var/tmp pytest -q` reported `100 passed, 2 warnings`.
 - `python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category runtime-producer --json` reported `status: ok`, no issues, and no warnings.
 - `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category runtime-producer --json` reported `status: ok`, no issues, and no warnings.
-- `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` reported `status: fail` with `same_model_checkpoint`. This is expected until a non-current-model reviewer dispositions the pass claim.
+- `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` reported `status: fail` with `same_model_checkpoint`. This remains expected; the repo should not seek pass-claim success until H1.S1-H1.S3 in `.planning/HORIZONS.md` are complete.
 
 ## Remaining Close Evidence
 
-- `cbm checkpoint` packet exists for the minimum-useful-CBM pass claim.
+- Real Surface Mapper artifact exists for H1.S1.
+- Real isolated Skeptic review exists for H1.S2.
+- Validated handoff exists for H1.S3.
+- `cbm checkpoint` packet exists for the H1 minimum-useful-CBM pass claim.
 - A non-current-model reviewer dispositions the pass claim as `accept`.
 - `cbm-loop-status --scope pass-claim` exits 0.
 - At least one additional small external runtime-producer target validates if the next phase chooses repeatability before broader roadmap work.

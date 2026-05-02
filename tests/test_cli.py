@@ -2518,8 +2518,15 @@ def test_synthesis_index_connects_standard_maps(tmp_path: Path) -> None:
 
 def write_loop_status_scaffold(repo: Path, *, checkpoint_satisfies: bool) -> None:
     (repo / ".planning" / "reviews" / "checkpoint").mkdir(parents=True)
-    (repo / ".planning" / "CURRENT-PLAN.md").write_text("# Current Plan\n\nStatus: active\n", encoding="utf-8")
+    (repo / ".planning" / "CURRENT-PLAN.md").write_text(
+        "# Current Plan\n\nStatus: active\nCurrent horizon: H1\nCurrent stage: H1.S1\n",
+        encoding="utf-8",
+    )
     (repo / ".planning" / "STATE.md").write_text("# State\n\nStatus: current\n", encoding="utf-8")
+    (repo / ".planning" / "HORIZONS.md").write_text(
+        "# Horizons\n\nStatus: active\n\n## H1 - Test Horizon\n\n### H1.S1 - Test stage\n\nStatus: active\n",
+        encoding="utf-8",
+    )
     gate_value = "yes" if checkpoint_satisfies else "no"
     (repo / ".planning" / "reviews" / "checkpoint" / "CHECKPOINT.md").write_text(
         f"# Checkpoint\n\nSatisfies resume gate: {gate_value}\n",
@@ -2551,6 +2558,43 @@ def test_loop_status_blocks_dirty_authority_docs_and_disallowed_work(tmp_path: P
     git(repo, "commit", "-m", "update vision")
     assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "new-kernel-gate"]) == 1
     assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "false-provenance"]) == 0
+
+
+def test_loop_status_blocks_broad_goal_when_horizons_missing(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+    (repo / ".planning" / "HORIZONS.md").unlink()
+    git(repo, "add", ".planning/HORIZONS.md")
+    git(repo, "commit", "-m", "remove horizons")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "recovery-slice", "--work-category", "loop-status"]) == 0
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "loop-status"]) == 1
+
+
+def test_loop_status_blocks_broad_goal_when_current_plan_has_unknown_horizon(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+    (repo / ".planning" / "CURRENT-PLAN.md").write_text(
+        "# Current Plan\n\nStatus: active\nCurrent horizon: H9\nCurrent stage: H9.S1\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", ".planning/CURRENT-PLAN.md")
+    git(repo, "commit", "-m", "point to unknown horizon")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "loop-status"]) == 1
+
+
+def test_loop_status_blocks_broad_goal_when_current_plan_lacks_stage(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+    (repo / ".planning" / "CURRENT-PLAN.md").write_text(
+        "# Current Plan\n\nStatus: active\nCurrent horizon: H1\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", ".planning/CURRENT-PLAN.md")
+    git(repo, "commit", "-m", "remove current stage")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "loop-status"]) == 1
 
 
 def test_loop_status_blocks_incomplete_review_sessions_for_broad_goal(tmp_path: Path) -> None:

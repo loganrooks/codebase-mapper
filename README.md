@@ -48,14 +48,16 @@ If you are unpacking this kit and pointing Codex `/goal` at `VISION.md`, the age
 
 1. **`AGENTS.md`** — if you are the dev agent or directing one. Stop here on first pass.
 2. **`VISION.md`** — the destination. The maturity criteria there are what mature CBM looks like; what you are building toward.
-3. **`docs/roadmap.md`** — what to build first. Phases are real gates.
-4. **`RUNTIME-CONSTITUTION.md`** — the rules the runtime agents (the ones your implementation spawns) must follow. 25 sections; §3 covers the three-register claim model, §7 the claim-evidence requirements table, §17 the Skeptic's three modes, §25 reuse and refresh discipline.
-5. **`docs/architecture.md`** — kernel + synthesis + goal packs, agent suite, phase model, the claim-register model, the reuse-and-refresh model.
-6. **`docs/contracts.md`** — CLI command contracts, artifact catalog, claim-evidence requirements, hook integration points.
-7. **`docs/reuse-and-refresh.md`** — five forms of reuse, five staleness modes, migration protocol.
-8. **Skills** (`skills/*.md`) — runtime agent prompts. Loaded at runtime by the implementation, not absorbed by the dev agent.
-9. **Schemas** (`schemas/*.json`) — JSON Schemas for every durable artifact. Authoritative; do not modify without explicit version bump.
-10. **Example** (`examples/intervention-card-example.md`) — validation target. Your implementation produces artifacts shaped like this.
+3. **`.planning/HORIZONS.md`** — autonomous execution ladder. Use this to turn the vision into bounded `/goal` stages.
+4. **`.planning/CURRENT-PLAN.md`** — the current horizon/stage and allowed next work.
+5. **`docs/roadmap.md`** — what to build first. Phases are real gates.
+6. **`RUNTIME-CONSTITUTION.md`** — the rules the runtime agents (the ones your implementation spawns) must follow. 25 sections; §3 covers the three-register claim model, §7 the claim-evidence requirements table, §17 the Skeptic's three modes, §25 reuse and refresh discipline.
+7. **`docs/architecture.md`** — kernel + synthesis + goal packs, agent suite, phase model, the claim-register model, the reuse-and-refresh model.
+8. **`docs/contracts.md`** — CLI command contracts, artifact catalog, claim-evidence requirements, hook integration points.
+9. **`docs/reuse-and-refresh.md`** — five forms of reuse, five staleness modes, migration protocol.
+10. **Skills** (`skills/*.md`) — runtime agent prompts. Loaded at runtime by the implementation, not absorbed by the dev agent.
+11. **Schemas** (`schemas/*.json`) — JSON Schemas for every durable artifact. Authoritative; do not modify without explicit version bump.
+12. **Example** (`examples/intervention-card-example.md`) — validation target. Your implementation produces artifacts shaped like this.
 
 ## Core commitments
 
@@ -89,6 +91,10 @@ README.md                            this file (orientation)
 AGENTS.md                            for the agent developing CBM (read first if that's you)
 VISION.md                            end-state, maturity criteria, ideal version, anti-vision
 RUNTIME-CONSTITUTION.md              constitution for runtime CBM agents (shipped with implementation)
+.planning/
+  HORIZONS.md                        autonomous ladder from vision to bounded /goal stages
+  CURRENT-PLAN.md                    current horizon/stage and allowed next work
+  STATE.md                           current factual project state
 docs/
   architecture.md                    the design (incl. three-register claim model, reuse-refresh model)
   contracts.md                       CLI + artifact catalog + claim-evidence table

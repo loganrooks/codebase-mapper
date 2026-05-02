@@ -24,7 +24,7 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 - Runtime architecture default: CBM owns the run lifecycle through a producer registry. Each artifact type declares a producer backend and validation chain.
 - Backend default: test Codex CLI subprocesses first, but do not use Codex subprocesses for Skeptic unless isolation satisfies `RUNTIME-CONSTITUTION.md`.
 - Hooks: adapter glue only. They may invoke validators; they are not the correctness source or deployment model.
-- Vision scope: surgical edits only for this intervention. Do not split `HORIZONS.md` or rewrite all graduation criteria now.
+- Vision scope: surgical edits only for this intervention. At the time, a `HORIZONS.md` split was deferred; later governance work added `.planning/HORIZONS.md` as an execution ladder without rewriting `VISION.md`.
 - Resume gate: checkpoint gate plus minimal `cbm-loop-status`. The full R6 loop-status check set can follow later, but a narrow preflight must exist before broad unattended `/goal` resumes.
 - Review packets are gated artifacts. A review session with a prompt must produce a non-empty output, a stop note, or an aborted disposition before broad `/goal` can proceed.
 
@@ -49,7 +49,7 @@ The current work is an intervention, not a product feature sprint. Its purpose i
 17. Run cross-vendor Opus audit of the recovery work and next plan. Status: completed; disposition accepted with revisions.
 18. Implement immediate readiness blockers from the audit: review-completion gate, run-id validation, and Codex subprocess timeout handling. Status: completed in `bd66d14`; final loop-status passed.
 19. Run live Codex CLI isolation probe. Status: completed; probe reported no access to parent-only session context.
-20. Add runtime skill loader and run skill-loaded Skeptic on MCP `src/git`. Status: completed as minimum-useful CBM evidence in `run-mcp-git-codex-skeptic-skill-4`.
+20. Add runtime skill loader and run skill-loaded Skeptic on MCP `src/git`. Status: completed as runtime-producer/Skeptic evidence in `run-mcp-git-codex-skeptic-skill-4`; later corrected not to satisfy the full `VISION.md` minimum-useful floor by itself.
 
 Recovery readiness is restored for the next narrow runtime-producer evidence track. Broad unattended `/goal` is allowed for that track only; Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific evidence exists.
 
@@ -59,7 +59,7 @@ The next broad `/goal` track should produce the first real agent-produced benchm
 
 Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, the live isolation probe reported no access to parent-only session context, and a skill-loaded `skeptic@1.2` subprocess produced an ingested interpretive challenge on the same pinned benchmark. This proves subprocess dispatch, validation harness behavior, skill loading, skill-hash manifest recording, parent-side runtime challenge ingestion, and a narrow isolation property for a bounded artifact.
 
-The narrow `VISION.md` minimum-useful CBM floor is met. The next proof target is repeatability and phase-boundary review: run at least one additional small external target or checkpoint the recovery close before moving into broader roadmap/maturity-band work.
+Superseded correction: this slice did not meet the full `VISION.md` minimum-useful CBM floor. The next proof target is H1 in `.planning/HORIZONS.md`: real Surface Mapper output, isolated Skeptic review, validated handoff, and cross-model checkpoint.
 
 This is not a Phase B+ pass claim. It is the first runtime-producer evidence slice.
 
