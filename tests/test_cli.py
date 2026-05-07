@@ -3309,6 +3309,31 @@ def test_loop_status_blocks_incomplete_review_sessions_for_broad_goal(tmp_path: 
     assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "loop-status"]) == 0
 
 
+def test_loop_status_broad_goal_uses_prior_accepted_checkpoint_when_pass_claim_pending(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+    pending = repo / ".planning" / "reviews" / "pending-pass-claim"
+    pending.mkdir()
+    (pending / "PROMPT.md").write_text("# Prompt\n", encoding="utf-8")
+    (pending / "STOP-NOTE.md").write_text("# Stop Note\n\nPending external checkpoint review.\n", encoding="utf-8")
+    (pending / "CHECKPOINT.md").write_text(
+        "---\n"
+        "status: pending\n"
+        "scope: pass-claim\n"
+        "reviewer_model_id:\n"
+        "same_model_fallback: false\n"
+        "disposition:\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    (pending / "DISPOSITION.md").write_text("# Disposition\n\nStatus: pending\nDecision:\n", encoding="utf-8")
+    git(repo, "add", ".planning")
+    git(repo, "commit", "-m", "add pending pass claim")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal", "--work-category", "loop-status"]) == 0
+    assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 1
+
+
 def test_loop_status_blocks_broad_goal_on_orphaned_review_packet(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     write_loop_status_scaffold(repo, checkpoint_satisfies=True)

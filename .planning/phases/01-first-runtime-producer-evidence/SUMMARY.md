@@ -1,7 +1,7 @@
 # Phase 01 Summary
 
-Status: partial; intervention track and H1.S1 complete
-Last updated: 2026-05-02
+Status: partial; intervention track complete, H1.S3 packet prepared, checkpoint pending
+Last updated: 2026-05-07
 
 The recovery intervention track closed the accepted Tier 1 and Tier 5 R-OK items from the Opus cross-vendor audit.
 
@@ -17,9 +17,15 @@ Completed:
 - Per-phase planning artifacts now exist under `.planning/phases/`.
 - `.planning/HORIZONS.md` now translates `VISION.md` into autonomous `/goal` stages.
 - H1.S1 real Surface Mapper evidence passed on pinned MCP `src/git`: `surface-mapper@1.2` produced a non-baseline schema-valid `surface-map.json` with source citations and honest coverage.
+- H1.S2a evidence-bundle repair completed the accepted post-H1.S1 Opus review blockers before real Skeptic review.
+- H1.S2b real isolated Skeptic evidence exists on pinned MCP `src/git`: `skeptic@1.2` reviewed the H1.S1 surface map and raised cited challenge `chl-10001`.
+- H1.S2c challenge disposition exists: `auth-001` is `contested`, and `chl-10001` is `accepted_as_alternative`.
+- H1.S3 packet is prepared at `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/`; the non-current-model checkpoint skeleton is prepared at `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`.
 
 Not yet complete:
 
-- The true minimum-useful-CBM floor still needs isolated Skeptic review over the H1.S1 map, a minimum-useful handoff with contestation state, and a non-current-model checkpoint disposition.
+- The true minimum-useful-CBM floor still needs a non-current-model checkpoint disposition accepting the H1 pass claim.
 - Phase B+ runtime-agent orchestration is still not implemented.
 - The next runtime-producer track should prove repeatability on another small external target before broader maturity claims.
+
+Phase 01 is not closed until the non-current-model checkpoint disposition accepts.

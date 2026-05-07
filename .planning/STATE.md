@@ -27,14 +27,14 @@ Current product state:
 - the first skill-loaded `skeptic@1.2` run on MCP `src/git` produced a structurally ingested interpretive challenge;
 - the first runtime-producer/Skeptic evidence slice has passed on one pinned external benchmark;
 - H1.S1 produced a real non-baseline `surface-mapper@1.2` surface map on the pinned MCP `src/git` benchmark through the `codex-cli` backend;
-- post-H1.S1 Opus review returned `ACCEPT_WITH_BLOCKERS_FOR_NEXT_STAGE`; H1.S2a evidence-bundle remediation is complete, H1.S2b real isolated Skeptic production is complete, H1.S2c challenge ingestion plus mapper response disposition is complete, and H1.S3 validated handoff preparation is the next allowed runtime-producer slice;
+- post-H1.S1 Opus review returned `ACCEPT_WITH_BLOCKERS_FOR_NEXT_STAGE`; H1.S2a evidence-bundle remediation is complete, H1.S2b real isolated Skeptic production is complete, H1.S2c challenge ingestion plus mapper response disposition is complete, and H1.S3 validated handoff/checkpoint packet preparation is complete with non-current-model review pending;
 - all Tier 1 and Tier 5 R-OK recovery interventions from the 2026-05-02 Opus cross-vendor audit have been implemented and committed;
 - `.planning/HORIZONS.md` now translates `VISION.md` into autonomous `/goal` stages;
 - CBM schemas are packaged under `cbm/schemas/` so installed validation does not depend on a repo checkout or target-local schema copies;
 - full runtime Surface Mapper/Skeptic/Synthesizer/Planner orchestration does not exist;
 - H1.S1 real Surface Mapper evidence exists for one pinned external target, but repeatability and full orchestration are not proven;
 - one real isolated `skeptic@1.2` pass has run over the H1.S1 Surface Mapper artifact, and the resulting `auth-001` challenge has been accepted as an alternative reading; H1 handoff completion remains pending;
-- no cross-model pass-claim checkpoint has accepted the minimum-useful-CBM claim yet;
+- no non-current-model pass-claim checkpoint has accepted the minimum-useful-CBM claim yet;
 - current deterministic artifacts must not be treated as proof of nuanced codebase understanding.
 
 ## Authority
@@ -87,7 +87,7 @@ Important examples:
 - `91f1f95` `feat: render baseline banner on handoff and cards`
 - `021a004` `docs: verify codex isolation through cbm run`
 - `65c19f2` `feat: add formal skill loader compatibility module`
-- pending next work: H1.S3 validated minimum-useful handoff and non-current-model checkpoint packet preparation
+- pending next work: non-current-model checkpoint review of the prepared H1.S3 minimum-useful handoff packet
 
 ## Active Architecture Decision
 
@@ -154,11 +154,19 @@ First H1.S2c mapper response and challenge disposition:
 - Run id: `run-mcp-git-h1s2c-disposition-1`.
 - Status: `auth-001` / `chl-10001` was accepted as an alternative reading. The updated surface map records `auth-001.claim_status: contested` and `chl-10001.status: accepted_as_alternative`; the handoff reports `open_challenges: 0`, `claims_by_status.contested: 1`, and recommends H1.S3.
 
+Prepared H1.S3 minimum-useful handoff packet:
+
+- Target: MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
+- Result artifact: `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/RESULT.md`.
+- Handoff artifact: `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/HANDOFF.md`.
+- Checkpoint packet: `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`.
+- Status: the H1 pass claim is reviewable but not accepted. Reviewer identity, confidence, and disposition remain pending for a non-current-model reviewer.
+
 Runtime-producer evidence status:
 
 - The first runtime-producer/Skeptic evidence slice passed once on MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
 - H1.S1 real Surface Mapper evidence passed once on MCP servers `src/git` at `4503e2d12b799448cd05f789dd40f9643a8d1a6c`.
-- This is not the full `VISION.md` minimum-useful CBM floor. H1 remains active until H1.S3 produces the validated minimum-useful handoff and a cross-model pass-claim checkpoint exists.
+- This is not the full accepted `VISION.md` minimum-useful CBM floor. H1 remains active until the prepared H1.S3 packet receives an accepted non-current-model pass-claim checkpoint disposition.
 - Still not a Phase B+ pass claim. Repeatability, quality review, and broader runtime-agent orchestration remain open.
 
 Operational note:
@@ -176,13 +184,13 @@ Operational note:
 
 ## `/goal` Readiness
 
-Recovery readiness is restored for H1.S3 in `.planning/HORIZONS.md`: the validated minimum-useful handoff track. The checkpoint gate is accepted, cross-vendor audit blockers have been dispositioned, H1.S1 and H1.S2 are complete, and final `cbm-loop-status` must pass again before the next autonomous slice proceeds.
+Recovery readiness is restored for the H1.S3 checkpoint step in `.planning/HORIZONS.md`: the validated minimum-useful handoff packet is prepared, and the checkpoint gate is now the required next action. The earlier recovery checkpoint gate is accepted, cross-vendor audit blockers have been dispositioned, H1.S1 and H1.S2 are complete, and final `cbm-loop-status` must pass again before any autonomous slice proceeds beyond the checkpoint.
 
-Post-H1.S1 review gate: `.planning/reviews/2026-05-02-h1s1-opus-review/OUTPUT.md` returned `ACCEPT_WITH_BLOCKERS_FOR_NEXT_STAGE`; `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md` accepted blockers for handoff honesty, dev-fixture Skeptic fallback labeling/removal, `edge-unknown-001` hardcoding, repair-pass tests/evidence preservation, and complete benchmark evidence preservation. H1.S2a remediated that group, H1.S2b produced a real isolated Skeptic review, and H1.S2c dispositioned the resulting contestation. H1 completion, minimum-useful-CBM completion, and Phase B+ claims remain blocked.
+Post-H1.S1 review gate: `.planning/reviews/2026-05-02-h1s1-opus-review/OUTPUT.md` returned `ACCEPT_WITH_BLOCKERS_FOR_NEXT_STAGE`; `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md` accepted blockers for handoff honesty, dev-fixture Skeptic fallback labeling/removal, `edge-unknown-001` hardcoding, repair-pass tests/evidence preservation, and complete benchmark evidence preservation. H1.S2a remediated that group, H1.S2b produced a real isolated Skeptic review, H1.S2c dispositioned the resulting contestation, and H1.S3 prepared the reviewable handoff/checkpoint packet. H1 completion, minimum-useful-CBM completion, and Phase B+ claims remain blocked pending non-current-model checkpoint acceptance.
 
 Broad unattended `/goal` is restored only for the current horizon/stage named by `.planning/CURRENT-PLAN.md`. It is not restored for Phase B+ pass claims, minimum-useful-CBM pass claims, unrelated kernel hardening, or treating deterministic baseline artifacts as runtime-agent output.
 
-Pass-claim scope is deliberately blocked until a non-current-model checkpoint is created and dispositioned. Current self-check: `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` fails with `same_model_checkpoint`, because the accepted recovery checkpoint is labeled as a same-model fallback.
+Pass-claim scope is deliberately blocked until the prepared non-current-model checkpoint is dispositioned. The H1.S3 checkpoint packet exists with pending reviewer fields; `cbm-loop-status --scope pass-claim --work-category runtime-producer` is expected to fail until those fields are completed by a non-current-model reviewer and accepted.
 
 ## Verification Status
 

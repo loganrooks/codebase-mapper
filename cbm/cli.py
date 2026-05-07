@@ -5351,6 +5351,17 @@ def checkpoint_files(repo: Path) -> list[Path]:
     return sorted(reviews.glob("*/CHECKPOINT.md"), key=lambda path: path.stat().st_mtime, reverse=True)
 
 
+def checkpoint_for_loop_scope(repo: Path, scope: str) -> Path | None:
+    checkpoints = checkpoint_files(repo)
+    if not checkpoints:
+        return None
+    if scope in {"broad-goal", "broad-goal-restart"}:
+        for checkpoint in checkpoints:
+            if checkpoint_satisfies_resume(checkpoint):
+                return checkpoint
+    return checkpoints[0]
+
+
 def checkpoint_satisfies_resume(path: Path) -> bool:
     text = path.read_text(encoding="utf-8")
     accepted_markers = [
@@ -5753,8 +5764,7 @@ def command_loop_status(args: argparse.Namespace) -> int:
     else:
         warnings.extend(horizon_issues)
 
-    checkpoints = checkpoint_files(repo)
-    checkpoint_path = checkpoints[0] if checkpoints else None
+    checkpoint_path = checkpoint_for_loop_scope(repo, args.scope)
     checkpoint_ok = checkpoint_satisfies_resume(checkpoint_path) if checkpoint_path else False
     if not checkpoint_path:
         issue = {"code": "missing_checkpoint", "message": "no checkpoint review artifact found under .planning/reviews"}

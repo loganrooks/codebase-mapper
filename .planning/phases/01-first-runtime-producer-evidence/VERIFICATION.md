@@ -1,7 +1,7 @@
 # Phase 01 Verification
 
-Status: partial; intervention track closed, H1.S1 complete, H1 minimum-useful floor pending
-Last updated: 2026-05-02
+Status: partial; intervention track closed, H1.S1-H1.S3 packet prepared, checkpoint pending
+Last updated: 2026-05-07
 
 ## Completed Intervention Evidence
 
@@ -21,14 +21,16 @@ Last updated: 2026-05-02
 - `TMPDIR=/var/tmp pytest -q` reported `100 passed, 2 warnings`.
 - `python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category runtime-producer --json` reported `status: ok`, no issues, and no warnings.
 - `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category runtime-producer --json` reported `status: ok`, no issues, and no warnings.
-- `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` reported `status: fail` with `same_model_checkpoint`. This remains expected; the repo should not seek pass-claim success until H1.S1-H1.S3 in `.planning/HORIZONS.md` are complete.
+- Historical check: `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` reported `status: fail` with `same_model_checkpoint`. This was expected before the H1.S3 packet existed.
 
 ## Remaining Close Evidence
 
 - Real Surface Mapper artifact exists for H1.S1. Status: completed in `.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/RESULT.md`.
-- Real isolated Skeptic review exists for H1.S2.
-- Validated handoff exists for H1.S3.
-- `cbm checkpoint` packet exists for the H1 minimum-useful-CBM pass claim.
-- A non-current-model reviewer dispositions the pass claim as `accept`.
-- `cbm-loop-status --scope pass-claim` exits 0.
+- H1.S2a evidence-bundle repair is complete. Status: completed before real Skeptic review.
+- Real isolated Skeptic review exists for H1.S2b. Status: completed in `.planning/benchmarks/2026-05-07-mcp-git-h1s2b-skeptic/RESULT.md`.
+- H1.S2c challenge disposition is complete. Status: completed in `.planning/benchmarks/2026-05-07-mcp-git-h1s2c-disposition/RESULT.md`.
+- Validated H1.S3 handoff packet exists. Status: prepared in `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/`.
+- H1 minimum-useful-CBM pass-claim checkpoint packet exists. Status: prepared in `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`.
+- A non-current-model reviewer dispositions the pass claim as `accept`. Status: pending.
+- `cbm-loop-status --scope pass-claim` exits 0. Status: pending; expected to fail while reviewer identity and disposition are blank.
 - At least one additional small external runtime-producer target validates if the next phase chooses repeatability before broader roadmap work.

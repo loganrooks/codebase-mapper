@@ -188,7 +188,7 @@ Pushback handling:
 
 ### H1.S3 - Validated Minimum-Useful Handoff
 
-Status: current
+Status: current; handoff packet prepared, checkpoint pending
 
 Objective:
 
@@ -201,6 +201,19 @@ Acceptance:
 - Handoff names unresolved unknowns and live disputes.
 - Handoff contains no deterministic-baseline overclaim.
 - Non-current-model checkpoint accepts the H1 completion claim.
+
+Packet evidence prepared:
+
+- H1.S3 handoff packet: `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/RESULT.md`.
+- H1.S3 handoff: `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/HANDOFF.md`.
+- H1.S3 lineage and ledger caveats: `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/LINEAGE.md`.
+- H1.S3 verification record: `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/VERIFY.md`.
+- Non-current-model checkpoint packet: `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`.
+
+Pending evidence:
+
+- Non-current-model reviewer fills `CHECKPOINT.md` and `DISPOSITION.md`.
+- `cbm-loop-status --scope pass-claim --work-category runtime-producer` exits 0 after accepted non-current-model disposition.
 
 Verification:
 

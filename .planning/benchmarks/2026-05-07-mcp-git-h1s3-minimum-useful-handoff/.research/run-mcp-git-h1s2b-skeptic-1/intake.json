@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "intake",
+  "run_id": "run-mcp-git-h1s2b-skeptic-1",
+  "produced_at": "2026-05-07T12:33:54Z",
+  "source_sha": "4503e2d12b79",
+  "repo_root": "/private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git",
+  "goal": "review H1.S1 Surface Mapper map for MCP git server surfaces",
+  "goal_class": "understand_repo",
+  "mode": "lightweight",
+  "backend": "codex-cli",
+  "research_only": true
+}

@@ -1,6 +1,6 @@
 # Current Plan
 
-Status: active; recovery interventions complete, H1.S1 completed, H1.S2a remediation complete, H1.S2b complete, H1.S2c complete, H1.S3 next
+Status: active; recovery interventions complete, H1.S1 completed, H1.S2a remediation complete, H1.S2b complete, H1.S2c complete, H1.S3 packet prepared, checkpoint pending
 Last updated: 2026-05-07
 Supersedes: direct use of `docs/roadmap.md` as current execution plan
 Superseded by: none
@@ -58,13 +58,13 @@ H1.S1 is completed narrowly. H1.S2a evidence-bundle repair is complete. H1.S2b r
 
 ## Next `/goal` Track
 
-The next broad `/goal` track should execute H1.S3 from `.planning/HORIZONS.md`: produce the validated minimum-useful handoff and prepare the non-current-model checkpoint packet.
+The current `/goal` track is H1.S3 from `.planning/HORIZONS.md`: the validated minimum-useful handoff and non-current-model checkpoint packet have been prepared. The next action is to run the non-current-model checkpoint review.
 
-Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, the live isolation probe reported no access to parent-only session context, a skill-loaded `skeptic@1.2` subprocess produced an ingested interpretive challenge on the same pinned benchmark, H1.S1 produced a real non-baseline `surface-mapper@1.2` surface map on MCP `src/git`, H1.S2b produced a real isolated `skeptic@1.2` review over that H1.S1 map, and H1.S2c accepted the `auth-001` / `chl-10001` challenge as an alternative reading carried into handoff contestation.
+Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, the live isolation probe reported no access to parent-only session context, a skill-loaded `skeptic@1.2` subprocess produced an ingested interpretive challenge on the same pinned benchmark, H1.S1 produced a real non-baseline `surface-mapper@1.2` surface map on MCP `src/git`, H1.S2b produced a real isolated `skeptic@1.2` review over that H1.S1 map, H1.S2c accepted the `auth-001` / `chl-10001` challenge as an alternative reading carried into handoff contestation, and H1.S3 prepared a handoff/checkpoint packet at `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/` plus `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`.
 
-The full `VISION.md` minimum-useful CBM floor is not met yet. It remains open until H1.S3 produces a validated handoff carrying the mapper output, Skeptic contestation, coverage honesty, and non-current-model checkpoint evidence. The next proof target is H1.S3.
+The full `VISION.md` minimum-useful CBM floor is not met yet. The handoff packet is prepared, but H1 remains open until a non-current-model checkpoint disposition accepts the H1 pass claim. The next proof target is the checkpoint review, not H2.
 
-This is not a Phase B+ pass claim and not a minimum-useful-CBM pass claim. It is the start of the H1 runtime-agent evidence track.
+This is not a Phase B+ pass claim and not an accepted minimum-useful-CBM pass claim. It is a prepared H1 pass-claim packet pending non-current-model review.
 
 ## H1.S2a Review Blocker Remediation
 
@@ -78,7 +78,7 @@ Accepted blockers from `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITIO
 
 ## Allowed Next Code Work
 
-Only these code categories are allowed while executing H1.S2:
+Only these code categories are allowed while H1.S3 checkpoint review is pending:
 
 - Skeptic runtime producer implementation or dispatch;
 - isolated context/backend checks required for Skeptic;
@@ -89,6 +89,7 @@ Only these code categories are allowed while executing H1.S2:
 - minimal loop-status/preflight work that enforces this recovery plan;
 - runtime-producer adapter hardening required before live agent dispatch;
 - ADRs or review dispositions that preserve accepted recovery decisions.
+- narrow documentation or verification updates required to run and disposition the H1.S3 checkpoint.
 
 Explicitly disallowed:
 
@@ -137,11 +138,11 @@ For the completed recovery intervention track:
 - `TMPDIR=/var/tmp pytest -q`
 - `python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category runtime-producer --json`
 - `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category runtime-producer --json`
-- expected block until H1.S3 is complete: `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json`
+- expected block until H1.S3 checkpoint is accepted: `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json`
 
 For the next code slice:
 
-- implement H1.S3 validated minimum-useful handoff and non-current-model checkpoint packet preparation;
-- validate the handoff, citations, carried contestation, and checkpoint packet inputs;
+- run the non-current-model checkpoint review using `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/PROMPT.md`;
+- do not fill reviewer identity, confidence, or disposition from the current dev-agent model;
 - run `cbm-loop-status --scope broad-goal --work-category runtime-producer`;
-- update `.planning/STATE.md`, `.planning/CURRENT-PLAN.md`, and `.planning/HORIZONS.md` before any H1 completion or pass-claim checkpoint.
+- after non-current-model acceptance only, update `.planning/STATE.md`, `.planning/CURRENT-PLAN.md`, and `.planning/HORIZONS.md` before any H1 completion claim.

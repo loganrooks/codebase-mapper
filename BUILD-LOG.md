@@ -1685,3 +1685,27 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Handoff regeneration passed: `TMPDIR=/var/tmp python3 -m cbm.cli handoff --repo /private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git --run-id run-mcp-git-h1s2c-disposition-1`.
   - Artifact validation/citation/evidence checks passed for `.planning/benchmarks/2026-05-07-mcp-git-h1s2c-disposition/surface-map.json` and `handoff.md` against `/private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git`.
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 116 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+
+## 2026-05-07 — H1.S3 minimum-useful handoff packet
+
+- Prepared: `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/` with `HANDOFF.md`, `RESULT.md`, `VERIFY.md`, `LINEAGE.md`, `INCLUDED-ARTIFACTS.md`, `CHECKPOINT-PACKET.md`, `CHECKPOINT-PROMPT.md`, final `surface-map.json`, rendered `skeptic-review-surface-map.md`, source H1.S2c `handoff.md`, preserved `evidence-ledger.jsonl`, and source `.research/` run trees for H1.S1, H1.S2b, and H1.S2c.
+- Prepared: `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/` with `PROMPT.md`, `CHECKPOINT.md`, `DISPOSITION.md`, `EVIDENCE-MANIFEST.md`, and `STOP-NOTE.md`.
+- Implemented: `cbm-loop-status` now selects the latest accepted checkpoint for `broad-goal`/`broad-goal-restart` resume gating while preserving the latest checkpoint for `pass-claim`. This lets a pending H1 pass-claim packet coexist with the prior accepted recovery checkpoint; pass-claim still fails until reviewer identity and accepted disposition are present.
+- Resolved/documented H1.S3 preflight concerns:
+  - final surface lineage is documented in `LINEAGE.md`;
+  - historical smoke-anchor ledger entry `lg-00030` is documented and not promoted as H1.S3 evidence;
+  - mixed run-id provenance on `lg-00029` is documented as H1.S2b challenging an imported H1.S1 map;
+  - local verification evidence is recorded in `VERIFY.md`.
+- Boundary: this prepares the H1 pass claim for non-current-model review. It does not claim H1 complete, minimum-useful CBM complete, Phase B+, repeatability, beta readiness, or broad product maturity. Reviewer identity, confidence, and disposition are intentionally pending.
+- Verification:
+  - Initial artifact validation attempt used relative artifact paths with `--repo /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git`; the CLI correctly looked under the target repo and raised `FileNotFoundError`. Re-run used absolute artifact paths.
+  - H1.S3 handoff validation passed: `TMPDIR=/var/tmp python3 -m cbm.cli validate /Users/rookslog/Development/cbm/.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/HANDOFF.md --repo /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git`.
+  - H1.S3 handoff citation resolution passed for `pyproject.toml:25-26@4503e2d12b79`, `src/mcp_server_git/__main__.py:1-5@4503e2d12b79`, and `src/mcp_server_git/__init__.py:7-24@4503e2d12b79`.
+  - Final surface validation, citation resolution, and evidence check passed against `/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git`.
+  - Promoted Skeptic review and source H1.S2c handoff validation/citation checks passed.
+  - Focused loop-status regression passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_loop_status_broad_goal_uses_prior_accepted_checkpoint_when_pass_claim_pending tests/test_cli.py::test_loop_status_blocks_incomplete_review_sessions_for_broad_goal tests/test_cli.py::test_loop_status_accepts_pass_claim_with_cross_model_reviewer` reported 3 passed, 2 warnings.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 117 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+  - Diff check passed: `git diff --check -- .planning BUILD-LOG.md cbm tests schemas`.
+  - Pre-commit broad-goal loop-status failed only on intentionally dirty planning docs.
+  - Post-commit broad-goal loop-status passed with `status: ok`, no issues, and no warnings.
+  - Post-commit pass-claim loop-status failed on expected `missing_reviewer_model_id` plus `checkpoint_pending`; this remains correct until a non-current-model reviewer fills and accepts the checkpoint.
