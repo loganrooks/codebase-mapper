@@ -109,11 +109,43 @@ Pushback handling:
 
 ### H1.S2 - Isolated Skeptic Review
 
-Status: current; blocked until post-H1.S1 Opus review blockers are remediated
+Status: current; H1.S2a evidence-bundle repair complete, H1.S2b is next
 
 Objective:
 
 Run a real isolated Skeptic against the H1.S1 surface map and ingest its challenges structurally.
+
+#### H1.S2a - Evidence-Bundle Repair
+
+Status: complete
+
+Objective:
+
+Remediate accepted post-H1.S1 Opus review blockers before exposing the H1.S1 packet to a real isolated Skeptic.
+
+Completion evidence:
+
+- Handoff generation now describes non-baseline Surface Mapper output as runtime output and derives handoff coverage/caveats from `surface-map.json`.
+- Dev-fixture Skeptic fallback output is not promoted or counted as real Skeptic review.
+- Surface Mapper unknown-edge acceptance uses `kind: unknown`, not the literal `edge-unknown-001` id.
+- Surface Mapper repair-pass tests preserve rejected output, repair prompt/output, stdout/stderr logs, and manifest repair metadata for success and failure.
+- The H1.S1 benchmark `handoff.md` and `RESULT.md` record the existing packet limitation and avoid promoting unavailable dev-fixture Skeptic evidence.
+
+#### H1.S2b - Real Isolated Skeptic Production
+
+Status: current
+
+Objective:
+
+Run a real isolated `skeptic@1.2` producer over the repaired H1.S1 Surface Mapper artifact without live mapper hidden reasoning or parent-session context.
+
+#### H1.S2c - Challenge Ingestion And Mapper Response
+
+Status: pending
+
+Objective:
+
+Ingest the Skeptic output structurally and carry the Surface Mapper response as accepted, revised, or unresolved contestation.
 
 Acceptance:
 

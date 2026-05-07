@@ -1051,6 +1051,21 @@ def annotate_codex_step_outputs(repo: Path, run_id: str, step: dict[str, Any]) -
     step["stderr_sha256"] = sha256_if_nonempty(run_dir / "logs" / f"{step_id}.stderr")
     output_name = "codex-cli-surface-output.json" if step_id == "codex-cli-skill-surface-map" else "codex-cli-smoke-output.json"
     step["output_path_sha256"] = sha256_if_nonempty(run_dir / output_name)
+    repair_output = run_dir / "codex_outputs" / f"{step_id}.repair-output-1.json"
+    repair_prompt = run_dir / "codex_outputs" / f"{step_id}.repair-prompt-1.txt"
+    repair_stdout = run_dir / "logs" / f"{step_id}.repair-1.stdout"
+    repair_stderr = run_dir / "logs" / f"{step_id}.repair-1.stderr"
+    if repair_output.exists() or repair_prompt.exists():
+        step["repair_attempts"] = [
+            {
+                "attempt": 1,
+                "status": "succeeded" if step.get("status") == "succeeded" else "failed",
+                "prompt_sha256": sha256_if_nonempty(repair_prompt),
+                "output_sha256": sha256_if_nonempty(repair_output),
+                "stdout_sha256": sha256_if_nonempty(repair_stdout),
+                "stderr_sha256": sha256_if_nonempty(repair_stderr),
+            }
+        ]
 
 
 def command_init(args: argparse.Namespace) -> int:
@@ -4093,7 +4108,7 @@ def codex_cli_surface_prompt(skill: LoadedSkill, repo: Path, paths: RunPaths, ci
         "- Top-level surface map requires `status: \"draft\"`, `staleness`, `coverage.result.files_in_scope`, `coverage.result.files_examined_directly`, `coverage.result.files_inspected_via_extractor`, and `coverage.result.files_unread_in_scope`.\n"
         "- Authority `kind` must be one of: routing, config, schema, policy, registry, build, ci_gate, test_suite, doc_contract, other. Use `test_suite`, not `test`; use `doc_contract`, not `doc`.\n"
         "- Every edge, including `kind: \"unknown\"`, must include `claim_register`, `claim_status`, `evidence_kinds`, `corroboration_count`, and `confidence`; low or medium confidence edges also need `rationale`.\n"
-        "- Include at least one explicit unknown edge with `id: \"edge-unknown-001\"`; the current handoff gate depends on that stable claim id for dependency-closure caveats.\n"
+        "- Include at least one explicit unknown edge with `kind: \"unknown\"`; the id may be producer-specific and must not be used as an acceptance condition.\n"
         "- Do not set `claim_status` to challenged/contested/contradicted unless you also include the required `challenges` or `contradicted_by` fields. Prefer `claim_status: \"active\"` for this first map.\n"
         "- `verification` must contain exactly `tests`, `ci_gates`, and `coverage_summary`. Each test exercise must use `target_path`, optional `target_symbol`, `citations`, `claim_register`, and `evidence_kinds`; do not use `target` or `symbol` keys.\n\n"
         f"Runtime skill: {skill.name}\n"
@@ -4180,8 +4195,8 @@ def surface_map_parent_validation_errors(repo: Path, paths: RunPaths, surface: d
     citations = sorted(set(extract_citations(surface)))
     if not citations:
         errors.append("surface_map must contain at least one source citation")
-    if not any(isinstance(edge, dict) and edge.get("id") == "edge-unknown-001" for edge in surface.get("edges", [])):
-        errors.append('surface_map.edges must include stable unknown edge id "edge-unknown-001" for the handoff gate')
+    if not any(isinstance(edge, dict) and edge.get("kind") == "unknown" for edge in surface.get("edges", [])):
+        errors.append('surface_map.edges must include at least one edge where kind == unknown')
     for citation in citations:
         parts = citation_parts(citation)
         if not parts:
@@ -4272,6 +4287,8 @@ def command_codex_cli_surface_map(args: argparse.Namespace) -> int:
     logs_dir = paths.run_dir / "logs"
     write_text_if_nonempty(logs_dir / f"{step_id}.stdout", proc.stdout)
     write_text_if_nonempty(logs_dir / f"{step_id}.stderr", proc.stderr)
+    write_text_if_nonempty(logs_dir / f"{step_id}.attempt-1.stdout", proc.stdout)
+    write_text_if_nonempty(logs_dir / f"{step_id}.attempt-1.stderr", proc.stderr)
     if proc.returncode != 0:
         detail = "codex-cli Surface Mapper failed"
         if proc.stderr:
@@ -4305,10 +4322,12 @@ def command_codex_cli_surface_map(args: argparse.Namespace) -> int:
         repair_dir = paths.run_dir / "codex_outputs"
         repair_dir.mkdir(parents=True, exist_ok=True)
         repair_dir.joinpath(f"{step_id}.rejected-1.json").write_text(rejected_text, encoding="utf-8")
+        repair_prompt = codex_cli_surface_repair_prompt(prompt, rejected_text, errors)
+        repair_dir.joinpath(f"{step_id}.repair-prompt-1.txt").write_text(repair_prompt, encoding="utf-8")
         try:
             repair_proc = subprocess.run(
                 command,
-                input=codex_cli_surface_repair_prompt(prompt, rejected_text, errors),
+                input=repair_prompt,
                 text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -4327,6 +4346,10 @@ def command_codex_cli_surface_map(args: argparse.Namespace) -> int:
                 repair_dir.joinpath(f"{step_id}.repair.partial").write_text("\n\n".join(partial_chunks) + "\n", encoding="utf-8")
             print(detail, file=sys.stderr)
             return INTERRUPTED_EXIT_CODE
+        if output_path.exists():
+            repair_dir.joinpath(f"{step_id}.repair-output-1.json").write_text(output_path.read_text(encoding="utf-8"), encoding="utf-8")
+        write_text_if_nonempty(logs_dir / f"{step_id}.repair-1.stdout", repair_proc.stdout)
+        write_text_if_nonempty(logs_dir / f"{step_id}.repair-1.stderr", repair_proc.stderr)
         combined_stdout = "\n".join(part for part in [proc.stdout, "[repair attempt]\n" + repair_proc.stdout if repair_proc.stdout else ""] if part)
         combined_stderr = "\n".join(part for part in [proc.stderr, "[repair attempt]\n" + repair_proc.stderr if repair_proc.stderr else ""] if part)
         write_text_if_nonempty(logs_dir / f"{step_id}.stdout", combined_stdout)
@@ -4545,14 +4568,39 @@ def is_baseline_like_producer(produced_by: str | None) -> bool:
     return bool(produced_by and (produced_by.startswith("cbm-baseline-") or produced_by.startswith("dev-fixture-")))
 
 
+def is_runtime_surface_map(surface: dict[str, Any]) -> bool:
+    return surface.get("artifact_type") == "surface_map" and not is_baseline_like_producer(str(surface.get("produced_by", "")))
+
+
+def is_real_skeptic_producer(produced_by: str | None) -> bool:
+    return bool(produced_by and produced_by.startswith("skeptic@"))
+
+
+def runtime_surface_summary(surface: dict[str, Any]) -> str:
+    authorities = surface.get("authorities", [])
+    edges = surface.get("edges", [])
+    unknown_edges = [edge for edge in edges if isinstance(edge, dict) and edge.get("kind") == "unknown"]
+    return (
+        f"Runtime Surface Mapper output from {surface.get('produced_by')} with "
+        f"{len(authorities)} authorities, {len(edges)} edges, and {len(unknown_edges)} unknown edge"
+        f"{'' if len(unknown_edges) == 1 else 's'}."
+    )
+
+
 def render_card_title(card_type: str, produced_by: str) -> str:
     marker = "[BASELINE] " if is_baseline_like_producer(produced_by) else ""
     title = "Goal-Bound Intervention Card" if card_type == "intervention_card" else "Phase A Structural Finding"
     return f"# {marker}{title}"
 
 
-def render_handoff_body(include_baseline_banner: bool) -> str:
+def render_handoff_body(include_baseline_banner: bool, promoted_runtime_surface: bool = False) -> str:
     banner = f"> {BASELINE_BANNER_TEXT}\n\n" if include_baseline_banner else ""
+    if promoted_runtime_surface:
+        return (
+            "# CBM Handoff\n\n"
+            + banner
+            + "CBM produced a draft handoff containing runtime Surface Mapper output; see frontmatter for producer identities, gate summary, coverage, and caveats.\n"
+        )
     return "# CBM Handoff\n\n" + banner + "Phase A mechanical gates produced a draft handoff. See frontmatter for gate summary and caveats.\n"
 
 
@@ -4705,9 +4753,9 @@ def command_handoff(args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
-    unknown_edge = next((edge for edge in surface["edges"] if edge["id"] == "edge-unknown-001"), None)
+    unknown_edge = next((edge for edge in surface["edges"] if edge["kind"] == "unknown"), None)
     if unknown_edge is None:
-        print("surface map is missing edge-unknown-001", file=sys.stderr)
+        print("surface map is missing an edge with kind == unknown", file=sys.stderr)
         return 1
     errors = validate_data(repo, surface, "surface_map")
     if errors:
@@ -4751,7 +4799,7 @@ def command_handoff(args: argparse.Namespace) -> int:
     dependent_challenges = []
     selected_claim = relation_edge if relation_edge else primary_authority
     selected_challenges = live_challenges(selected_claim)
-    if selected_claim.get("id") != "edge-unknown-001" and selected_challenges:
+    if selected_claim.get("kind") != "unknown" and selected_challenges:
         dependent_challenges.append(
             {
                 "claim_artifact": f".research/{paths.run_id}/surface-map.json",
@@ -4765,10 +4813,10 @@ def command_handoff(args: argparse.Namespace) -> int:
         selected_ids = ", ".join(challenge["challenge_id"] for challenge in selected_challenges)
         confidence_rationale = (
             "Confidence is low because the selected goal-bound surface has live challenge(s) "
-            f"{selected_ids}, and dependency closure remains unknown at edge-unknown-001."
+            f"{selected_ids}, and dependency closure remains unknown at {unknown_edge['id']}."
         )
     else:
-        confidence_rationale = "Confidence is low because dependency closure remains unknown at edge-unknown-001."
+        confidence_rationale = f"Confidence is low because dependency closure remains unknown at {unknown_edge['id']}."
     card_inputs = [{"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)}]
     if binding_path.exists():
         card_inputs.append({"path": str(binding_path.relative_to(repo)), "sha256": sha256_file(binding_path)})
@@ -4791,7 +4839,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "surface_kind": "other",
         "surface_classification_register": "interpretive",
         "primary_files": [{"path": rel_file, "role": primary_role, "citations": [citation]}],
-        "related_dependencies": {"certain": certain_dependencies, "suspected": [], "advisory": [], "unknown": [f".research/{paths.run_id}/surface-map.json#/edges/{len(surface['edges']) - 1}"]},
+        "related_dependencies": {"certain": certain_dependencies, "suspected": [], "advisory": [], "unknown": [f".research/{paths.run_id}/surface-map.json#/edges/{surface['edges'].index(unknown_edge)}"]},
         "affected_workflows": [],
         "expected_leverage": {
             "rating": leverage_rating,
@@ -4857,17 +4905,25 @@ def command_handoff(args: argparse.Namespace) -> int:
         card_body = f"\n{card_title}\n\nThis generated card proves the mechanical gates are wired: schema validation and citation resolution operate on an evidence-bound artifact.\n"
     card_path.write_text("---\n" + yaml.safe_dump(card_frontmatter, sort_keys=False) + "---\n" + card_body, encoding="utf-8")
     append_citation_entries(repo, ledger_path, paths.run_id, sha, str(card_path.relative_to(repo)), card_frontmatter, "dev-fixture-planner")
+    promoted_runtime_surface = is_runtime_surface_map(surface)
+    surface_summary = (
+        runtime_surface_summary(surface)
+        if promoted_runtime_surface
+        else "Draft deterministic surface map with explicit unknown dependency edge."
+    )
     artifacts = [
         {"path": str((paths.run_dir / "codebase-map.json").relative_to(repo)), "artifact_type": "codebase_map", "status": "draft", "summary": "Deterministic structural file inventory."},
-        {"path": str(surface_path.relative_to(repo)), "artifact_type": "surface_map", "status": "draft", "summary": "Draft deterministic surface map with explicit unknown dependency edge."},
+        {"path": str(surface_path.relative_to(repo)), "artifact_type": "surface_map", "status": "draft", "summary": surface_summary},
         {"path": str(card_path.relative_to(repo)), "artifact_type": card_type, "status": "draft", "summary": card_summary},
-        {"path": str(skeptic_path.relative_to(repo)), "artifact_type": "skeptic_review", "status": "draft", "summary": "Lightweight Skeptic finding against unknown dependency closure."},
     ]
     handoff_inputs = [
         {"path": str(surface_path.relative_to(repo)), "sha256": sha256_file(surface_path)},
         {"path": str(card_path.relative_to(repo)), "sha256": sha256_file(card_path)},
-        {"path": str(skeptic_path.relative_to(repo)), "sha256": sha256_file(skeptic_path)},
     ]
+    skeptic_produced_by = artifact_produced_by(repo, skeptic_path) if skeptic_path.exists() else ""
+    if is_real_skeptic_producer(skeptic_produced_by):
+        artifacts.append({"path": str(skeptic_path.relative_to(repo)), "artifact_type": "skeptic_review", "status": "draft", "summary": "Runtime Skeptic review output."})
+        handoff_inputs.append({"path": str(skeptic_path.relative_to(repo)), "sha256": sha256_file(skeptic_path)})
     if binding_path.exists():
         artifacts.insert(2, {"path": str(binding_path.relative_to(repo)), "artifact_type": "goal_binding", "status": "draft", "summary": "Goal-specific candidate binding over the surface map."})
         handoff_inputs.insert(1, {"path": str(binding_path.relative_to(repo)), "sha256": sha256_file(binding_path)})
@@ -4897,7 +4953,11 @@ def command_handoff(args: argparse.Namespace) -> int:
             claim_refs.extend((str(split_path.relative_to(repo)), claim) for claim in all_artifact_claims(split_data))
     contestation_summary = contestation_summary_for_claim_refs(claim_refs)
     challenge_count = sum(len(live_challenges(claim)) for _, claim in claim_refs)
-    skeptic_artifacts_reviewed = sum(1 for artifact in artifacts if artifact["artifact_type"] == "skeptic_review")
+    skeptic_artifacts_reviewed = sum(
+        1
+        for artifact in artifacts
+        if artifact["artifact_type"] == "skeptic_review" and is_real_skeptic_producer(artifact_produced_by(repo, repo / artifact["path"]))
+    )
     failed_artifacts = []
     for artifact in artifacts:
         artifact_path = repo / artifact["path"]
@@ -4908,7 +4968,8 @@ def command_handoff(args: argparse.Namespace) -> int:
             artifact_errors = [str(exc)]
         if artifact_errors:
             failed_artifacts.append(f"{artifact['path']}: {'; '.join(artifact_errors)}")
-    handoff_coverage = coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1)
+    handoff_coverage = surface.get("coverage", coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1)) if promoted_runtime_surface else coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1)
+    runtime_coverage_caveats = list(surface.get("coverage", {}).get("limitations", [])) if promoted_runtime_surface else []
     handoff = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "handoff",
@@ -4942,9 +5003,13 @@ def command_handoff(args: argparse.Namespace) -> int:
         "contestation_summary": contestation_summary,
         "artifacts": artifacts,
         "open_questions_count": 1,
-        "coverage_caveats": coverage_caveats(handoff_coverage)
-        + ["Phase A surface mapping is deterministic and has not performed language-level import/call extraction."],
-        "recommended_next_action": "Implement call and runtime workflow extraction so the unknown dependency edge can be narrowed with grounded relations.",
+        "coverage_caveats": runtime_coverage_caveats
+        if promoted_runtime_surface and runtime_coverage_caveats
+        else coverage_caveats(handoff_coverage)
+        + ([] if promoted_runtime_surface else ["Phase A surface mapping is deterministic and has not performed language-level import/call extraction."]),
+        "recommended_next_action": "Run a real isolated Skeptic review over the runtime Surface Mapper artifact."
+        if promoted_runtime_surface
+        else "Implement call and runtime workflow extraction so the unknown dependency edge can be narrowed with grounded relations.",
     }
     errors = validate_data(repo, handoff, "handoff")
     if errors:
@@ -4954,7 +5019,7 @@ def command_handoff(args: argparse.Namespace) -> int:
     write_json(paths.run_dir / "handoff.json", handoff)
     include_baseline_banner = handoff_includes_baseline_outputs(repo, artifacts)
     (paths.run_dir / "handoff.md").write_text(
-        "---\n" + yaml.safe_dump(handoff, sort_keys=False) + "---\n" + render_handoff_body(include_baseline_banner),
+        "---\n" + yaml.safe_dump(handoff, sort_keys=False) + "---\n" + render_handoff_body(include_baseline_banner, promoted_runtime_surface),
         encoding="utf-8",
     )
     print(paths.run_dir / "handoff.md")

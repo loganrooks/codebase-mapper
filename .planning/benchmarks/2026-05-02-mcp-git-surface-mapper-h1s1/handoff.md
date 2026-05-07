@@ -6,16 +6,10 @@ produced_at: '2026-05-02T20:53:42Z'
 produced_by: cbm-baseline-handoff@0.1
 source_sha: 4503e2d12b79
 inputs:
-- path: .research/run-mcp-git-surface-mapper-h1s1-6/surface-map.json
+- path: surface-map.json
   sha256: ff48b3d6efdcd49e62ef6b9b3590a07da5fd7e9a65872d3480e465e7a5fb36ae
-- path: .research/run-mcp-git-surface-mapper-h1s1-6/project-type.json
-  sha256: 9a77bf06bd775fb9fbd3ea1edf5174d8f2e2cd008b8d38b675a3f8b85ff1b596
-- path: .research/run-mcp-git-surface-mapper-h1s1-6/goal-binding.json
+- path: goal-binding.json
   sha256: ef2072641359765f96d77f9a277e27dc72bb96e108492e94266976c56654e1fa
-- path: .research/run-mcp-git-surface-mapper-h1s1-6/findings/int-0001.md
-  sha256: 3b9fda0420d9773a60de59d5e2f4b5ee34da6b4419e77710f0344b47ba0a76c1
-- path: .research/run-mcp-git-surface-mapper-h1s1-6/skeptic-review/surface-map.md
-  sha256: b712df09c4cca95c8d452b1128328a353eceef3967f15ff3a7ba00e17b18e585
 status: draft
 coverage:
   scope:
@@ -31,12 +25,13 @@ coverage:
     - .DS_Store
   result:
     files_in_scope: 12
-    files_examined_directly: 1
+    files_examined_directly: 7
     files_inspected_via_extractor: 12
-    files_unread_in_scope: 11
+    files_unread_in_scope: 0
   limitations:
-  - Phase A kernel records structure only; interpretive review remains a runtime-agent
-    task.
+  - Baseline extractor coverage saw every in-scope file; I directly examined only
+    the files needed for interpretive claims.
+  - No CI workflow files were present in scope, so CI gating could not be mapped.
 mode: lightweight
 user_goal: produce real Surface Mapper map for MCP git server surfaces
 goal_class: understand_repo
@@ -55,10 +50,10 @@ gate_summary:
     missing_citation_count: 0
     missing_citation_examples: []
   staleness_check:
-    fresh: 5
+    fresh: 2
     stale_artifacts: []
   skeptic_review:
-    artifacts_reviewed: 1
+    artifacts_reviewed: 0
     challenges_logged: 0
     challenges_resolved: 0
 contestation_summary:
@@ -77,43 +72,29 @@ contestation_summary:
   contested_claims: []
   contradicted_claims: []
 artifacts:
-- path: .research/run-mcp-git-surface-mapper-h1s1-6/codebase-map.json
+- path: codebase-map.json
   artifact_type: codebase_map
   status: draft
   summary: Deterministic structural file inventory.
-- path: .research/run-mcp-git-surface-mapper-h1s1-6/project-type.json
-  artifact_type: project_type_report
-  status: draft
-  summary: Phase 0 project-type detection report.
-- path: .research/run-mcp-git-surface-mapper-h1s1-6/surface-map.json
+- path: surface-map.json
   artifact_type: surface_map
   status: draft
-  summary: Draft deterministic surface map with explicit unknown dependency edge.
-- path: .research/run-mcp-git-surface-mapper-h1s1-6/goal-binding.json
+  summary: Runtime Surface Mapper output from surface-mapper@1.2 with 8 authorities,
+    7 edges, and 1 unknown edge.
+- path: goal-binding.json
   artifact_type: goal_binding
   status: draft
   summary: Goal-specific candidate binding over the surface map.
-- path: .research/run-mcp-git-surface-mapper-h1s1-6/findings/int-0001.md
-  artifact_type: findings_card
-  status: draft
-  summary: Goal-bound structural findings card.
-- path: .research/run-mcp-git-surface-mapper-h1s1-6/skeptic-review/surface-map.md
-  artifact_type: skeptic_review
-  status: draft
-  summary: Lightweight Skeptic finding against unknown dependency closure.
 open_questions_count: 1
 coverage_caveats:
-- 1 of 12 in-scope file(s) were directly examined for role claims; 11 file(s) remain
-  unread by an agent or human.
-- 11 file(s) were inspected via deterministic extractors only; those observations
-  support structural claims, not settled interpretive role claims.
-- Phase A surface mapping is deterministic and has not performed language-level import/call
-  extraction.
-recommended_next_action: Implement call and runtime workflow extraction so the unknown
-  dependency edge can be narrowed with grounded relations.
+- Baseline extractor coverage saw every in-scope file; I directly examined only
+  the files needed for interpretive claims.
+- No CI workflow files were present in scope, so CI gating could not be mapped.
+recommended_next_action: Run a real isolated Skeptic review over the runtime Surface
+  Mapper artifact.
 ---
 # CBM Handoff
 
 > This run includes deterministic baseline output. Cards and artifacts labeled cbm-baseline-* or dev-fixture-* are NOT runtime-agent readings; they inherit baseline guarantees only (schema-valid, citation-resolved, evidence-table-checked). Do not act on them as if they had Skeptic review.
 
-Phase A mechanical gates produced a draft handoff. See frontmatter for gate summary and caveats.
+CBM produced a draft handoff containing runtime Surface Mapper output; see frontmatter for producer identities, gate summary, coverage, and caveats.

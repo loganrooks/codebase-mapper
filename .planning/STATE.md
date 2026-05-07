@@ -1,7 +1,7 @@
 # CBM Build State
 
 Status: current operational state
-Last updated: 2026-05-02
+Last updated: 2026-05-07
 Supersedes: none
 Superseded by: none
 
@@ -27,7 +27,7 @@ Current product state:
 - the first skill-loaded `skeptic@1.2` run on MCP `src/git` produced a structurally ingested interpretive challenge;
 - the first runtime-producer/Skeptic evidence slice has passed on one pinned external benchmark;
 - H1.S1 produced a real non-baseline `surface-mapper@1.2` surface map on the pinned MCP `src/git` benchmark through the `codex-cli` backend;
-- post-H1.S1 Opus review returned `ACCEPT_WITH_BLOCKERS_FOR_NEXT_STAGE`; H1.S2 live Skeptic work is blocked until the accepted remediation group is complete;
+- post-H1.S1 Opus review returned `ACCEPT_WITH_BLOCKERS_FOR_NEXT_STAGE`; H1.S2a evidence-bundle remediation is complete, and H1.S2b real isolated Skeptic production is the next allowed runtime-producer slice;
 - all Tier 1 and Tier 5 R-OK recovery interventions from the 2026-05-02 Opus cross-vendor audit have been implemented and committed;
 - `.planning/HORIZONS.md` now translates `VISION.md` into autonomous `/goal` stages;
 - CBM schemas are packaged under `cbm/schemas/` so installed validation does not depend on a repo checkout or target-local schema copies;
@@ -87,7 +87,7 @@ Important examples:
 - `91f1f95` `feat: render baseline banner on handoff and cards`
 - `021a004` `docs: verify codex isolation through cbm run`
 - `65c19f2` `feat: add formal skill loader compatibility module`
-- pending next work: post-H1.S1 Opus remediation before H1.S2 isolated Skeptic review
+- pending next work: H1.S2b real isolated Skeptic production over the repaired H1.S1 Surface Mapper artifact
 
 ## Active Architecture Decision
 
@@ -147,6 +147,10 @@ Runtime-producer evidence status:
 - This is not the full `VISION.md` minimum-useful CBM floor. H1 remains active until an isolated Skeptic review over the H1.S1 map, non-trivial cited contestation or explicit no-challenge finding, validated handoff, and cross-model pass-claim checkpoint exist.
 - Still not a Phase B+ pass claim. Repeatability, quality review, and broader runtime-agent orchestration remain open.
 
+Operational note:
+
+- Commit `39b4c6c` removed main-session `.codex/hooks.json` because hooks were attached to the wrong execution surface. Future hook work must be scoped to launched CBM runtime-agent sessions or explicit platform adapter templates, not repo-local main-session hooks.
+
 ## Known Risks
 
 - Deterministic artifact provenance was misleading; the recovery slice now labels deterministic baseline and dev-fixture producers explicitly.
@@ -160,7 +164,7 @@ Runtime-producer evidence status:
 
 Recovery readiness is restored for H1.S2 in `.planning/HORIZONS.md`: the isolated Skeptic review evidence track. The checkpoint gate is accepted, cross-vendor audit blockers have been dispositioned, H1.S1 is complete, and final `cbm-loop-status` must pass again before the next autonomous slice proceeds.
 
-Post-H1.S1 review gate: `.planning/reviews/2026-05-02-h1s1-opus-review/OUTPUT.md` returned `ACCEPT_WITH_BLOCKERS_FOR_NEXT_STAGE`; `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md` accepts blockers for handoff honesty, dev-fixture Skeptic fallback labeling/removal, `edge-unknown-001` hardcoding, repair-pass tests/evidence preservation, and complete benchmark evidence preservation. Do not launch H1.S2 live Skeptic work until those are remediated.
+Post-H1.S1 review gate: `.planning/reviews/2026-05-02-h1s1-opus-review/OUTPUT.md` returned `ACCEPT_WITH_BLOCKERS_FOR_NEXT_STAGE`; `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md` accepted blockers for handoff honesty, dev-fixture Skeptic fallback labeling/removal, `edge-unknown-001` hardcoding, repair-pass tests/evidence preservation, and complete benchmark evidence preservation. H1.S2a remediated that group. H1.S2b may run a real isolated Skeptic next, but H1 completion, minimum-useful-CBM completion, and Phase B+ claims remain blocked.
 
 Broad unattended `/goal` is restored only for the current horizon/stage named by `.planning/CURRENT-PLAN.md`. It is not restored for Phase B+ pass claims, minimum-useful-CBM pass claims, unrelated kernel hardening, or treating deterministic baseline artifacts as runtime-agent output.
 

@@ -1,11 +1,11 @@
 # Current Plan
 
-Status: active; recovery interventions complete, H1.S1 completed, H1.S2 blocked on review remediation
-Last updated: 2026-05-02
+Status: active; recovery interventions complete, H1.S1 completed, H1.S2a remediation complete, H1.S2b next
+Last updated: 2026-05-07
 Supersedes: direct use of `docs/roadmap.md` as current execution plan
 Superseded by: none
 Current horizon: H1
-Current stage: H1.S2
+Current stage: H1.S2b
 
 ## Objective
 
@@ -54,11 +54,11 @@ Current boundary: the Tier 1 and Tier 5 R-OK interventions from `.planning/revie
 21. Apply all Tier 1 and Tier 5 R-OK interventions from the Opus cross-vendor audit. Status: completed across `f004657` through `65c19f2`.
 22. Run post-H1.S1 Opus review. Status: completed; disposition accepted with blockers at `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md`.
 
-H1.S1 is completed narrowly. Broad unattended `/goal` may not launch the H1.S2 live Skeptic until the accepted post-H1.S1 Opus review blockers are remediated. Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific horizon evidence and checkpoint evidence exist.
+H1.S1 is completed narrowly. H1.S2a evidence-bundle repair is complete. Broad unattended `/goal` may now proceed only to H1.S2b real isolated Skeptic production over the repaired H1.S1 packet. Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific horizon evidence and checkpoint evidence exist.
 
 ## Next `/goal` Track
 
-The next broad `/goal` track should first remediate the accepted blockers in `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md`, then execute H1.S2 from `.planning/HORIZONS.md`: run a real isolated Skeptic against the H1.S1 Surface Mapper artifact and ingest its challenges structurally.
+The next broad `/goal` track should execute H1.S2b from `.planning/HORIZONS.md`: run a real isolated Skeptic against the repaired H1.S1 Surface Mapper artifact. H1.S2c challenge ingestion and mapper response follow only after real Skeptic output exists.
 
 Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, the live isolation probe reported no access to parent-only session context, a skill-loaded `skeptic@1.2` subprocess produced an ingested interpretive challenge on the same pinned benchmark, and H1.S1 produced a real non-baseline `surface-mapper@1.2` surface map on MCP `src/git`.
 
@@ -66,15 +66,15 @@ The full `VISION.md` minimum-useful CBM floor is not met yet. It remains open un
 
 This is not a Phase B+ pass claim and not a minimum-useful-CBM pass claim. It is the start of the H1 runtime-agent evidence track.
 
-## Pre-H1.S2 Review Blockers
+## H1.S2a Review Blocker Remediation
 
 Accepted blockers from `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md`:
 
-- fix handoff coverage, summaries, caveats, and next action so non-baseline Surface Mapper output is not described as deterministic Phase A output;
-- omit or unmistakably label/count dev-fixture Skeptic fallback output when no real Skeptic ran;
-- remove the hard-coded `edge-unknown-001` producer requirement and use `kind: unknown` lookup instead;
-- add repair-pass regressions and preserve `logs/` plus `codex_outputs/` in live benchmark packets;
-- preserve the full `.research/<run_id>/` evidence tree, or stop making benchmark packets cite missing files.
+- fixed: handoff coverage, summaries, caveats, and next action now derive from non-baseline Surface Mapper output;
+- fixed: dev-fixture Skeptic fallback output is not promoted or counted as real review when no real Skeptic ran;
+- fixed: Surface Mapper unknown-edge acceptance uses `kind: unknown` lookup instead of literal `edge-unknown-001`;
+- fixed: repair-pass regressions preserve rejected output, repair prompt/output, logs, and manifest repair metadata;
+- repaired/limited: the existing H1.S1 convenience benchmark handoff now avoids unavailable dev-fixture Skeptic references and records the original packet's missing full `.research/<run_id>/` tree limitation in `RESULT.md`. Future runtime benchmark packets must preserve the full run tree, including `logs/` and `codex_outputs/`, or avoid citing unpreserved files.
 
 ## Allowed Next Code Work
 

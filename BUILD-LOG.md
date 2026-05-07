@@ -1633,3 +1633,19 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - preserve full live benchmark evidence or stop citing missing artifacts.
 - Boundary:
   - H1.S1 remains accepted narrowly. H1.S2 live Skeptic work is blocked until the accepted remediation group is implemented and committed.
+
+## 2026-05-07 — H1.S2a evidence-bundle repair
+
+- Implemented: `cbm-handoff` now detects non-baseline `surface_map` artifacts as runtime Surface Mapper output, summarizes the runtime producer id plus authority/edge counts, derives handoff coverage and caveats from `surface-map.json`, and avoids Phase A-only body language for promoted runtime maps.
+- Implemented: dev-fixture Skeptic fallback artifacts are no longer promoted in handoff `inputs`/`artifacts` and no longer increment `gate_summary.skeptic_review.artifacts_reviewed` when no real `skeptic@...` producer ran.
+- Implemented: runtime Surface Mapper acceptance now requires any edge with `kind == "unknown"` instead of the literal `edge-unknown-001` id. The H1.S1 artifact may still contain that id, but acceptance logic no longer depends on it.
+- Implemented: Surface Mapper repair passes preserve rejected output, repair prompt, repair output, attempt stdout/stderr, repair stdout/stderr, and additive `run-manifest.json` repair metadata for success and failure cases.
+- Repaired evidence packet: `.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/handoff.md` now describes the promoted runtime map honestly and omits unavailable dev-fixture Skeptic evidence. `RESULT.md` records that the original publication did not preserve the full `.research/<run_id>/` tree, including `logs/` and `codex_outputs`; future runtime benchmark publication must preserve that tree or avoid citing unpreserved files.
+- Decision: H1.S2a is a repair slice only. It does not run the live Skeptic and does not claim H1 complete, minimum-useful CBM complete, or Phase B+.
+- Verification:
+  - Red H1.S2a regression group initially failed on handoff summary/coverage/body language, dev-fixture review counting, literal unknown-edge id, and missing repair evidence.
+  - Focused H1.S2a regression group passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_handoff_uses_runtime_surface_map_summary_for_nonbaseline_surface_producer tests/test_cli.py::test_handoff_uses_runtime_surface_map_coverage_for_nonbaseline_surface_producer tests/test_cli.py::test_handoff_body_does_not_describe_runtime_surface_map_as_phase_a_only tests/test_cli.py::test_handoff_does_not_count_dev_fixture_skeptic_as_real_review tests/test_cli.py::test_unknown_edge_requirement_accepts_any_kind_unknown tests/test_cli.py::test_unknown_edge_requirement_rejects_no_unknown_edges tests/test_cli.py::test_surface_mapper_repair_success_preserves_logs_and_codex_outputs tests/test_cli.py::test_surface_mapper_repair_failure_preserves_logs_and_codex_outputs`.
+  - Nearby regression group passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_init_map_handoff_and_citation_resolution tests/test_cli.py::test_run_backend_codex_cli_skill_surface_writes_non_baseline_surface_map tests/test_cli.py::test_run_backend_codex_cli_skill_surface_rejects_baseline_producer tests/test_cli.py::test_standard_run_writes_verification_map tests/test_cli.py::test_package_schema_resources_match_root_schemas`.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 113 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+  - Diff check passed: `git diff --check -- cbm tests .planning BUILD-LOG.md schemas`.
+  - Pre-commit broad-goal loop-status failed only on `dirty_authority_docs`, as expected because `.planning/CURRENT-PLAN.md`, `.planning/HORIZONS.md`, and `.planning/STATE.md` were intentionally updated by this slice. Re-run after the atomic commit is required.

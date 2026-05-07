@@ -12,7 +12,19 @@ import pytest
 import yaml
 
 from cbm import skills
-from cbm.cli import BASELINE_BANNER_TEXT, extract_citations, goal_pack, load_goal_packs, load_project_packs, main, render_card_title, render_handoff_body, sha256_file
+from cbm.cli import (
+    BASELINE_BANNER_TEXT,
+    extract_citations,
+    goal_pack,
+    load_goal_packs,
+    load_project_packs,
+    main,
+    render_card_title,
+    render_handoff_body,
+    run_paths,
+    sha256_file,
+    surface_map_parent_validation_errors,
+)
 from cbm.skill_loader import load_skill
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +43,43 @@ def make_repo(tmp_path: Path) -> Path:
     git(repo, "add", ".")
     git(repo, "commit", "-m", "initial")
     return repo
+
+
+def prepare_runtime_surface_handoff_fixture(tmp_path: Path, run_id: str = "run-runtime-handoff") -> tuple[Path, Path]:
+    repo = make_repo(tmp_path)
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["bind", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    run_dir = repo / ".research" / run_id
+    surface_path = run_dir / "surface-map.json"
+    surface = json.loads(surface_path.read_text(encoding="utf-8"))
+    surface["produced_by"] = "surface-mapper@1.2"
+    surface["coverage"]["result"] = {
+        "files_in_scope": 3,
+        "files_examined_directly": 2,
+        "files_inspected_via_extractor": 3,
+        "files_unread_in_scope": 0,
+    }
+    surface["coverage"]["limitations"] = ["Runtime mapper read the cited files and used extractor coverage for the rest."]
+    if not any(edge.get("kind") == "unknown" for edge in surface["edges"]):
+        surface["edges"].append(
+            {
+                "id": "edge-runtime-opaque-dispatch",
+                "kind": "unknown",
+                "from": {"path": "pyproject.toml"},
+                "to": {"path": "src/app.py"},
+                "claim_register": "inferential",
+                "claim_status": "active",
+                "evidence_kinds": ["static_structure"],
+                "corroboration_count": 1,
+                "confidence": "low",
+                "rationale": "Runtime dispatch remains opaque in this bounded fixture.",
+            }
+        )
+    surface_path.write_text(json.dumps(surface, indent=2) + "\n", encoding="utf-8")
+    return repo, run_dir
 
 
 def copy_contracts(source_root: Path, repo: Path) -> None:
@@ -665,6 +714,194 @@ def test_run_backend_codex_cli_skill_surface_writes_non_baseline_surface_map(tmp
     handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
     assert handoff_frontmatter["gate_summary"]["schema_validation"]["failed_artifacts"] == []
     assert handoff_frontmatter["gate_summary"]["citation_resolution"]["unresolved_count"] == 0
+
+
+def test_handoff_uses_runtime_surface_map_summary_for_nonbaseline_surface_producer(tmp_path: Path) -> None:
+    repo, run_dir = prepare_runtime_surface_handoff_fixture(tmp_path)
+
+    assert main(["handoff", "--repo", str(repo), "--run-id", "run-runtime-handoff"]) == 0
+
+    handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    surface_artifact = next(artifact for artifact in handoff_frontmatter["artifacts"] if artifact["artifact_type"] == "surface_map")
+    assert "Runtime Surface Mapper output from surface-mapper@1.2" in surface_artifact["summary"]
+    assert "deterministic surface map" not in surface_artifact["summary"]
+
+
+def test_handoff_uses_runtime_surface_map_coverage_for_nonbaseline_surface_producer(tmp_path: Path) -> None:
+    repo, run_dir = prepare_runtime_surface_handoff_fixture(tmp_path)
+
+    assert main(["handoff", "--repo", str(repo), "--run-id", "run-runtime-handoff"]) == 0
+
+    handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    assert handoff_frontmatter["coverage"]["result"]["files_examined_directly"] == 2
+    assert handoff_frontmatter["coverage"]["result"]["files_unread_in_scope"] == 0
+    assert handoff_frontmatter["coverage_caveats"] == [
+        "Runtime mapper read the cited files and used extractor coverage for the rest."
+    ]
+
+
+def test_handoff_body_does_not_describe_runtime_surface_map_as_phase_a_only(tmp_path: Path) -> None:
+    repo, run_dir = prepare_runtime_surface_handoff_fixture(tmp_path)
+
+    assert main(["handoff", "--repo", str(repo), "--run-id", "run-runtime-handoff"]) == 0
+
+    handoff_text = (run_dir / "handoff.md").read_text(encoding="utf-8")
+    assert "Phase A mechanical gates produced a draft handoff" not in handoff_text
+    assert "runtime Surface Mapper output" in handoff_text
+
+
+def test_handoff_does_not_count_dev_fixture_skeptic_as_real_review(tmp_path: Path) -> None:
+    repo, run_dir = prepare_runtime_surface_handoff_fixture(tmp_path)
+
+    assert main(["handoff", "--repo", str(repo), "--run-id", "run-runtime-handoff"]) == 0
+
+    handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    assert handoff_frontmatter["gate_summary"]["skeptic_review"]["artifacts_reviewed"] == 0
+    assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 0
+    assert not any(artifact["artifact_type"] == "skeptic_review" for artifact in handoff_frontmatter["artifacts"])
+    assert not any(input_item["path"].endswith("skeptic-review/surface-map.md") for input_item in handoff_frontmatter["inputs"])
+
+
+def test_unknown_edge_requirement_accepts_any_kind_unknown(tmp_path: Path) -> None:
+    repo, run_dir = prepare_runtime_surface_handoff_fixture(tmp_path)
+    surface_path = run_dir / "surface-map.json"
+    surface = json.loads(surface_path.read_text(encoding="utf-8"))
+    for edge in surface["edges"]:
+        if edge["kind"] == "unknown":
+            edge["id"] = "edge-runtime-opaque-dispatch"
+
+    errors = surface_map_parent_validation_errors(repo, run_paths(repo, "run-runtime-handoff"), surface)
+
+    assert not any("edge-unknown-001" in error for error in errors)
+
+
+def test_unknown_edge_requirement_rejects_no_unknown_edges(tmp_path: Path) -> None:
+    repo, run_dir = prepare_runtime_surface_handoff_fixture(tmp_path)
+    surface_path = run_dir / "surface-map.json"
+    surface = json.loads(surface_path.read_text(encoding="utf-8"))
+    surface["edges"] = [edge for edge in surface["edges"] if edge["kind"] != "unknown"]
+
+    errors = surface_map_parent_validation_errors(repo, run_paths(repo, "run-runtime-handoff"), surface)
+
+    assert any("kind == unknown" in error for error in errors)
+
+
+def test_surface_mapper_repair_success_preserves_logs_and_codex_outputs(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = write_fake_codex_script(
+        tmp_path / "repair-success-codex",
+        "import json\n"
+        "import re\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "prompt = sys.stdin.read()\n"
+        "run_id = re.search(r'Run id: (.+)', prompt).group(1).strip()\n"
+        "source_sha = re.search(r'Source sha: ([0-9a-f]+)', prompt).group(1)\n"
+        "citation = f'tests/test_app.py:1@{source_sha}'\n"
+        "print('first-attempt stdout' if '<parent_validation_errors>' not in prompt else 'repair-attempt stdout')\n"
+        "print('first-attempt stderr' if '<parent_validation_errors>' not in prompt else 'repair-attempt stderr', file=sys.stderr)\n"
+        "if '<parent_validation_errors>' not in prompt:\n"
+        "    output_path.write_text(json.dumps({'surface_map_json': '{\"not\": \"valid surface\"}', 'notes': 'invalid first output'}) + '\\n', encoding='utf-8')\n"
+        "else:\n"
+        "    surface = {\n"
+        "        'schema_version': '1.2', 'artifact_type': 'surface_map', 'run_id': run_id,\n"
+        "        'produced_at': '2026-05-02T00:00:00Z', 'produced_by': 'surface-mapper@1.2', 'source_sha': source_sha,\n"
+        "        'inputs': [{'path': '.research/' + run_id + '/codebase-map.json', 'sha256': '0' * 64}], 'status': 'draft',\n"
+        "        'coverage': {'scope': {'included_globs': ['**/*'], 'excluded_globs': []}, 'result': {'files_in_scope': 3, 'files_examined_directly': 1, 'files_inspected_via_extractor': 3, 'files_unread_in_scope': 2}, 'limitations': ['repair fixture']},\n"
+        "        'staleness': {'stale_if_input_hash_changes': True, 'depends_on_paths': ['tests/test_app.py']},\n"
+        "        'authorities': [{'id': 'auth-001', 'kind': 'test_suite', 'path': 'tests/test_app.py', 'citations': [citation], 'authority_source': 'test', 'claim_register': 'inferential', 'claim_status': 'active', 'evidence_kinds': ['static_structure'], 'corroboration_count': 1, 'confidence': 'medium', 'rationale': 'The cited test is read as the test authority.'}],\n"
+        "        'edges': [{'id': 'edge-import-001', 'kind': 'import', 'from': {'path': 'tests/test_app.py'}, 'to': {'path': 'src/app.py'}, 'citations': [citation], 'extractor_id': 'ext-python-imports-v1', 'claim_register': 'factual', 'claim_status': 'active', 'evidence_kinds': ['static_relation'], 'corroboration_count': 1, 'confidence': 'high'}, {'id': 'edge-runtime-opaque-dispatch', 'kind': 'unknown', 'from': {'path': 'pyproject.toml'}, 'to': {'path': 'src/app.py'}, 'claim_register': 'inferential', 'claim_status': 'active', 'evidence_kinds': ['static_structure'], 'corroboration_count': 1, 'confidence': 'low', 'rationale': 'Runtime dispatch remains opaque.'}],\n"
+        "        'verification': {'tests': [], 'ci_gates': [], 'coverage_summary': {'files_with_tests': 1, 'files_without_tests': 2, 'coverage_unknown': 1}},\n"
+        "        'unknowns': {'edge_unknowns_present': True, 'summary': 'repair fixture unknown'}\n"
+        "    }\n"
+        "    output_path.write_text(json.dumps({'surface_map_json': json.dumps(surface), 'notes': 'repaired valid output'}) + '\\n', encoding='utf-8')\n",
+    )
+
+    run_id = "run-surface-repair-success"
+    assert (
+        main(
+            [
+                "run",
+                "--repo",
+                str(repo),
+                "--goal",
+                "understand this repo",
+                "--backend",
+                "codex-cli",
+                "--allow-live-codex",
+                "--codex-command",
+                str(fake_codex),
+                "--codex-surface-mode",
+                "skill",
+                "--codex-skeptic-mode",
+                "none",
+                "--run-id",
+                run_id,
+            ]
+        )
+        == 0
+    )
+
+    run_dir = repo / ".research" / run_id
+    assert (run_dir / "codex_outputs" / "codex-cli-skill-surface-map.rejected-1.json").exists()
+    assert (run_dir / "codex_outputs" / "codex-cli-skill-surface-map.repair-prompt-1.txt").exists()
+    assert (run_dir / "codex_outputs" / "codex-cli-skill-surface-map.repair-output-1.json").exists()
+    assert "first-attempt stdout" in (run_dir / "logs" / "codex-cli-skill-surface-map.attempt-1.stdout").read_text(encoding="utf-8")
+    assert "repair-attempt stderr" in (run_dir / "logs" / "codex-cli-skill-surface-map.repair-1.stderr").read_text(encoding="utf-8")
+    manifest_data = json.loads((run_dir / "run-manifest.json").read_text(encoding="utf-8"))
+    codex_step = next(step for step in manifest_data["steps"] if step["step_id"] == "codex-cli-skill-surface-map")
+    assert codex_step["repair_attempts"][0]["status"] == "succeeded"
+
+
+def test_surface_mapper_repair_failure_preserves_logs_and_codex_outputs(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    fake_codex = write_fake_codex_script(
+        tmp_path / "repair-failure-codex",
+        "import json\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "prompt = sys.stdin.read()\n"
+        "print('first-attempt stdout' if '<parent_validation_errors>' not in prompt else 'repair-attempt stdout')\n"
+        "print('first-attempt stderr' if '<parent_validation_errors>' not in prompt else 'repair-attempt stderr', file=sys.stderr)\n"
+        "output_path.write_text(json.dumps({'surface_map_json': '{\"still\": \"invalid\"}', 'notes': 'invalid output'}) + '\\n', encoding='utf-8')\n",
+    )
+
+    run_id = "run-surface-repair-failure"
+    assert (
+        main(
+            [
+                "run",
+                "--repo",
+                str(repo),
+                "--goal",
+                "understand this repo",
+                "--backend",
+                "codex-cli",
+                "--allow-live-codex",
+                "--codex-command",
+                str(fake_codex),
+                "--codex-surface-mode",
+                "skill",
+                "--codex-skeptic-mode",
+                "none",
+                "--run-id",
+                run_id,
+            ]
+        )
+        == 1
+    )
+
+    run_dir = repo / ".research" / run_id
+    assert (run_dir / "codex_outputs" / "codex-cli-skill-surface-map.rejected-1.json").exists()
+    assert (run_dir / "codex_outputs" / "codex-cli-skill-surface-map.repair-output-1.json").exists()
+    assert "repair-attempt stdout" in (run_dir / "logs" / "codex-cli-skill-surface-map.repair-1.stdout").read_text(encoding="utf-8")
+    manifest_data = json.loads((run_dir / "run-manifest.json").read_text(encoding="utf-8"))
+    assert manifest_data["status"] == "failed"
+    codex_step = next(step for step in manifest_data["steps"] if step["step_id"] == "codex-cli-skill-surface-map")
+    assert codex_step["repair_attempts"][0]["status"] == "failed"
+    assert not (run_dir / "handoff.md").exists()
 
 
 def test_run_backend_codex_cli_skill_surface_rejects_baseline_producer(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -1626,10 +1863,7 @@ def test_tracer_skill_is_shipped() -> None:
 def test_platform_portability_docs_are_shipped() -> None:
     assert (SOURCE_ROOT / "platform" / "PORTABILITY.md").exists()
     assert (SOURCE_ROOT / "platform" / "codex" / "hooks.json").exists()
-    live_hooks = json.loads((SOURCE_ROOT / ".codex" / "hooks.json").read_text(encoding="utf-8"))
-    live_hook_commands = json.dumps(live_hooks)
-    assert "python3 -m cbm hook-start" in live_hook_commands
-    assert "python3 -m cbm hook-stop" in live_hook_commands
+    assert not (SOURCE_ROOT / ".codex" / "hooks.json").exists()
     hooks = json.loads((SOURCE_ROOT / "platform" / "codex" / "hooks.json").read_text(encoding="utf-8"))
     hook_commands = json.dumps(hooks)
     assert "python3 -m cbm hook-start" in hook_commands
