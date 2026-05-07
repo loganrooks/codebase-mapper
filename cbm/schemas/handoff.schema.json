@@ -216,6 +216,14 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "recommended_next_action_kind": {
+      "enum": [
+        "run_skeptic_review",
+        "respond_to_open_challenges",
+        "prepare_pass_claim_review",
+        "review_handoff"
+      ]
+    },
     "recommended_next_action": { "type": "string", "minLength": 10 }
   }
 }

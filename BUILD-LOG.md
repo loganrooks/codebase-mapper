@@ -1723,3 +1723,19 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Diff check passed: `git diff --check -- .planning BUILD-LOG.md cbm tests schemas`.
   - Broad-goal loop-status passed with `status: ok`, no issues, and no warnings.
   - Pass-claim loop-status failed as expected on `missing_reviewer_model_id` with `checkpoint_pending`; reviewer fields remain intentionally blank.
+
+## 2026-05-07 — Handoff next-action enum
+
+- Implemented: `handoff` artifacts now include optional `recommended_next_action_kind` so the machine-readable next state is separate from human prose.
+- Schema: added optional enum field to both `schemas/handoff.schema.json` and packaged `cbm/schemas/handoff.schema.json`; `schema_version` remains `1.2` because the change is additive and not required.
+- Enum values: `run_skeptic_review`, `respond_to_open_challenges`, `prepare_pass_claim_review`, and `review_handoff`.
+- Generation: `cbm handoff` computes the enum first, then renders generic prose from that enum. The resolved-Skeptic-challenge count is passed explicitly from gate summary state.
+- Tests: added direct mapping coverage for all enum states and updated handoff tests to assert `recommended_next_action_kind` for no-real-Skeptic, open-challenge, and carried-contestation paths. Prose assertions remain narrow exact checks for the two intentionally stable generic strings.
+- H1.S3 packet: current `HANDOFF.md` now includes `recommended_next_action_kind: prepare_pass_claim_review`; historical source handoff copies were not mass-rewritten.
+- Boundary: no H1 completion, minimum-useful-CBM completion, Phase B+, repeatability, beta readiness, or H2 readiness claim is made. The non-current-model checkpoint review remains pending.
+- Verification:
+  - Schema parity and focused handoff tests passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_package_schema_resources_match_root_schemas tests/test_cli.py::test_recommended_handoff_next_action_kind_mapping tests/test_cli.py::test_recommended_handoff_next_action_prose_is_rendered_from_kind tests/test_cli.py::test_handoff_does_not_count_dev_fixture_skeptic_as_real_review tests/test_cli.py::test_run_backend_codex_cli_skill_skeptic_reviews_existing_surface_artifact tests/test_cli.py::test_handoff_counts_accepted_alternative_as_contested_not_open` reported 6 passed, 2 warnings.
+  - Updated H1.S3 `HANDOFF.md` validation passed against `/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git`.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 119 passed, 2 warnings.
+  - Diff check passed: `git diff --check -- cbm tests schemas .planning BUILD-LOG.md`.
+  - Broad-goal loop-status passed with `status: ok`, no issues, and no warnings.

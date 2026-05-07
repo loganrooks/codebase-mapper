@@ -103,3 +103,13 @@ TMPDIR=/var/tmp python3 -m cbm.cli loop-status --repo . --scope pass-claim --wor
 Outcome before commit: exit 1 with expected `missing_reviewer_model_id` for `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/CHECKPOINT.md`; this is correct while reviewer fields are pending.
 
 Post-commit re-run outcome: exit 1 with expected `missing_reviewer_model_id` and warning `checkpoint_pending`; this is correct until a non-current-model reviewer fills and accepts the checkpoint.
+
+## Post-Packet Next-Action Enum Hardening
+
+This packet's `HANDOFF.md` was updated after the narrow next-action enum hardening slice to include optional `recommended_next_action_kind: prepare_pass_claim_review`. Historical source handoff copies were not mass-rewritten.
+
+```bash
+TMPDIR=/var/tmp python3 -m cbm.cli validate /Users/rookslog/Development/cbm/.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/HANDOFF.md --repo /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git
+```
+
+Outcome: exit 0; `valid .../HANDOFF.md`.

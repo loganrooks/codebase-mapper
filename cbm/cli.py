@@ -4715,19 +4715,46 @@ def artifact_produced_by(repo: Path, artifact_path: Path) -> str:
 
 
 def recommended_handoff_next_action(
-    promoted_runtime_surface: bool,
+    _promoted_runtime_surface: bool,
     skeptic_artifacts_reviewed: int,
     contestation_summary: dict[str, Any],
+    resolved_skeptic_challenges: int = 0,
 ) -> str:
-    if not promoted_runtime_surface:
-        return "Implement call and runtime workflow extraction so the unknown dependency edge can be narrowed with grounded relations."
+    return render_recommended_handoff_next_action(
+        recommended_handoff_next_action_kind(
+            _promoted_runtime_surface,
+            skeptic_artifacts_reviewed,
+            contestation_summary,
+            resolved_skeptic_challenges,
+        )
+    )
+
+
+def recommended_handoff_next_action_kind(
+    _promoted_runtime_surface: bool,
+    skeptic_artifacts_reviewed: int,
+    contestation_summary: dict[str, Any],
+    resolved_skeptic_challenges: int = 0,
+) -> str:
     if skeptic_artifacts_reviewed == 0:
-        return "Run a real isolated Skeptic review over the runtime Surface Mapper artifact."
+        return "run_skeptic_review"
     if contestation_summary.get("open_challenges", 0) > 0:
-        return "Disposition the Skeptic challenge as accepted, revised, or unresolved contestation and carry the response into the handoff path."
+        return "respond_to_open_challenges"
     if contestation_summary.get("claims_by_status", {}).get("contested", 0) > 0:
+        return "prepare_pass_claim_review"
+    if resolved_skeptic_challenges > 0:
+        return "prepare_pass_claim_review"
+    return "review_handoff"
+
+
+def render_recommended_handoff_next_action(action_kind: str) -> str:
+    if action_kind == "run_skeptic_review":
+        return "Run a real isolated Skeptic review before relying on this handoff for pass-claim review."
+    if action_kind == "respond_to_open_challenges":
+        return "Disposition the Skeptic challenge as accepted, revised, or unresolved contestation and carry the response into the handoff path."
+    if action_kind == "prepare_pass_claim_review":
         return "Prepare a validated runtime handoff and non-current-model pass-claim review packet."
-    return "Prepare a validated runtime handoff and non-current-model pass-claim review packet."
+    return "Review the validated handoff and choose the next evidence step."
 
 
 def handoff_includes_baseline_outputs(repo: Path, artifacts: list[dict[str, Any]]) -> bool:
@@ -5084,6 +5111,12 @@ def command_handoff(args: argparse.Namespace) -> int:
             failed_artifacts.append(f"{artifact['path']}: {'; '.join(artifact_errors)}")
     handoff_coverage = surface.get("coverage", coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1)) if promoted_runtime_surface else coverage_block(codebase_map["coverage"]["result"]["files_in_scope"], examined=1)
     runtime_coverage_caveats = list(surface.get("coverage", {}).get("limitations", [])) if promoted_runtime_surface else []
+    next_action_kind = recommended_handoff_next_action_kind(
+        promoted_runtime_surface,
+        skeptic_artifacts_reviewed,
+        contestation_summary,
+        resolved_challenge_count,
+    )
     handoff = {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "handoff",
@@ -5121,7 +5154,8 @@ def command_handoff(args: argparse.Namespace) -> int:
         if promoted_runtime_surface and runtime_coverage_caveats
         else coverage_caveats(handoff_coverage)
         + ([] if promoted_runtime_surface else ["Phase A surface mapping is deterministic and has not performed language-level import/call extraction."]),
-        "recommended_next_action": recommended_handoff_next_action(promoted_runtime_surface, skeptic_artifacts_reviewed, contestation_summary),
+        "recommended_next_action_kind": next_action_kind,
+        "recommended_next_action": render_recommended_handoff_next_action(next_action_kind),
     }
     errors = validate_data(repo, handoff, "handoff")
     if errors:

@@ -98,6 +98,7 @@ coverage_caveats:
 - Runtime Surface Mapper direct examination covered 7 of 12 in-scope files; extractor coverage saw all 12 in-scope files.
 - No CI workflow files were present in target scope, so CI gating remains unmapped.
 - MCP runtime dispatch through the external library remains partially opaque even though the in-repo registry is clear.
+recommended_next_action_kind: prepare_pass_claim_review
 recommended_next_action: Run the non-current-model checkpoint review of the H1 pass claim; do not move to H2 or Phase B until accepted.
 ---
 # H1 Minimum-Useful CBM Handoff

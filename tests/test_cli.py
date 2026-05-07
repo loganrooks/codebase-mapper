@@ -19,8 +19,10 @@ from cbm.cli import (
     load_goal_packs,
     load_project_packs,
     main,
+    recommended_handoff_next_action_kind,
     render_card_title,
     render_handoff_body,
+    render_recommended_handoff_next_action,
     run_paths,
     sha256_file,
     surface_map_parent_validation_errors,
@@ -107,6 +109,36 @@ def test_package_runtime_skill_resources_match_root_skills() -> None:
         if item.name.endswith(".md")
     }
     assert package_skills == root_skills
+
+
+def test_recommended_handoff_next_action_kind_mapping() -> None:
+    base_summary = {"open_challenges": 0, "claims_by_status": {"contested": 0}}
+
+    assert recommended_handoff_next_action_kind(True, 0, base_summary) == "run_skeptic_review"
+    assert (
+        recommended_handoff_next_action_kind(True, 1, {"open_challenges": 1, "claims_by_status": {"contested": 0}})
+        == "respond_to_open_challenges"
+    )
+    assert (
+        recommended_handoff_next_action_kind(True, 1, {"open_challenges": 0, "claims_by_status": {"contested": 1}})
+        == "prepare_pass_claim_review"
+    )
+    assert (
+        recommended_handoff_next_action_kind(True, 1, base_summary, resolved_skeptic_challenges=1)
+        == "prepare_pass_claim_review"
+    )
+    assert recommended_handoff_next_action_kind(True, 1, base_summary) == "review_handoff"
+
+
+def test_recommended_handoff_next_action_prose_is_rendered_from_kind() -> None:
+    assert (
+        render_recommended_handoff_next_action("respond_to_open_challenges")
+        == "Disposition the Skeptic challenge as accepted, revised, or unresolved contestation and carry the response into the handoff path."
+    )
+    assert (
+        render_recommended_handoff_next_action("prepare_pass_claim_review")
+        == "Prepare a validated runtime handoff and non-current-model pass-claim review packet."
+    )
 
 
 def test_load_skill_records_skeptic_hash() -> None:
@@ -673,6 +705,7 @@ def test_run_backend_codex_cli_skill_skeptic_reviews_existing_surface_artifact(t
     assert main(["validate", str(run_dir / "skeptic-review" / "surface-map.md"), "--repo", str(repo)]) == 0
     assert main(["validate", str(run_dir / "run-manifest.json"), "--repo", str(repo)]) == 0
     handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    assert handoff_frontmatter["recommended_next_action_kind"] == "respond_to_open_challenges"
     assert (
         handoff_frontmatter["recommended_next_action"]
         == "Disposition the Skeptic challenge as accepted, revised, or unresolved contestation and carry the response into the handoff path."
@@ -856,6 +889,7 @@ def test_handoff_does_not_count_dev_fixture_skeptic_as_real_review(tmp_path: Pat
     handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
     assert handoff_frontmatter["gate_summary"]["skeptic_review"]["artifacts_reviewed"] == 0
     assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 0
+    assert handoff_frontmatter["recommended_next_action_kind"] == "run_skeptic_review"
     assert not any(artifact["artifact_type"] == "skeptic_review" for artifact in handoff_frontmatter["artifacts"])
     assert not any(input_item["path"].endswith("skeptic-review/surface-map.md") for input_item in handoff_frontmatter["inputs"])
 
@@ -2093,6 +2127,7 @@ def test_handoff_counts_accepted_alternative_as_contested_not_open(tmp_path: Pat
     assert frontmatter["contestation_summary"]["open_challenges"] == 0
     assert frontmatter["contestation_summary"]["contested_claims"][0]["claim_id"] == import_edge["id"]
     assert frontmatter["gate_summary"]["skeptic_review"]["challenges_resolved"] == 1
+    assert frontmatter["recommended_next_action_kind"] == "prepare_pass_claim_review"
     assert (
         frontmatter["recommended_next_action"]
         == "Prepare a validated runtime handoff and non-current-model pass-claim review packet."
