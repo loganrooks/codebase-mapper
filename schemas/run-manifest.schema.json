@@ -90,6 +90,9 @@
               { "const": "" }
             ]
           },
+          "input_path": { "type": "string", "minLength": 1 },
+          "input_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "output_path": { "type": "string", "minLength": 1 },
           "skill": {
             "type": "object",
             "additionalProperties": false,

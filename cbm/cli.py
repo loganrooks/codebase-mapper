@@ -926,8 +926,12 @@ def producer_execution_contract(producer_id: str) -> str:
     return "external_agent"
 
 
-def codex_cli_surface_producer_id(mode: str) -> str:
-    return CODEX_CLI_SKILL_SURFACE_PRODUCER if mode == "skill" else DETERMINISTIC_PRODUCERS["surface_map"]
+def codex_cli_surface_producer_id(mode: str, existing_producer_id: str | None = None) -> str:
+    if mode == "skill":
+        return CODEX_CLI_SKILL_SURFACE_PRODUCER
+    if mode == "existing":
+        return existing_producer_id or CODEX_CLI_SKILL_SURFACE_PRODUCER
+    return DETERMINISTIC_PRODUCERS["surface_map"]
 
 
 def codex_cli_skeptic_producer_id(mode: str) -> str:
@@ -940,7 +944,12 @@ def skill_manifest(skill: LoadedSkill) -> dict[str, str]:
     return {"name": skill.name, "path": skill.path, "sha256": skill.sha256}
 
 
-def build_producer_registry(backend: str, codex_skeptic_mode: str = "smoke", codex_surface_mode: str = "baseline") -> dict[str, Any]:
+def build_producer_registry(
+    backend: str,
+    codex_skeptic_mode: str = "smoke",
+    codex_surface_mode: str = "baseline",
+    existing_surface_producer_id: str | None = None,
+) -> dict[str, Any]:
     producers = []
     if backend == "deterministic":
         for artifact_type, producer_id in DETERMINISTIC_PRODUCERS.items():
@@ -954,8 +963,8 @@ def build_producer_registry(backend: str, codex_skeptic_mode: str = "smoke", cod
             )
     elif backend == "codex-cli":
         for artifact_type, producer_id in DETERMINISTIC_PRODUCERS.items():
-            if artifact_type == "surface_map" and codex_surface_mode == "skill":
-                producer_id = codex_cli_surface_producer_id(codex_surface_mode)
+            if artifact_type == "surface_map" and codex_surface_mode in {"skill", "existing"}:
+                producer_id = codex_cli_surface_producer_id(codex_surface_mode, existing_surface_producer_id)
                 producer_backend = "codex-cli"
                 execution_contract = "external_agent"
             elif artifact_type == "skeptic_review" and codex_skeptic_mode != "none":
@@ -1013,6 +1022,17 @@ def run_manifest_step(
     return step
 
 
+def surface_artifact_producer_id(surface_artifact: Path | None) -> str | None:
+    if not surface_artifact:
+        return None
+    try:
+        data = read_json(surface_artifact)
+    except Exception:
+        return None
+    produced_by = str(data.get("produced_by", ""))
+    return produced_by or None
+
+
 def refusal_reason(args: argparse.Namespace) -> str:
     if args.backend == "codex-cli":
         return "codex-cli backend requires --allow-live-codex because it may invoke a live model subprocess"
@@ -1050,6 +1070,8 @@ def annotate_codex_step_outputs(repo: Path, run_id: str, step: dict[str, Any]) -
     step["stdout_sha256"] = sha256_if_nonempty(run_dir / "logs" / f"{step_id}.stdout")
     step["stderr_sha256"] = sha256_if_nonempty(run_dir / "logs" / f"{step_id}.stderr")
     output_name = "codex-cli-surface-output.json" if step_id == "codex-cli-skill-surface-map" else "codex-cli-smoke-output.json"
+    output_path = run_dir / output_name
+    step["output_path"] = str(output_path.relative_to(repo))
     step["output_path_sha256"] = sha256_if_nonempty(run_dir / output_name)
     repair_output = run_dir / "codex_outputs" / f"{step_id}.repair-output-1.json"
     repair_prompt = run_dir / "codex_outputs" / f"{step_id}.repair-prompt-1.txt"
@@ -4387,6 +4409,45 @@ def command_codex_cli_surface_map(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_import_surface_artifact(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    paths = run_paths(repo, args.run_id)
+    source_path = Path(args.surface_artifact).expanduser().resolve()
+    if not source_path.exists():
+        print(f"surface artifact not found: {source_path}", file=sys.stderr)
+        return 1
+    try:
+        surface = read_json(source_path)
+    except Exception as exc:
+        print(f"surface artifact invalid JSON: {exc}", file=sys.stderr)
+        return 1
+    if surface.get("artifact_type") != "surface_map":
+        print("surface artifact must have artifact_type surface_map", file=sys.stderr)
+        return 1
+    errors = validate_data(repo, surface, "surface_map")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    output_path = paths.run_dir / "surface-map.json"
+    output_path.write_text(source_path.read_text(encoding="utf-8"), encoding="utf-8")
+    try:
+        append_citation_entries(
+            repo,
+            paths.run_dir / "evidence-ledger.jsonl",
+            paths.run_id,
+            source_sha(repo),
+            str(output_path.relative_to(repo)),
+            surface,
+            str(surface.get("produced_by", "surface-import")),
+        )
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    print(output_path)
+    return 0
+
+
 def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     paths = run_paths(repo, args.run_id)
@@ -5040,7 +5101,15 @@ def command_run(args: argparse.Namespace) -> int:
     run_id = args.run_id or f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{source_sha(repo)}"
     paths = run_paths(repo, run_id)
     paths.run_dir.mkdir(parents=True, exist_ok=True)
-    write_json(paths.run_dir / "producer-registry.json", build_producer_registry(args.backend, args.codex_skeptic_mode, args.codex_surface_mode))
+    surface_artifact = Path(args.surface_artifact).expanduser().resolve() if getattr(args, "surface_artifact", None) else None
+    if args.codex_surface_mode == "existing" and not surface_artifact:
+        print("--codex-surface-mode existing requires --surface-artifact", file=sys.stderr)
+        return 1
+    existing_surface_producer = surface_artifact_producer_id(surface_artifact)
+    write_json(
+        paths.run_dir / "producer-registry.json",
+        build_producer_registry(args.backend, args.codex_skeptic_mode, args.codex_surface_mode, existing_surface_producer),
+    )
     if args.backend == "external" or (args.backend == "codex-cli" and not args.allow_live_codex):
         manifest = build_run_manifest(args, repo, run_id, "refused", [])
         write_json(paths.run_dir / "run-manifest.json", manifest)
@@ -5082,6 +5151,26 @@ def command_run(args: argparse.Namespace) -> int:
                     codex_reasoning_effort=args.codex_reasoning_effort,
                     codex_timeout=args.codex_timeout,
                 ),
+            )
+        )
+    elif args.backend == "codex-cli" and args.codex_surface_mode == "existing":
+        assert surface_artifact is not None
+        commands.append(
+            (
+                run_manifest_step(
+                    "import-surface-artifact",
+                    f"import-surface-artifact {surface_artifact}",
+                    "surface_map",
+                    existing_surface_producer or CODEX_CLI_SKILL_SURFACE_PRODUCER,
+                    backend="deterministic",
+                )
+                | {
+                    "input_path": str(surface_artifact),
+                    "input_sha256": sha256_file(surface_artifact),
+                    "output_path": str((paths.run_dir / "surface-map.json").relative_to(repo)),
+                },
+                command_import_surface_artifact,
+                argparse.Namespace(repo=str(repo), run_id=run_id, surface_artifact=str(surface_artifact)),
             )
         )
     else:
@@ -5974,7 +6063,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--codex-command", default="codex")
     p_run.add_argument("--codex-model", default=DEFAULT_CODEX_CLI_MODEL)
     p_run.add_argument("--codex-reasoning-effort", default=DEFAULT_CODEX_CLI_REASONING_EFFORT, choices=["low", "medium", "high", "xhigh"])
-    p_run.add_argument("--codex-surface-mode", default="baseline", choices=["baseline", "skill"])
+    p_run.add_argument("--codex-surface-mode", default="baseline", choices=["baseline", "skill", "existing"])
+    p_run.add_argument("--surface-artifact")
     p_run.add_argument("--codex-skeptic-mode", default="smoke", choices=["none", "smoke", "skill"])
     p_run.add_argument("--codex-timeout", type=positive_int, default=DEFAULT_CODEX_CLI_TIMEOUT_SECONDS)
     p_run.add_argument("--run-id")

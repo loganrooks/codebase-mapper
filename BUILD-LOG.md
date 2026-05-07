@@ -1649,3 +1649,24 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 113 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
   - Diff check passed: `git diff --check -- cbm tests .planning BUILD-LOG.md schemas`.
   - Pre-commit broad-goal loop-status failed only on `dirty_authority_docs`, as expected because `.planning/CURRENT-PLAN.md`, `.planning/HORIZONS.md`, and `.planning/STATE.md` were intentionally updated by this slice. Re-run after the atomic commit is required.
+
+## 2026-05-07 — H1.S2b real isolated Skeptic production
+
+- Implemented: `cbm run --backend codex-cli --codex-surface-mode existing --surface-artifact <path> --codex-skeptic-mode skill` can import an existing runtime Surface Mapper artifact, record its input path/hash in `run-manifest.json`, and launch `skeptic@1.2` over that artifact without remapping the target.
+- Implemented: Codex CLI manifest entries now record the model output path in addition to the output hash.
+- Live benchmark: `TMPDIR=/var/tmp python3 -m cbm.cli run --repo /var/tmp/cbm-h1-mcp-servers-4503e2d/src/git --goal "review H1.S1 Surface Mapper map for MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-surface-mode existing --surface-artifact /Users/rookslog/Development/cbm/.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/surface-map.json --codex-skeptic-mode skill --codex-model gpt-5.4-mini --codex-reasoning-effort high --mode lightweight --run-id run-mcp-git-h1s2b-skeptic-1 --codex-timeout 600` exited 0.
+- Evidence: `.planning/benchmarks/2026-05-07-mcp-git-h1s2b-skeptic/RESULT.md` preserves the full `.research/run-mcp-git-h1s2b-skeptic-1/` tree, including `logs/` and `codex_outputs/`, plus convenience copies of the review, manifest, registry, handoff, challenged surface map, and raw Codex output.
+- Skeptic output: `skeptic@1.2` logged one interpretive challenge against `auth-001`, arguing that routing authority is distributed across `pyproject.toml`, `src/mcp_server_git/__main__.py`, and `src/mcp_server_git/__init__.py` rather than centered only on `__init__.py`.
+- Manual support check: the cited lines substantively support the challenge. `pyproject.toml:25-26` declares the console entrypoint, `__main__.py:1-5` imports and calls `main`, and `__init__.py:7-24` defines the command callable that configures logging and calls `serve(repository)`.
+- Prohibited-context check: search of the Skeptic review and raw model output for parent-session/prohibited-context terms found only the expected review title reference to Codex CLI, with no substantive parent-session leak signal.
+- Boundary: H1.S2b only. This does not claim H1 complete, minimum-useful CBM complete, or Phase B+; H1.S2c mapper response/disposition remains next.
+- Verification:
+  - Red focused regression failed before implementation because `--codex-surface-mode existing` did not exist.
+  - Focused regression passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_run_backend_codex_cli_skill_skeptic_reviews_existing_surface_artifact`.
+  - Nearby regression group passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_run_backend_codex_cli_skill_skeptic_reviews_existing_surface_artifact tests/test_cli.py::test_run_backend_codex_cli_skill_mode_loads_skeptic_skill tests/test_cli.py::test_run_backend_codex_cli_skill_surface_writes_non_baseline_surface_map tests/test_cli.py::test_package_schema_resources_match_root_schemas`.
+  - Input H1.S1 surface validation and citation resolution passed against the pinned target checkout.
+  - Live Skeptic review validation, citation resolution, run-manifest validation, handoff validation, and challenged surface-map evidence validation all passed.
+  - Preserved benchmark convenience copies validated for `skeptic-review-surface-map.md` and `run-manifest.json`.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 114 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
+  - Diff check passed: `git diff --check -- cbm tests .planning BUILD-LOG.md schemas`.
+  - Pre-commit broad-goal loop-status failed only on `dirty_authority_docs`, as expected because `.planning/CURRENT-PLAN.md`, `.planning/HORIZONS.md`, and `.planning/STATE.md` were intentionally updated by this slice. Re-run after the atomic commit is required.

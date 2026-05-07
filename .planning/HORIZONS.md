@@ -109,7 +109,7 @@ Pushback handling:
 
 ### H1.S2 - Isolated Skeptic Review
 
-Status: current; H1.S2a evidence-bundle repair complete, H1.S2b is next
+Status: current; H1.S2a and H1.S2b complete, H1.S2c is next
 
 Objective:
 
@@ -133,15 +133,23 @@ Completion evidence:
 
 #### H1.S2b - Real Isolated Skeptic Production
 
-Status: current
+Status: complete
 
 Objective:
 
 Run a real isolated `skeptic@1.2` producer over the repaired H1.S1 Surface Mapper artifact without live mapper hidden reasoning or parent-session context.
 
+Completion evidence:
+
+- Benchmark artifact: `.planning/benchmarks/2026-05-07-mcp-git-h1s2b-skeptic/RESULT.md`.
+- Run id: `run-mcp-git-h1s2b-skeptic-1`.
+- Producer: `skeptic@1.2` through backend `codex-cli`.
+- Challenge: `auth-001` centrality/scope challenge grounded in `pyproject.toml`, `src/mcp_server_git/__main__.py`, and `src/mcp_server_git/__init__.py` citations.
+- Boundary: H1.S2c remains pending; this run produced the Skeptic review and structural challenge but does not by itself claim H1 completion.
+
 #### H1.S2c - Challenge Ingestion And Mapper Response
 
-Status: pending
+Status: current
 
 Objective:
 

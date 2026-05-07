@@ -581,6 +581,95 @@ def test_run_backend_codex_cli_skill_mode_loads_skeptic_skill(tmp_path: Path) ->
     assert any(entry["entry_kind"] == "claim_challenged" and entry["agent"] == "skeptic@1.2" for entry in ledger_entries)
 
 
+def test_run_backend_codex_cli_skill_skeptic_reviews_existing_surface_artifact(tmp_path: Path) -> None:
+    repo, source_run_dir = prepare_runtime_surface_handoff_fixture(tmp_path, run_id="run-existing-source")
+    source_surface = source_run_dir / "surface-map.json"
+    fake_codex = tmp_path / "fake-existing-surface-skeptic"
+    fake_codex.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "output_path = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "prompt = sys.stdin.read()\n"
+        "assert '<runtime_skill>' in prompt\n"
+        "assert '# Skill: Skeptic' in prompt\n"
+        "assert 'Artifact under review:' in prompt\n"
+        "assert 'surface-map.json' in prompt\n"
+        "citation = [line for line in prompt.splitlines() if line.startswith('Required citation anchor')][0].split(': ', 1)[1]\n"
+        "output_path.write_text(json.dumps({\n"
+        "    'body': '## Overall\\n\\nThe existing runtime Surface Mapper artifact was reviewed.\\n\\n## Interpretive challenges\\n\\nCHL-00001 raises a bounded alternate reading.',\n"
+        "    'findings_logged': 1,\n"
+        "    'challenge_ids': ['chl-00001'],\n"
+        "    'factual_spot_checks': 1,\n"
+        "    'interpretive_challenges_attempted': 1,\n"
+        "    'challenges': [{\n"
+        "        'claim_id': 'edge-import-001',\n"
+        "        'competing_reading': 'The reviewed surface could be treated as test-coupling evidence rather than runtime workflow evidence.',\n"
+        "        'competing_evidence': [citation],\n"
+        "        'interpretive_axis': 'classification',\n"
+        "        'relation_to_original': 'reframing',\n"
+        "        'rationale': 'The Skeptic preserves a specific alternate classification over the imported map.'\n"
+        "    }]\n"
+        "}) + '\\n', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o755)
+
+    run_id = "run-existing-surface-skeptic"
+    assert (
+        main(
+            [
+                "run",
+                "--repo",
+                str(repo),
+                "--goal",
+                "review the H1.S1 surface map",
+                "--backend",
+                "codex-cli",
+                "--allow-live-codex",
+                "--codex-command",
+                str(fake_codex),
+                "--codex-surface-mode",
+                "existing",
+                "--surface-artifact",
+                str(source_surface),
+                "--codex-skeptic-mode",
+                "skill",
+                "--run-id",
+                run_id,
+            ]
+        )
+        == 0
+    )
+
+    run_dir = repo / ".research" / run_id
+    imported_surface = json.loads((run_dir / "surface-map.json").read_text(encoding="utf-8"))
+    assert imported_surface["produced_by"] == "surface-mapper@1.2"
+    assert any(edge.get("claim_status") == "challenged" for edge in imported_surface["edges"])
+    manifest_data = json.loads((run_dir / "run-manifest.json").read_text(encoding="utf-8"))
+    assert [step["step_id"] for step in manifest_data["steps"]] == [
+        "init",
+        "map",
+        "import-surface-artifact",
+        "codex-cli-skill-skeptic-review",
+        "bind",
+        "handoff",
+    ]
+    import_step = next(step for step in manifest_data["steps"] if step["step_id"] == "import-surface-artifact")
+    assert import_step["producer_id"] == "surface-mapper@1.2"
+    assert import_step["input_path"] == str(source_surface)
+    assert import_step["input_sha256"] == sha256_file(source_surface)
+    assert import_step["output_path"] == f".research/{run_id}/surface-map.json"
+    skeptic_step = next(step for step in manifest_data["steps"] if step["step_id"] == "codex-cli-skill-skeptic-review")
+    assert skeptic_step["producer_id"] == "skeptic@1.2"
+    assert skeptic_step["skill"]["sha256"] == sha256_file(SOURCE_ROOT / "skills" / "skeptic.md")
+    assert skeptic_step["output_path"] == f".research/{run_id}/codex-cli-smoke-output.json"
+    assert skeptic_step["output_path_sha256"] == sha256_file(run_dir / "codex-cli-smoke-output.json")
+    assert main(["validate", str(run_dir / "skeptic-review" / "surface-map.md"), "--repo", str(repo)]) == 0
+    assert main(["validate", str(run_dir / "run-manifest.json"), "--repo", str(repo)]) == 0
+
+
 def test_run_backend_codex_cli_skill_surface_writes_non_baseline_surface_map(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     fake_codex = tmp_path / "fake-surface-codex"
