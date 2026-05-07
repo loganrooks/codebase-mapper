@@ -628,7 +628,7 @@ def test_run_backend_codex_cli_skill_skeptic_reviews_existing_surface_artifact(t
                 "--repo",
                 str(repo),
                 "--goal",
-                "review the H1.S1 surface map",
+                "review the imported runtime surface map",
                 "--backend",
                 "codex-cli",
                 "--allow-live-codex",
@@ -675,7 +675,7 @@ def test_run_backend_codex_cli_skill_skeptic_reviews_existing_surface_artifact(t
     handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
     assert (
         handoff_frontmatter["recommended_next_action"]
-        == "Disposition the H1.S2b Skeptic challenge as accepted, revised, or unresolved contestation and carry the response into the handoff path."
+        == "Disposition the Skeptic challenge as accepted, revised, or unresolved contestation and carry the response into the handoff path."
     )
 
 
@@ -2093,7 +2093,10 @@ def test_handoff_counts_accepted_alternative_as_contested_not_open(tmp_path: Pat
     assert frontmatter["contestation_summary"]["open_challenges"] == 0
     assert frontmatter["contestation_summary"]["contested_claims"][0]["claim_id"] == import_edge["id"]
     assert frontmatter["gate_summary"]["skeptic_review"]["challenges_resolved"] == 1
-    assert frontmatter["recommended_next_action"] == "Prepare H1.S3 validated minimum-useful handoff and non-current-model checkpoint packet."
+    assert (
+        frontmatter["recommended_next_action"]
+        == "Prepare a validated runtime handoff and non-current-model pass-claim review packet."
+    )
 
 
 def test_deep_run_writes_workflow_trace(tmp_path: Path) -> None:
@@ -3217,12 +3220,12 @@ def test_synthesis_index_connects_standard_maps(tmp_path: Path) -> None:
 def write_loop_status_scaffold(repo: Path, *, checkpoint_satisfies: bool) -> None:
     (repo / ".planning" / "reviews" / "checkpoint").mkdir(parents=True)
     (repo / ".planning" / "CURRENT-PLAN.md").write_text(
-        "# Current Plan\n\nStatus: active\nCurrent horizon: H1\nCurrent stage: H1.S1\n",
+        "# Current Plan\n\nStatus: active\nCurrent horizon: H9\nCurrent stage: H9.S1\n",
         encoding="utf-8",
     )
     (repo / ".planning" / "STATE.md").write_text("# State\n\nStatus: current\n", encoding="utf-8")
     (repo / ".planning" / "HORIZONS.md").write_text(
-        "# Horizons\n\nStatus: active\n\n## H1 - Test Horizon\n\n### H1.S1 - Test stage\n\nStatus: active\n",
+        "# Horizons\n\nStatus: active\n\n## H9 - Test Horizon\n\n### H9.S1 - Test stage\n\nStatus: active\n",
         encoding="utf-8",
     )
     gate_value = "yes" if checkpoint_satisfies else "no"
@@ -3273,7 +3276,7 @@ def test_loop_status_blocks_broad_goal_when_current_plan_has_unknown_horizon(tmp
     repo = make_repo(tmp_path)
     write_loop_status_scaffold(repo, checkpoint_satisfies=True)
     (repo / ".planning" / "CURRENT-PLAN.md").write_text(
-        "# Current Plan\n\nStatus: active\nCurrent horizon: H9\nCurrent stage: H9.S1\n",
+        "# Current Plan\n\nStatus: active\nCurrent horizon: H8\nCurrent stage: H8.S1\n",
         encoding="utf-8",
     )
     git(repo, "add", ".planning/CURRENT-PLAN.md")
@@ -3286,7 +3289,7 @@ def test_loop_status_blocks_broad_goal_when_current_plan_lacks_stage(tmp_path: P
     repo = make_repo(tmp_path)
     write_loop_status_scaffold(repo, checkpoint_satisfies=True)
     (repo / ".planning" / "CURRENT-PLAN.md").write_text(
-        "# Current Plan\n\nStatus: active\nCurrent horizon: H1\n",
+        "# Current Plan\n\nStatus: active\nCurrent horizon: H9\n",
         encoding="utf-8",
     )
     git(repo, "add", ".planning/CURRENT-PLAN.md")
@@ -3359,7 +3362,7 @@ def write_checkpoint_packet(repo: Path, text: str, disposition: str = "Dispositi
     disposition_path = checkpoint.with_name("DISPOSITION.md")
     disposition_path.write_text(f"# Disposition\n\n{disposition}", encoding="utf-8")
     git(repo, "add", ".planning")
-    git(repo, "commit", "-m", "update checkpoint packet")
+    git(repo, "commit", "-m", "update checkpoint artifact")
 
 
 def latest_checkpoint_file(repo: Path) -> Path:

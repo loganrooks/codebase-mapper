@@ -40,6 +40,7 @@ Prepared artifacts:
 - Final surface lineage: documented in `LINEAGE.md`.
 - Historical smoke-anchor ledger entry: documented in `LINEAGE.md`; not promoted as H1.S3 evidence.
 - Mixed run-id challenge provenance: documented in `LINEAGE.md`; existing ledger lines were not rewritten.
+- Preserved `codex_outputs/` and `logs/`: documented in `LINEAGE.md` and `INCLUDED-ARTIFACTS.md` as source-stage evidence, not newly produced H1.S3 live model output.
 - Local verification evidence: recorded in `VERIFY.md`.
 
 ## Verification Summary

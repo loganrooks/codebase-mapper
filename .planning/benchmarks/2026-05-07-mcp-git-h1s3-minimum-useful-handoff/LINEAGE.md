@@ -24,6 +24,14 @@ No `refreshed_from` block was added because changing the copied `surface-map.jso
 - H1.S2c `handoff.md`: handoff carrying `open_challenges = 0` and `claims_by_status.contested = 1`; preserved as `source-h1s2c-handoff.md`.
 - H1.S2c `evidence-ledger.jsonl`: ledger with `challenge_resolved` for `chl-10001`; preserved as `evidence-ledger.jsonl`.
 
+## Preserved Runtime Logs And Codex Outputs
+
+The `.research/` trees copied into this packet preserve source-stage runtime evidence for audit. They are not newly produced H1.S3 live model output.
+
+- `.research/run-mcp-git-surface-mapper-h1s1-6/logs/` preserves H1.S1 runtime Surface Mapper subprocess evidence.
+- `.research/run-mcp-git-h1s2b-skeptic-1/codex_outputs/` and `logs/` preserve H1.S2b runtime Skeptic subprocess evidence.
+- `.research/run-mcp-git-h1s2c-disposition-1/` preserves the H1.S2c disposition state. Any copied `codex_outputs/` or `logs/` under that tree are inherited evidence from the imported H1.S2b Skeptic run, not a fresh H1.S2c or H1.S3 live Skeptic call.
+
 ## Historical Ledger Caveats
 
 The preserved `evidence-ledger.jsonl` is append-only evidence and was not hand-edited.

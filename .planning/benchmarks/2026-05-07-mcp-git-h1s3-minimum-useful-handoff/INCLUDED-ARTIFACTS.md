@@ -34,6 +34,8 @@ The packet therefore preserves:
 - the exact H1.S2c handoff and evidence ledger;
 - the available full source run trees for H1.S1, H1.S2b, and H1.S2c.
 
+`codex_outputs/` and `logs/` directories inside the preserved run trees are source-stage audit evidence. In particular, the H1.S2b tree contains the real isolated Skeptic model output and logs; the H1.S2c tree may carry copied/imported Skeptic output evidence from H1.S2b. H1.S3 did not launch a new live runtime producer.
+
 The H1.S1 run tree was available locally at `/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git/.research/run-mcp-git-surface-mapper-h1s1-6/` and is now preserved in this H1.S3 packet. This improves retrospective auditability compared with the original H1.S1 convenience benchmark packet, whose `RESULT.md` recorded that the full run tree had not been copied at publication time.
 
 ## Review Packet

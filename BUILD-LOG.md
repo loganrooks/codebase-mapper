@@ -1709,3 +1709,17 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Pre-commit broad-goal loop-status failed only on intentionally dirty planning docs.
   - Post-commit broad-goal loop-status passed with `status: ok`, no issues, and no warnings.
   - Post-commit pass-claim loop-status failed on expected `missing_reviewer_model_id` plus `checkpoint_pending`; this remains correct until a non-current-model reviewer fills and accepts the checkpoint.
+
+## 2026-05-07 — H1.S3 checkpoint packet hardening audit
+
+- Audited: post-H1.S3 packet and reusable CLI/test surfaces before non-current-model checkpoint submission.
+- Fixed: generic handoff `recommended_next_action` text no longer embeds H1.S2b, H1.S3, or minimum-useful planning labels. Tests now assert the intended generic product-level wording for challenge disposition and validated-handoff/pass-claim review preparation.
+- Clarified: H1.S3 `LINEAGE.md`, `INCLUDED-ARTIFACTS.md`, and `RESULT.md` now state that preserved `codex_outputs/` and `logs/` are source-stage H1.S1/H1.S2b/H1.S2c audit evidence, not newly produced H1.S3 live model output.
+- Confirmed: final H1 surface state, historical smoke-anchor ledger caveat, mixed run-id ledger caveat, and pending checkpoint boundary were already documented and were not rewritten.
+- Boundary: no H1 completion, minimum-useful-CBM completion, Phase B+, repeatability, beta readiness, or H2 readiness claim is made. The non-current-model checkpoint review remains pending.
+- Verification:
+  - Focused handoff regressions passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_run_backend_codex_cli_skill_skeptic_reviews_existing_surface_artifact tests/test_cli.py::test_handoff_counts_accepted_alternative_as_contested_not_open` reported 2 passed, 2 warnings.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 117 passed, 2 warnings.
+  - Diff check passed: `git diff --check -- .planning BUILD-LOG.md cbm tests schemas`.
+  - Broad-goal loop-status passed with `status: ok`, no issues, and no warnings.
+  - Pass-claim loop-status failed as expected on `missing_reviewer_model_id` with `checkpoint_pending`; reviewer fields remain intentionally blank.

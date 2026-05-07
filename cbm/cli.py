@@ -4724,10 +4724,10 @@ def recommended_handoff_next_action(
     if skeptic_artifacts_reviewed == 0:
         return "Run a real isolated Skeptic review over the runtime Surface Mapper artifact."
     if contestation_summary.get("open_challenges", 0) > 0:
-        return "Disposition the H1.S2b Skeptic challenge as accepted, revised, or unresolved contestation and carry the response into the handoff path."
+        return "Disposition the Skeptic challenge as accepted, revised, or unresolved contestation and carry the response into the handoff path."
     if contestation_summary.get("claims_by_status", {}).get("contested", 0) > 0:
-        return "Prepare H1.S3 validated minimum-useful handoff and non-current-model checkpoint packet."
-    return "Prepare H1.S3 validated minimum-useful handoff and non-current-model checkpoint packet."
+        return "Prepare a validated runtime handoff and non-current-model pass-claim review packet."
+    return "Prepare a validated runtime handoff and non-current-model pass-claim review packet."
 
 
 def handoff_includes_baseline_outputs(repo: Path, artifacts: list[dict[str, Any]]) -> bool:
