@@ -2,7 +2,7 @@
 schema_version: '1.2'
 artifact_type: handoff
 run_id: run-mcp-git-h1s2b-skeptic-1
-produced_at: '2026-05-07T12:37:28Z'
+produced_at: '2026-05-07T13:24:49Z'
 produced_by: cbm-baseline-handoff@0.1
 source_sha: 4503e2d12b79
 inputs:
@@ -13,9 +13,9 @@ inputs:
 - path: .research/run-mcp-git-h1s2b-skeptic-1/goal-binding.json
   sha256: fd390dda86120d7e4da9219fb7577f4dbe8f5d1411a3a6ad90722fcd49ee493f
 - path: .research/run-mcp-git-h1s2b-skeptic-1/findings/int-0001.md
-  sha256: 31528969a997be52a09bcab29e591e143642fc376efcf64999b783cdd2170254
+  sha256: 468301f4874f9a28d7adcb080d613c43ff92e43d4b133e85f3c0ca356e3b9c06
 - path: .research/run-mcp-git-h1s2b-skeptic-1/skeptic-review/surface-map.md
-  sha256: 93da89fd44df67eceac5a9572eaee6cf8e648c87fcbb41466fcc18843d749532
+  sha256: 0ec18b269a1cfb8cc8c1609995c78164d1b8318d9b3535da64fa2a66a7c7736d
 status: draft
 coverage:
   scope:
@@ -47,12 +47,12 @@ gate_summary:
     passed: 6
     failed_artifacts: []
   citation_resolution:
-    resolved: 29
+    resolved: 28
     unresolved_count: 0
     unresolved_examples: []
   ledger_consistency:
     append_only_verified: true
-    entry_count: 32
+    entry_count: 34
     missing_citation_count: 0
     missing_citation_examples: []
   staleness_check:
@@ -108,8 +108,8 @@ coverage_caveats:
 - Baseline extractor coverage saw every in-scope file; I directly examined only the
   files needed for interpretive claims.
 - No CI workflow files were present in scope, so CI gating could not be mapped.
-recommended_next_action: Run a real isolated Skeptic review over the runtime Surface
-  Mapper artifact.
+recommended_next_action: Disposition the H1.S2b Skeptic challenge as accepted, revised,
+  or unresolved contestation and carry the response into the handoff path.
 ---
 # CBM Handoff
 

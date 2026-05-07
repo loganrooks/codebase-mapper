@@ -1,0 +1,121 @@
+{
+  "schema_version": "1.2",
+  "extractors": [
+    {
+      "id": "ext-file-inventory-v1",
+      "kind": "other",
+      "version": "1.0",
+      "language_or_format": "filesystem",
+      "deterministic": true,
+      "produces_evidence_kinds": [
+        "static_structure"
+      ],
+      "known_blind_spots": [
+        {
+          "description": "Does not infer runtime behavior or generated files absent from the working tree.",
+          "category": "generated_code"
+        }
+      ]
+    },
+    {
+      "id": "ext-manifest-patterns-v1",
+      "kind": "manifest_parser",
+      "version": "1.0",
+      "language_or_format": "common_manifests",
+      "deterministic": true,
+      "produces_evidence_kinds": [
+        "static_structure"
+      ],
+      "known_blind_spots": [
+        {
+          "description": "Detects common manifest filenames only and does not evaluate dynamic build logic.",
+          "category": "configuration_dependent"
+        }
+      ]
+    },
+    {
+      "id": "ext-test-paths-v1",
+      "kind": "test_discovery",
+      "version": "1.0",
+      "language_or_format": "common_test_paths",
+      "deterministic": true,
+      "produces_evidence_kinds": [
+        "static_structure"
+      ],
+      "known_blind_spots": [
+        {
+          "description": "Uses path naming conventions and can miss framework-specific generated tests.",
+          "category": "metaprogramming"
+        }
+      ]
+    },
+    {
+      "id": "ext-python-imports-v1",
+      "kind": "ast",
+      "version": "1.0",
+      "language_or_format": "python",
+      "deterministic": true,
+      "produces_evidence_kinds": [
+        "static_relation"
+      ],
+      "known_blind_spots": [
+        {
+          "description": "Does not resolve relative imports, dynamic imports, importlib calls, or sys.path mutations.",
+          "category": "dynamic_dispatch"
+        }
+      ]
+    },
+    {
+      "id": "ext-python-calls-v1",
+      "kind": "ast",
+      "version": "1.0",
+      "language_or_format": "python",
+      "deterministic": true,
+      "produces_evidence_kinds": [
+        "static_relation"
+      ],
+      "known_blind_spots": [
+        {
+          "description": "Resolves only direct calls to local functions or symbols imported with absolute from-import statements; misses methods, dynamic dispatch, decorators, monkeypatching, and aliased module attribute calls.",
+          "category": "dynamic_dispatch"
+        }
+      ]
+    }
+  ],
+  "project_pack_annotations": [
+    {
+      "project_type": "agent_orchestration",
+      "pack_id": "project-pack-agent-orchestration-v1",
+      "extractor_annotations": [
+        "Agent workflows rely on instruction surfaces and skill files that should be treated as authority surfaces."
+      ],
+      "known_blind_spots": [
+        "prompt-level routing",
+        "external agent launcher semantics",
+        "human approval workflow"
+      ]
+    },
+    {
+      "project_type": "mcp_server",
+      "pack_id": "project-pack-mcp-server-v1",
+      "extractor_annotations": [
+        "MCP tool/resource registration is an authority surface; decorators and registry calls may create dynamic edges."
+      ],
+      "known_blind_spots": [
+        "decorator registration",
+        "dynamic tool discovery",
+        "transport-specific runtime paths"
+      ]
+    },
+    {
+      "project_type": "python_package",
+      "pack_id": "project-pack-python-package-v1",
+      "extractor_annotations": [
+        "Python AST import and direct-call extractors apply; relative imports and dynamic dispatch remain blind spots."
+      ],
+      "known_blind_spots": [
+        "entry points declared by packaging metadata are not yet converted into runtime workflow edges"
+      ]
+    }
+  ]
+}

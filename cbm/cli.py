@@ -32,6 +32,7 @@ DEFAULT_EXCLUDED = [
     ".pytest_cache/**",
     ".DS_Store",
 ]
+OPEN_CHALLENGE_STATUSES = {"open"}
 LIVE_CHALLENGE_STATUSES = {"open", "accepted_as_alternative", "accepted_as_replacement"}
 AUTHORITY_DOC_PATHS = [
     "AGENTS.md",
@@ -1633,6 +1634,7 @@ def command_skeptic_review(args: argparse.Namespace) -> int:
     artifact_path = Path(args.artifact)
     if not artifact_path.is_absolute():
         artifact_path = repo / artifact_path
+    artifact_path = artifact_path.resolve()
     review_dir = paths.run_dir / "skeptic-review"
     review_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -2533,6 +2535,7 @@ def command_challenge(args: argparse.Namespace) -> int:
     artifact_path = Path(args.artifact)
     if not artifact_path.is_absolute():
         artifact_path = repo / artifact_path
+    artifact_path = artifact_path.resolve()
     data = read_json(artifact_path)
     artifact_type = infer_artifact_type(artifact_path, data)
     if artifact_type not in {"surface_map", "authority_map", "dependency_graph"}:
@@ -2660,6 +2663,19 @@ def apply_runtime_skeptic_challenges(repo: Path, artifact_path: Path, data: dict
     return ingested_ids
 
 
+def render_runtime_skeptic_body(output: dict[str, Any], durable_challenge_ids: list[str], skill: LoadedSkill | None, citation: str) -> str:
+    body = output["body"].strip()
+    raw_ids = list(output.get("challenge_ids", []))
+    if skill and raw_ids and durable_challenge_ids:
+        for raw_id, durable_id in zip(raw_ids, durable_challenge_ids):
+            body = re.sub(re.escape(raw_id), durable_id, body, flags=re.IGNORECASE)
+    prefix = "# Codex CLI Skill-Loaded Skeptic Review\n\n" if skill else "# Codex CLI Smoke Review\n\n"
+    review_body = prefix + body + "\n"
+    if not skill:
+        review_body += f"\nSmoke citation anchor: {citation}\n"
+    return review_body
+
+
 def find_challenge(data: dict[str, Any], challenge_id: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
     for claim in all_artifact_claims(data):
         for challenge in claim.get("challenges", []):
@@ -2685,6 +2701,14 @@ def live_challenges(claim: dict[str, Any]) -> list[dict[str, Any]]:
     return [challenge for challenge in claim.get("challenges", []) if challenge.get("status") in LIVE_CHALLENGE_STATUSES]
 
 
+def resolved_challenges(claim: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        challenge
+        for challenge in claim.get("challenges", [])
+        if challenge.get("status") not in OPEN_CHALLENGE_STATUSES
+    ]
+
+
 def contestation_summary_for_claim_refs(claim_refs: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
     registers = {"factual": 0, "inferential": 0, "interpretive": 0}
     statuses = {"active": 0, "challenged": 0, "contested": 0, "contradicted": 0, "superseded": 0, "retired": 0}
@@ -2699,14 +2723,25 @@ def contestation_summary_for_claim_refs(claim_refs: list[tuple[str, dict[str, An
         if status in statuses:
             statuses[status] += 1
         challenges = live_challenges(claim)
-        open_challenges += sum(1 for challenge in challenges if challenge.get("status") == "open")
+        open_challenges += sum(1 for challenge in challenges if challenge.get("status") in OPEN_CHALLENGE_STATUSES)
         if status == "contested":
+            accepted_alternatives = [
+                challenge["challenge_id"]
+                for challenge in challenges
+                if challenge.get("status") == "accepted_as_alternative"
+            ]
+            summary = f"{claim['id']} has {len(challenges)} live challenge(s)."
+            if accepted_alternatives:
+                summary = (
+                    f"{claim['id']} has accepted alternative reading "
+                    f"{', '.join(accepted_alternatives)}."
+                )
             contested_claims.append(
                 {
                     "claim_artifact": artifact_path,
                     "claim_id": claim["id"],
                     "challenge_count": len(challenges),
-                    "summary": f"{claim['id']} has {len(challenges)} live challenge(s).",
+                    "summary": summary,
                 }
             )
         if status == "contradicted":
@@ -2729,6 +2764,7 @@ def command_resolve_challenge(args: argparse.Namespace) -> int:
     artifact_path = Path(args.artifact)
     if not artifact_path.is_absolute():
         artifact_path = repo / artifact_path
+    artifact_path = artifact_path.resolve()
     data = read_json(artifact_path)
     artifact_type = infer_artifact_type(artifact_path, data)
     if artifact_type not in {"surface_map", "authority_map", "dependency_graph"}:
@@ -2740,6 +2776,11 @@ def command_resolve_challenge(args: argparse.Namespace) -> int:
         return 1
     claim, challenge = found
     challenge["status"] = args.status
+    response_note = getattr(args, "response_note", None)
+    if response_note:
+        existing_rationale = claim.get("rationale", "")
+        separator = " " if existing_rationale and not existing_rationale.endswith(" ") else ""
+        claim["rationale"] = f"{existing_rationale}{separator}Mapper response: {response_note}"
     update_claim_status_from_challenges(claim)
     errors = validate_data(repo, data, artifact_type)
     errors.extend(extractor_registry_errors_for_artifact(repo, data))
@@ -4587,12 +4628,7 @@ def command_codex_cli_smoke_review(args: argparse.Namespace) -> int:
         return 1
     skeptic_path = paths.run_dir / "skeptic-review" / "surface-map.md"
     skeptic_path.parent.mkdir(parents=True, exist_ok=True)
-    review_body = (
-        ("# Codex CLI Skill-Loaded Skeptic Review\n\n" if skill else "# Codex CLI Smoke Review\n\n")
-        + output["body"].strip()
-        + "\n\n"
-        + f"Smoke citation anchor: {citation}\n"
-    )
+    review_body = render_runtime_skeptic_body(output, challenge_ids, skill, citation)
     skeptic_path.write_text(
         "---\n"
         + yaml.safe_dump(frontmatter, sort_keys=False)
@@ -4676,6 +4712,22 @@ def artifact_produced_by(repo: Path, artifact_path: Path) -> str:
         return str(frontmatter.get("produced_by", ""))
     except Exception:
         return ""
+
+
+def recommended_handoff_next_action(
+    promoted_runtime_surface: bool,
+    skeptic_artifacts_reviewed: int,
+    contestation_summary: dict[str, Any],
+) -> str:
+    if not promoted_runtime_surface:
+        return "Implement call and runtime workflow extraction so the unknown dependency edge can be narrowed with grounded relations."
+    if skeptic_artifacts_reviewed == 0:
+        return "Run a real isolated Skeptic review over the runtime Surface Mapper artifact."
+    if contestation_summary.get("open_challenges", 0) > 0:
+        return "Disposition the H1.S2b Skeptic challenge as accepted, revised, or unresolved contestation and carry the response into the handoff path."
+    if contestation_summary.get("claims_by_status", {}).get("contested", 0) > 0:
+        return "Prepare H1.S3 validated minimum-useful handoff and non-current-model checkpoint packet."
+    return "Prepare H1.S3 validated minimum-useful handoff and non-current-model checkpoint packet."
 
 
 def handoff_includes_baseline_outputs(repo: Path, artifacts: list[dict[str, Any]]) -> bool:
@@ -5014,6 +5066,7 @@ def command_handoff(args: argparse.Namespace) -> int:
             claim_refs.extend((str(split_path.relative_to(repo)), claim) for claim in all_artifact_claims(split_data))
     contestation_summary = contestation_summary_for_claim_refs(claim_refs)
     challenge_count = sum(len(live_challenges(claim)) for _, claim in claim_refs)
+    resolved_challenge_count = sum(len(resolved_challenges(claim)) for _, claim in claim_refs)
     skeptic_artifacts_reviewed = sum(
         1
         for artifact in artifacts
@@ -5059,7 +5112,7 @@ def command_handoff(args: argparse.Namespace) -> int:
                 "missing_citation_examples": missing_ledger_citations[:5],
             },
             "staleness_check": input_staleness(repo, handoff_inputs),
-            "skeptic_review": {"artifacts_reviewed": skeptic_artifacts_reviewed, "challenges_logged": challenge_count, "challenges_resolved": 0},
+            "skeptic_review": {"artifacts_reviewed": skeptic_artifacts_reviewed, "challenges_logged": challenge_count, "challenges_resolved": resolved_challenge_count},
         },
         "contestation_summary": contestation_summary,
         "artifacts": artifacts,
@@ -5068,9 +5121,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         if promoted_runtime_surface and runtime_coverage_caveats
         else coverage_caveats(handoff_coverage)
         + ([] if promoted_runtime_surface else ["Phase A surface mapping is deterministic and has not performed language-level import/call extraction."]),
-        "recommended_next_action": "Run a real isolated Skeptic review over the runtime Surface Mapper artifact."
-        if promoted_runtime_surface
-        else "Implement call and runtime workflow extraction so the unknown dependency edge can be narrowed with grounded relations.",
+        "recommended_next_action": recommended_handoff_next_action(promoted_runtime_surface, skeptic_artifacts_reviewed, contestation_summary),
     }
     errors = validate_data(repo, handoff, "handoff")
     if errors:
@@ -6011,8 +6062,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_resolve_challenge.add_argument("--challenge-id", required=True)
     p_resolve_challenge.add_argument("--status", required=True, choices=["accepted_as_alternative", "accepted_as_replacement", "withdrawn", "resolved_to_contradiction"])
     p_resolve_challenge.add_argument("--resolution", required=True)
+    p_resolve_challenge.add_argument("--response-note")
     p_resolve_challenge.add_argument("--resolved-by", default="human-reviewer")
     p_resolve_challenge.set_defaults(func=command_resolve_challenge)
+    p_respond_challenge = sub.add_parser("respond-challenge")
+    p_respond_challenge.add_argument("artifact")
+    p_respond_challenge.add_argument("--repo", default=".")
+    p_respond_challenge.add_argument("--challenge-id", required=True)
+    p_respond_challenge.add_argument("--decision", required=True, choices=["accepted_as_alternative", "accepted_as_replacement", "withdrawn", "resolved_to_contradiction"])
+    p_respond_challenge.add_argument("--resolution", required=True)
+    p_respond_challenge.add_argument("--response-note", required=True)
+    p_respond_challenge.add_argument("--resolved-by", default="surface-mapper@1.2")
+    p_respond_challenge.set_defaults(func=lambda args: command_resolve_challenge(argparse.Namespace(**vars(args), status=args.decision)))
     p_stale = sub.add_parser("stale")
     p_stale.add_argument("artifact")
     p_stale.add_argument("--repo", default=".")

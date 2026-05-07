@@ -569,6 +569,10 @@ def test_run_backend_codex_cli_skill_mode_loads_skeptic_skill(tmp_path: Path) ->
     unknown_edge = next(edge for edge in challenged_surface["edges"] if edge["id"] == "edge-import-001")
     assert unknown_edge["claim_status"] == "challenged"
     assert unknown_edge["challenges"][0]["raised_by"] == "skeptic@1.2"
+    review_body = skeptic_review.read_text(encoding="utf-8")
+    assert "CHL-00001" not in review_body
+    assert unknown_edge["challenges"][0]["challenge_id"].upper() in review_body.upper()
+    assert "Smoke citation anchor" not in review_body
     assert review_frontmatter["challenge_ids"] == [unknown_edge["challenges"][0]["challenge_id"]]
     handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
     assert handoff_frontmatter["gate_summary"]["skeptic_review"]["challenges_logged"] == 1
@@ -668,6 +672,11 @@ def test_run_backend_codex_cli_skill_skeptic_reviews_existing_surface_artifact(t
     assert skeptic_step["output_path_sha256"] == sha256_file(run_dir / "codex-cli-smoke-output.json")
     assert main(["validate", str(run_dir / "skeptic-review" / "surface-map.md"), "--repo", str(repo)]) == 0
     assert main(["validate", str(run_dir / "run-manifest.json"), "--repo", str(repo)]) == 0
+    handoff_frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    assert (
+        handoff_frontmatter["recommended_next_action"]
+        == "Disposition the H1.S2b Skeptic challenge as accepted, revised, or unresolved contestation and carry the response into the handoff path."
+    )
 
 
 def test_run_backend_codex_cli_skill_surface_writes_non_baseline_surface_map(tmp_path: Path) -> None:
@@ -1911,6 +1920,180 @@ def test_handoff_summarizes_human_challenges(tmp_path: Path) -> None:
     assert "edge-unknown-001" not in dependent_claim_ids
     assert card_frontmatter["confidence"] == "low"
     assert "selected goal-bound surface has live challenge(s)" in card_frontmatter["confidence_rationale"]
+
+
+def test_respond_challenge_accepts_alternative_marks_claim_contested(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-respond-challenge"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    surface = repo / ".research" / run_id / "surface-map.json"
+    data = json.loads(surface.read_text(encoding="utf-8"))
+    import_edge = next(edge for edge in data["edges"] if edge["kind"] == "import")
+    assert (
+        main(
+            [
+                "challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--claim-id",
+                import_edge["id"],
+                "--competing-reading",
+                "The import relation may be setup-only rather than evidence of the primary runtime path.",
+                "--evidence",
+                import_edge["citations"][0],
+                "--axis",
+                "scope",
+                "--relation",
+                "scope_dispute",
+                "--rationale",
+                "A reviewer needs this alternative preserved before using the import as a planning dependency.",
+                "--raised-by",
+                "skeptic@1.2",
+            ]
+        )
+        == 0
+    )
+    challenged = json.loads(surface.read_text(encoding="utf-8"))
+    challenged_edge = next(edge for edge in challenged["edges"] if edge["id"] == import_edge["id"])
+    challenge_id = challenged_edge["challenges"][0]["challenge_id"]
+
+    assert (
+        main(
+            [
+                "respond-challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--challenge-id",
+                challenge_id,
+                "--decision",
+                "accepted_as_alternative",
+                "--resolution",
+                "accepted_as_alternative: preserved original reading and accepted the alternate setup-only reading as live contestation",
+                "--response-note",
+                "Accept as alternative: import remains a static relation, while setup-only interpretation remains live.",
+                "--resolved-by",
+                "surface-mapper@1.2",
+            ]
+        )
+        == 0
+    )
+    resolved = json.loads(surface.read_text(encoding="utf-8"))
+    resolved_edge = next(edge for edge in resolved["edges"] if edge["id"] == import_edge["id"])
+    assert resolved_edge["claim_status"] == "contested"
+    assert resolved_edge["challenges"][0]["status"] == "accepted_as_alternative"
+    assert "Mapper response: Accept as alternative" in resolved_edge["rationale"]
+    ledger_entries = [
+        json.loads(line)
+        for line in (repo / ".research" / run_id / "evidence-ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert any(entry["entry_kind"] == "challenge_resolved" and entry["challenge_id"] == challenge_id for entry in ledger_entries)
+
+
+def test_handoff_counts_accepted_alternative_as_contested_not_open(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-accepted-alternative-handoff"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["bind", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    run_dir = repo / ".research" / run_id
+    surface = run_dir / "surface-map.json"
+    data = json.loads(surface.read_text(encoding="utf-8"))
+    data["produced_by"] = "surface-mapper@1.2"
+    surface.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    import_edge = next(edge for edge in data["edges"] if edge["kind"] == "import")
+    assert (
+        main(
+            [
+                "challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--claim-id",
+                import_edge["id"],
+                "--competing-reading",
+                "The import relation may be setup-only rather than evidence of the primary runtime path.",
+                "--evidence",
+                import_edge["citations"][0],
+                "--axis",
+                "scope",
+                "--relation",
+                "scope_dispute",
+                "--rationale",
+                "A reviewer needs this alternative preserved before using the import as a planning dependency.",
+                "--raised-by",
+                "skeptic@1.2",
+            ]
+        )
+        == 0
+    )
+    challenged = json.loads(surface.read_text(encoding="utf-8"))
+    challenged_edge = next(edge for edge in challenged["edges"] if edge["id"] == import_edge["id"])
+    challenge_id = challenged_edge["challenges"][0]["challenge_id"]
+    assert (
+        main(
+            [
+                "respond-challenge",
+                str(surface),
+                "--repo",
+                str(repo),
+                "--challenge-id",
+                challenge_id,
+                "--decision",
+                "accepted_as_alternative",
+                "--resolution",
+                "accepted_as_alternative: preserved original reading and accepted the alternate setup-only reading as live contestation",
+                "--response-note",
+                "Accept as alternative: import remains a static relation, while setup-only interpretation remains live.",
+            ]
+        )
+        == 0
+    )
+    skeptic_dir = run_dir / "skeptic-review"
+    skeptic_dir.mkdir(exist_ok=True)
+    (skeptic_dir / "surface-map.md").write_text(
+        "---\n"
+        + yaml.safe_dump(
+            {
+                "schema_version": "1.2",
+                "artifact_type": "skeptic_review",
+                "run_id": run_id,
+                "produced_at": "2026-05-07T00:00:00Z",
+                "produced_by": "skeptic@1.2",
+                "source_sha": data["source_sha"],
+                "artifact_reviewed": f".research/{run_id}/surface-map.json",
+                "findings_logged": 1,
+                "challenge_ids": [challenge_id],
+            },
+            sort_keys=False,
+        )
+        + "---\n# Skeptic Review\n\nRuntime Skeptic raised a challenge.\n",
+        encoding="utf-8",
+    )
+
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 0
+    frontmatter = yaml.safe_load((run_dir / "handoff.md").read_text(encoding="utf-8").split("---", 2)[1])
+    assert frontmatter["contestation_summary"]["claims_by_status"]["contested"] == 1
+    assert frontmatter["contestation_summary"]["claims_by_status"]["challenged"] == 0
+    assert frontmatter["contestation_summary"]["open_challenges"] == 0
+    assert frontmatter["contestation_summary"]["contested_claims"][0]["claim_id"] == import_edge["id"]
+    assert frontmatter["gate_summary"]["skeptic_review"]["challenges_resolved"] == 1
+    assert frontmatter["recommended_next_action"] == "Prepare H1.S3 validated minimum-useful handoff and non-current-model checkpoint packet."
 
 
 def test_deep_run_writes_workflow_trace(tmp_path: Path) -> None:

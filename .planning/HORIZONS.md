@@ -1,7 +1,7 @@
 # CBM Horizons
 
 Status: active
-Last updated: 2026-05-02
+Last updated: 2026-05-07
 Supersedes: direct execution from `VISION.md`
 Superseded by: none
 
@@ -109,7 +109,7 @@ Pushback handling:
 
 ### H1.S2 - Isolated Skeptic Review
 
-Status: current; H1.S2a and H1.S2b complete, H1.S2c is next
+Status: complete; H1.S2a, H1.S2b, and H1.S2c complete
 
 Objective:
 
@@ -149,7 +149,7 @@ Completion evidence:
 
 #### H1.S2c - Challenge Ingestion And Mapper Response
 
-Status: current
+Status: complete
 
 Objective:
 
@@ -157,11 +157,20 @@ Ingest the Skeptic output structurally and carry the Surface Mapper response as 
 
 Acceptance:
 
-- Skeptic context excludes the mapper's hidden reasoning and parent-session context.
-- Skeptic producer identity, backend, skill hash, and output path are recorded.
-- At least one non-trivial challenge or explicit no-challenge finding is grounded in citations.
-- Challenges are ingested into the contestation ledger.
-- The Surface Mapper response path either accepts, revises, or records unresolved contestation.
+- The `auth-001` / `chl-10001` challenge is dispositioned as accepted, revised, or unresolved contestation.
+- The Surface Mapper response is recorded on the claim without erasing the original reading.
+- `surface-map.json` carries the final claim and challenge statuses.
+- The handoff contestation summary counts accepted alternatives as contested, not open.
+- A `challenge_resolved` evidence-ledger entry records the disposition when ledger integrity helpers are available.
+- Schema validation, citation resolution, evidence validation, and regression tests pass.
+
+Completion evidence:
+
+- Benchmark artifact: `.planning/benchmarks/2026-05-07-mcp-git-h1s2c-disposition/RESULT.md`.
+- Run id: `run-mcp-git-h1s2c-disposition-1`.
+- Decision: `chl-10001` accepted as an alternative reading.
+- Final state: `auth-001.claim_status` is `contested`; `chl-10001.status` is `accepted_as_alternative`.
+- Handoff state: `open_challenges: 0`, `claims_by_status.contested: 1`, and H1.S3 is the recommended next action.
 
 Verification:
 
@@ -179,7 +188,7 @@ Pushback handling:
 
 ### H1.S3 - Validated Minimum-Useful Handoff
 
-Status: pending
+Status: current
 
 Objective:
 

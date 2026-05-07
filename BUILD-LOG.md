@@ -1670,3 +1670,18 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 114 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.
   - Diff check passed: `git diff --check -- cbm tests .planning BUILD-LOG.md schemas`.
   - Pre-commit broad-goal loop-status failed only on `dirty_authority_docs`, as expected because `.planning/CURRENT-PLAN.md`, `.planning/HORIZONS.md`, and `.planning/STATE.md` were intentionally updated by this slice. Re-run after the atomic commit is required.
+
+## 2026-05-07 — H1.S2c challenge disposition
+
+- Implemented: real `skeptic@1.2` rendered review output now uses durable ingested challenge ids in the generated body and omits the smoke citation anchor for runtime skill Skeptic reviews. Raw model output under `codex_outputs/` remains untouched.
+- Implemented: `respond-challenge` provides a narrow mapper-response path over the existing ledger-safe challenge resolver. It sets the challenge disposition, recomputes parent claim status, appends mapper response text to the claim rationale, and records a `challenge_resolved` ledger entry through the append-only integrity helper.
+- Implemented: handoff contestation summary now counts only `open` challenges as open, while accepted alternatives remain live contestation and appear under `contested_claims`.
+- H1.S2b cleanup: `.planning/benchmarks/2026-05-07-mcp-git-h1s2b-skeptic/skeptic-review-surface-map.md` and the preserved `.research/.../skeptic-review/surface-map.md` now use `CHL-10001` in the rendered body and omit the smoke citation anchor; `handoff.md` now recommends disposition rather than another real Skeptic run.
+- H1.S2c benchmark: `.planning/benchmarks/2026-05-07-mcp-git-h1s2c-disposition/RESULT.md` preserves the disposition packet. `auth-001.claim_status` is `contested`; `chl-10001.status` is `accepted_as_alternative`; handoff reports `open_challenges: 0`, `claims_by_status.contested: 1`, and H1.S3 as next action.
+- Boundary: H1.S2c only. This does not claim H1 complete, minimum-useful CBM complete, or Phase B+; H1.S3 remains next.
+- Verification:
+  - Focused regression group passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_run_backend_codex_cli_skill_mode_loads_skeptic_skill tests/test_cli.py::test_run_backend_codex_cli_skill_skeptic_reviews_existing_surface_artifact tests/test_cli.py::test_respond_challenge_accepts_alternative_marks_claim_contested tests/test_cli.py::test_handoff_counts_accepted_alternative_as_contested_not_open`.
+  - Disposition command passed: `TMPDIR=/var/tmp python3 -m cbm.cli respond-challenge .research/run-mcp-git-h1s2c-disposition-1/surface-map.json --repo /private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git --challenge-id chl-10001 --decision accepted_as_alternative --resolution "accepted_as_alternative: preserved original auth-001 reading and accepted distributed-routing reading as a live alternative" --response-note "accept chl-10001 as an alternative reading. __init__.py remains the shared command implementation, while launch/routing authority is also distributed across pyproject.toml and __main__.py." --resolved-by surface-mapper@1.2`.
+  - Handoff regeneration passed: `TMPDIR=/var/tmp python3 -m cbm.cli handoff --repo /private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git --run-id run-mcp-git-h1s2c-disposition-1`.
+  - Artifact validation/citation/evidence checks passed for `.planning/benchmarks/2026-05-07-mcp-git-h1s2c-disposition/surface-map.json` and `handoff.md` against `/private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git`.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 116 passed, 2 existing `jsonschema.RefResolver` deprecation warnings.

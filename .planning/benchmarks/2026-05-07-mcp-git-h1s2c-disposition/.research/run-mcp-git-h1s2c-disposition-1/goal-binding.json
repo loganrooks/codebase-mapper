@@ -1,0 +1,230 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "goal_binding",
+  "run_id": "run-mcp-git-h1s2b-skeptic-1",
+  "produced_at": "2026-05-07T12:37:28Z",
+  "produced_by": "cbm-baseline-bind@0.1",
+  "source_sha": "4503e2d12b79",
+  "inputs": [
+    {
+      "path": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json",
+      "sha256": "ec7d3ac845bf143e15d6d08453a65b6f794adf34c5884ca4fd43af19f78e31eb"
+    }
+  ],
+  "status": "draft",
+  "goal": "review H1.S1 Surface Mapper map for MCP git server surfaces",
+  "goal_class": "understand_repo",
+  "research_only": true,
+  "candidates": [
+    {
+      "rank": 1,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/edges/0",
+      "surface_id": "edge-0001",
+      "surface_kind": "import",
+      "path": "src/mcp_server_git/__main__.py",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "citations": [
+        "src/mcp_server_git/__main__.py:1-4@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected edge-0001 because it is a grounded import relation for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 2,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/edges/3",
+      "surface_id": "edge-0004",
+      "surface_kind": "import",
+      "path": "tests/test_server.py",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "citations": [
+        "tests/test_server.py:1-19@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected edge-0004 because it is a grounded import relation for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 3,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/edges/2",
+      "surface_id": "edge-0003",
+      "surface_kind": "call",
+      "path": "src/mcp_server_git/__init__.py",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "citations": [
+        "src/mcp_server_git/__init__.py:7-24@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected edge-0003 because it is a grounded call relation for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 4,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/edges/1",
+      "surface_id": "edge-0002",
+      "surface_kind": "call",
+      "path": "src/mcp_server_git/__main__.py",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "citations": [
+        "src/mcp_server_git/__main__.py:1-4@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected edge-0002 because it is a grounded call relation for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 5,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/edges/4",
+      "surface_id": "edge-0005",
+      "surface_kind": "call",
+      "path": "tests/test_server.py",
+      "claim_register": "inferential",
+      "claim_status": "active",
+      "citations": [
+        "tests/test_server.py:35-252@4503e2d12b79",
+        "tests/test_server.py:318-484@4503e2d12b79",
+        "src/mcp_server_git/server.py:111-290@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected edge-0005 because it is a grounded call relation for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 6,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/authorities/5",
+      "surface_id": "auth-006",
+      "surface_kind": "authority",
+      "path": "Dockerfile",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "citations": [
+        "Dockerfile:1-39@4503e2d12b79",
+        "pyproject.toml:1-39@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected auth-006 because it is a cited build authority surface for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 7,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/authorities/7",
+      "surface_id": "auth-008",
+      "surface_kind": "authority",
+      "path": "README.md",
+      "claim_register": "interpretive",
+      "claim_status": "active",
+      "citations": [
+        "README.md:5-97@4503e2d12b79",
+        "README.md:120-183@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected auth-008 because it is a cited doc_contract authority surface for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 8,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/authorities/4",
+      "surface_id": "auth-005",
+      "surface_kind": "authority",
+      "path": "pyproject.toml",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "citations": [
+        "pyproject.toml:1-39@4503e2d12b79",
+        "src/mcp_server_git/__init__.py:7-24@4503e2d12b79",
+        "src/mcp_server_git/__main__.py:1-5@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected auth-005 because it is a cited config authority surface for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 9,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/authorities/0",
+      "surface_id": "auth-001",
+      "surface_kind": "authority",
+      "path": "src/mcp_server_git/__init__.py",
+      "claim_register": "interpretive",
+      "claim_status": "challenged",
+      "citations": [
+        "src/mcp_server_git/__init__.py:1-24@4503e2d12b79",
+        "src/mcp_server_git/__main__.py:1-5@4503e2d12b79",
+        "pyproject.toml:25-26@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected auth-001 because it is a cited routing authority surface for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 10,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/authorities/1",
+      "surface_id": "auth-002",
+      "surface_kind": "authority",
+      "path": "src/mcp_server_git/server.py",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "citations": [
+        "src/mcp_server_git/server.py:23-93@4503e2d12b79",
+        "src/mcp_server_git/server.py:306-433@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected auth-002 because it is a cited schema authority surface for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 11,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/authorities/2",
+      "surface_id": "auth-003",
+      "surface_kind": "authority",
+      "path": "src/mcp_server_git/server.py",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "citations": [
+        "src/mcp_server_git/server.py:304-441@4503e2d12b79",
+        "src/mcp_server_git/server.py:472-583@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected auth-003 because it is a cited registry authority surface for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 12,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/authorities/3",
+      "surface_id": "auth-004",
+      "surface_kind": "authority",
+      "path": "src/mcp_server_git/server.py",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "citations": [
+        "src/mcp_server_git/server.py:120-126@4503e2d12b79",
+        "src/mcp_server_git/server.py:199-205@4503e2d12b79",
+        "src/mcp_server_git/server.py:237-255@4503e2d12b79",
+        "src/mcp_server_git/server.py:476-480@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected auth-004 because it is a cited policy authority surface for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    },
+    {
+      "rank": 13,
+      "surface_ref": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json#/authorities/6",
+      "surface_id": "auth-007",
+      "surface_kind": "authority",
+      "path": "tests/test_server.py",
+      "claim_register": "factual",
+      "claim_status": "active",
+      "citations": [
+        "tests/test_server.py:1-484@4503e2d12b79",
+        "src/mcp_server_git/server.py:111-290@4503e2d12b79",
+        "src/mcp_server_git/server.py:293-583@4503e2d12b79"
+      ],
+      "binding_rationale": "understand_repo prioritizes grounded static relations before broader authority surfaces. Selected auth-007 because it is a cited test_suite authority surface for the goal: review H1.S1 Surface Mapper map for MCP git server surfaces",
+      "recommended_card_type": "findings_card",
+      "dependent_challenges": []
+    }
+  ]
+}

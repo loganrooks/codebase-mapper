@@ -19,7 +19,7 @@ I found no factual or inferential defects. Five sampled citations resolved clean
 None substantiated.
 
 ## Interpretive challenges
-### CHL-00001: centrality / scope_dispute
+### CHL-10001: centrality / scope_dispute
 - Claim location: `auth-001`
 - Original reading: `src/mcp_server_git/__init__.py` is the routing authority because both the console script and the `python -m` path land in the same `main` entrypoint.
 - Competing reading: routing authority is distributed across `pyproject.toml` and `__main__.py`; `__init__.py` is the shared command implementation rather than the central authority.
@@ -41,5 +41,3 @@ None substantiated.
 ## Recommendations
 - Mark `auth-001` as `challenged` to reflect the distributed-routing reading.
 - No defect-level changes are needed; the sampled factual claims are supported by the source.
-
-Smoke citation anchor: .gitignore:1@4503e2d12b79

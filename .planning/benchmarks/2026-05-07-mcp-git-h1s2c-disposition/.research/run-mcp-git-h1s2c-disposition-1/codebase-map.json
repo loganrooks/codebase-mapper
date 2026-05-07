@@ -1,0 +1,230 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "codebase_map",
+  "run_id": "run-mcp-git-h1s2b-skeptic-1",
+  "produced_at": "2026-05-07T12:33:54Z",
+  "produced_by": "cbm-baseline-map@0.1",
+  "source_sha": "4503e2d12b79",
+  "inputs": [
+    {
+      "path": ".research/run-mcp-git-h1s2b-skeptic-1/extractor-registry.json",
+      "sha256": "ddeec4c2bdb3ebf8410df616d8a55dc3da302710de7f1d1cd530026b5a84ba2a"
+    }
+  ],
+  "status": "draft",
+  "coverage": {
+    "scope": {
+      "included_globs": [
+        "**/*"
+      ],
+      "excluded_globs": [
+        ".git/**",
+        ".research/**",
+        ".venv/**",
+        "node_modules/**",
+        "**/__pycache__/**",
+        ".pytest_cache/**",
+        ".DS_Store"
+      ]
+    },
+    "result": {
+      "files_in_scope": 12,
+      "files_examined_directly": 0,
+      "files_inspected_via_extractor": 12,
+      "files_unread_in_scope": 12
+    },
+    "limitations": [
+      "Phase A kernel records structure only; interpretive review remains a runtime-agent task."
+    ]
+  },
+  "staleness": {
+    "stale_if_input_hash_changes": true,
+    "depends_on_paths": [
+      ".gitignore",
+      ".python-version",
+      "Dockerfile",
+      "LICENSE",
+      "README.md",
+      "pyproject.toml",
+      "src/mcp_server_git/__init__.py",
+      "src/mcp_server_git/__main__.py",
+      "src/mcp_server_git/py.typed",
+      "src/mcp_server_git/server.py",
+      "tests/test_server.py",
+      "uv.lock"
+    ],
+    "scope_signature": "a4e806c7268221f26894b9891aaf245bf6d85fa9b3b2a4692dc6093d306287c6"
+  },
+  "repo_root": "/private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git",
+  "files": [
+    {
+      "path": ".gitignore",
+      "size_bytes": 18,
+      "line_count": 2,
+      "sha256": "ecd1654f991e14faf712b7b12bc53eb15c9e3b5cdb8713e59d1628b66f47a74f",
+      "language": "unknown",
+      "is_generated": false,
+      "vendored": false
+    },
+    {
+      "path": ".python-version",
+      "size_bytes": 5,
+      "line_count": 1,
+      "sha256": "7a41a41354ab8049091ef1a00253ca00567f5a1d3f9aef5502c0b4b5ce9ae707",
+      "language": "unknown",
+      "is_generated": false,
+      "vendored": false
+    },
+    {
+      "path": "Dockerfile",
+      "size_bytes": 1316,
+      "line_count": 39,
+      "sha256": "8b8bceabded643dcd75adfeb90eef4b04b92cb89d74018b00a6c7d865274b9c9",
+      "language": "dockerfile",
+      "is_generated": false,
+      "vendored": false
+    },
+    {
+      "path": "LICENSE",
+      "size_bytes": 1059,
+      "line_count": 7,
+      "sha256": "8cc7c6e33b24ed4ee8fcccc33eccf102549d04fa4cb9737cecc9770dad1080ff",
+      "language": "unknown",
+      "is_generated": false,
+      "vendored": false
+    },
+    {
+      "path": "README.md",
+      "size_bytes": 10870,
+      "line_count": 344,
+      "sha256": "b055d424035839db97d81cc9c7513ee1d50477a5d363f20848886f916673ce39",
+      "language": "markdown",
+      "is_generated": false,
+      "vendored": false
+    },
+    {
+      "path": "pyproject.toml",
+      "size_bytes": 1111,
+      "line_count": 39,
+      "sha256": "ffe368661828e383ce2213006eb17ad1a5a63150bd3bb494a5ec4aa6a84acf3c",
+      "language": "toml",
+      "is_generated": false,
+      "vendored": false
+    },
+    {
+      "path": "src/mcp_server_git/__init__.py",
+      "size_bytes": 650,
+      "line_count": 24,
+      "sha256": "bb59001f6b9cbdc457801fc332bc4f148a697015b30bac765ca45cf823ae092b",
+      "language": "python",
+      "is_generated": false,
+      "vendored": false
+    },
+    {
+      "path": "src/mcp_server_git/__main__.py",
+      "size_bytes": 55,
+      "line_count": 5,
+      "sha256": "86c286117b9b580820e25077f04d6d289dd9669f053852bc5b5093d3e8bc491f",
+      "language": "python",
+      "is_generated": false,
+      "vendored": false
+    },
+    {
+      "path": "src/mcp_server_git/py.typed",
+      "size_bytes": 0,
+      "line_count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "language": "typed",
+      "is_generated": false,
+      "vendored": false
+    },
+    {
+      "path": "src/mcp_server_git/server.py",
+      "size_bytes": 21245,
+      "line_count": 587,
+      "sha256": "008f40d11ec934a0ba10932f206407d63f3bc567c29113dd0b455d0f4b780732",
+      "language": "python",
+      "is_generated": false,
+      "vendored": false
+    },
+    {
+      "path": "tests/test_server.py",
+      "size_bytes": 17135,
+      "line_count": 484,
+      "sha256": "be2dd6343e7815fe2566f660505149d561617921e21f58e5436896fad84a9dfc",
+      "language": "python",
+      "is_generated": false,
+      "vendored": false
+    },
+    {
+      "path": "uv.lock",
+      "size_bytes": 162077,
+      "line_count": 938,
+      "sha256": "621d07dfb6841d8cc7dfceffe32cdea33b9c99ce5228c3a98ebfb9c572c5545c",
+      "language": "lock",
+      "is_generated": false,
+      "vendored": false
+    }
+  ],
+  "languages": [
+    {
+      "name": "dockerfile",
+      "file_count": 1,
+      "byte_count": 1316
+    },
+    {
+      "name": "lock",
+      "file_count": 1,
+      "byte_count": 162077
+    },
+    {
+      "name": "markdown",
+      "file_count": 1,
+      "byte_count": 10870
+    },
+    {
+      "name": "python",
+      "file_count": 4,
+      "byte_count": 39085
+    },
+    {
+      "name": "toml",
+      "file_count": 1,
+      "byte_count": 1111
+    },
+    {
+      "name": "typed",
+      "file_count": 1,
+      "byte_count": 0
+    },
+    {
+      "name": "unknown",
+      "file_count": 3,
+      "byte_count": 1082
+    }
+  ],
+  "build_systems": [
+    {
+      "name": "python",
+      "config_files": [
+        "pyproject.toml"
+      ]
+    }
+  ],
+  "tests": [
+    {
+      "path": "tests/test_server.py",
+      "framework_hint": "pytest"
+    }
+  ],
+  "ci_files": [],
+  "config_candidates": [
+    "pyproject.toml"
+  ],
+  "extraction_warnings": [
+    {
+      "path": ".",
+      "reason": "Phase A map is structural only; import/call graph extraction is deferred."
+    }
+  ]
+}
