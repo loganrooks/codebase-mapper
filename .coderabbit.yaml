@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Repo-specific config for codebase-mapper. Inherits from loganrooks/coderabbit
+# (central). MUST keep `inheritance: true` for that chain to apply.
+inheritance: true
+
+reviews:
+  # Transitional. Excludes machine-generated benchmark outputs from review noise.
+  # Substantive narrative artifacts (RESULT.md, HANDOFF.md, etc.) stay in scope.
+  path_filters:
+    - '!.planning/benchmarks/**/*.json'
+    - '!.planning/benchmarks/**/*.jsonl'
+    - '!.planning/benchmarks/**/*.jsonl.integrity.json'
+    - '!.planning/benchmarks/**/logs/**'
+    - '!.planning/benchmarks/**/codex_outputs/**'
+    - '!.planning/benchmarks/**/.research/**'
+
+  path_instructions:
+    - path: 'cbm/**/*.py'
+      instructions: |-
+        Runtime/producer code. Gate-logic surfaces are highest-risk:
+        loop-status, checkpoint, disposition handling, pass-claim gating,
+        cross-model checkpoint enforcement.
+
+        * Any new "skip", "tolerate", "fallback", or "ignore" branch in gate
+          logic must be justified in the PR Why section. Silent permissiveness
+          in a gate is a contract change masquerading as defensive coding.
+        * Cross-file vocabulary drift is a recurring failure mode. When
+          cli.py reads a field from a config, template, or fixture, the
+          writer must use the same field name. Past pattern: a writer used
+          "Decision:" while the reader looked for "Disposition:" — the gate
+          silently passed wrong inputs. Flag any reader/writer field-name
+          mismatch you can identify within the diff.
+        * Changes to cli.py argument parsing or subcommand surfaces must
+          have parity in tests/ and in docs/contracts.md.
+
+    - path: 'cbm/loop_status_config.json'
+      instructions: |-
+        Drives loop-status gate behavior. Field-name changes here MUST have
+        a corresponding update in cbm/cli.py (the reader) and in any template
+        the gate parses. Cross-file vocabulary risk is highest here.
+
+    - path: 'cbm/{goal_packs,project_packs}/*.json'
+      instructions: |-
+        Config-as-contract. Changes to keys, value ranges, or required
+        fields are behavioral changes. Verify the consumers in cbm/cli.py,
+        cbm/skill_loader.py, or cbm/skills.py were updated together.
+
+    - path: '{platform/codex,.codex/skills}/**/*.sh'
+      instructions: |-
+        Gate or skill shell scripts. Apply standard hardening: set -euo
+        pipefail at top; quoted variable expansions; explicit error handling
+        on commands whose failure should not abort silently; no 2>/dev/null
+        swallowing on commands the gate depends on; no cd without checking
+        exit; no rm -rf on paths built from unvalidated input.
+
+    - path: '.planning/decisions/ADR-*.md'
+      instructions: |-
+        ADRs require: the decision, the context that forced it, alternatives
+        considered (not just the chosen option), and consequences (positive
+        and negative). Changes to existing ADRs are high-stakes — flag any
+        change that weakens, narrows, or contradicts a prior decision
+        without explicit rationale. ADRs are append-mostly; "superseded"
+        status is preferred to in-place rewrites.
+
+    - path: 'tests/**/*.py'
+      instructions: |-
+        Beyond the central test-quality rules: tests of gate logic
+        (loop-status, checkpoint, pass-claim, cross-model gating) must
+        assert on actual gate decision, not just that the function ran
+        without raising.
