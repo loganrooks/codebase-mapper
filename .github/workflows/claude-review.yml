@@ -14,41 +14,66 @@ jobs:
   review:
     if: |
       github.event.issue.pull_request != null &&
-      (contains(github.event.comment.body, '@claude review') ||
-       contains(github.event.comment.body, '@claude quick') ||
-       contains(github.event.comment.body, '@claude deep') ||
-       contains(github.event.comment.body, '@claude gates') ||
-       contains(github.event.comment.body, '@claude opus')) &&
+      startsWith(github.event.comment.body, '@claude ') &&
       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # Base ref (workflow's default branch) at workspace root. The Claude action
+      # expects a trusted git repo at $GITHUB_WORKSPACE; checking the PR head out
+      # at the root would be the antipattern documented in the action's security
+      # docs (untrusted ref + privileged context). PR head goes in a subdirectory
+      # below.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
         with:
-          fetch-depth: 50
+          fetch-depth: 1
+      # PR head in pr-head/ — passed to Claude via --add-dir below so the model
+      # can read PR files but the action's own working tree stays trusted.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        with:
           ref: refs/pull/${{ github.event.issue.number }}/head
+          path: pr-head
+          fetch-depth: 50
       - name: Determine review mode
         id: mode
         env:
           BODY: ${{ github.event.comment.body }}
         run: |
           set -euo pipefail
-          if   [[ "$BODY" == *"@claude opus"*  ]]; then mode=opus;   model=claude-opus-4-7
-          elif [[ "$BODY" == *"@claude deep"*  ]]; then mode=deep;   model=claude-sonnet-4-6
-          elif [[ "$BODY" == *"@claude quick"* ]]; then mode=quick;  model=claude-sonnet-4-6
-          elif [[ "$BODY" == *"@claude gates"* ]]; then mode=gates;  model=claude-sonnet-4-6
-          else                                          mode=review; model=claude-sonnet-4-6
-          fi
+          # Extract first non-empty line, trim whitespace. Strict first-line
+          # match (vs substring search anywhere in the body) avoids firing on
+          # incidental mentions like "did anyone try @claude review?" in a
+          # discussion thread. awk is more portable than BSD/GNU sed quirks.
+          cmd="$(printf '%s\n' "$BODY" | awk 'NF { sub(/^[ \t]+/, ""); sub(/[ \t]+$/, ""); print; exit }')"
+          case "$cmd" in
+            "@claude opus"*)   mode=opus;   model=claude-opus-4-7         ;;
+            "@claude deep"*)   mode=deep;   model=claude-sonnet-4-6       ;;
+            "@claude quick"*)  mode=quick;  model=claude-sonnet-4-6       ;;
+            "@claude gates"*)  mode=gates;  model=claude-sonnet-4-6       ;;
+            "@claude review"*) mode=review; model=claude-sonnet-4-6       ;;
+            *) echo "First line did not match an allowed trigger phrase: '$cmd'" >&2; exit 1 ;;
+          esac
           echo "mode=$mode"   >> "$GITHUB_OUTPUT"
           echo "model=$model" >> "$GITHUB_OUTPUT"
           echo "Selected mode=$mode model=$model"
+      # NOTE: github.event.comment.body is interpolated into the prompt below
+      # and sent to Anthropic's API. Reviewers must not paste secrets, tokens,
+      # or PII into trigger comments — the trusted-actor gate above bounds who
+      # can fire the workflow, but does not sanitize comment content.
       - uses: anthropics/claude-code-action@939ae9c056ecf8a1a01409ddd1c4eadec5f8c77b  # v1.0.116
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: '--model ${{ steps.mode.outputs.model }}'
+          claude_args: '--model ${{ steps.mode.outputs.model }} --add-dir pr-head'
           prompt: |-
             You are reviewing a pull request for codebase-mapper.
             Invoked mode: ${{ steps.mode.outputs.mode }}.
+
+            Workspace layout: the workflow's default branch is at the
+            repository root; the PR head you should review is under
+            `pr-head/`. When the prompt references file paths like
+            `cbm/cli.py`, look for them at `pr-head/cbm/cli.py`. The
+            base-branch checkout at the root is for action infrastructure,
+            not for review.
 
             Triggering comment (verbatim, between markers):
             >>>BEGIN_COMMENT
