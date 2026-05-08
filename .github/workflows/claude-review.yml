@@ -14,7 +14,8 @@ jobs:
       (contains(github.event.comment.body, '@claude review') ||
        contains(github.event.comment.body, '@claude quick') ||
        contains(github.event.comment.body, '@claude deep') ||
-       contains(github.event.comment.body, '@claude gates')) &&
+       contains(github.event.comment.body, '@claude gates') ||
+       contains(github.event.comment.body, '@claude opus')) &&
       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     steps:
@@ -28,17 +29,19 @@ jobs:
           BODY: ${{ github.event.comment.body }}
         run: |
           set -euo pipefail
-          if   [[ "$BODY" == *"@claude deep"*  ]]; then mode=deep
-          elif [[ "$BODY" == *"@claude quick"* ]]; then mode=quick
-          elif [[ "$BODY" == *"@claude gates"* ]]; then mode=gates
-          else                                          mode=review
+          if   [[ "$BODY" == *"@claude opus"*  ]]; then mode=opus;   model=claude-opus-4-7
+          elif [[ "$BODY" == *"@claude deep"*  ]]; then mode=deep;   model=claude-sonnet-4-6
+          elif [[ "$BODY" == *"@claude quick"* ]]; then mode=quick;  model=claude-sonnet-4-6
+          elif [[ "$BODY" == *"@claude gates"* ]]; then mode=gates;  model=claude-sonnet-4-6
+          else                                          mode=review; model=claude-sonnet-4-6
           fi
-          echo "mode=$mode" >> "$GITHUB_OUTPUT"
-          echo "Selected mode=$mode"
+          echo "mode=$mode"   >> "$GITHUB_OUTPUT"
+          echo "model=$model" >> "$GITHUB_OUTPUT"
+          echo "Selected mode=$mode model=$model"
       - uses: anthropics/claude-code-action@939ae9c056ecf8a1a01409ddd1c4eadec5f8c77b  # v1.0.116
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: '--model claude-sonnet-4-6'
+          claude_args: '--model ${{ steps.mode.outputs.model }}'
           prompt: |-
             You are reviewing a pull request for codebase-mapper.
             Invoked mode: ${{ steps.mode.outputs.mode }}.
@@ -61,6 +64,16 @@ jobs:
               new skip/tolerate/fallback branches in gate logic, cross-file
               vocabulary mismatch (reader vs writer field names), shell
               hardening on gate scripts.
+            * opus: targeted, expensive deep-reasoning pass on a small
+              surface. Read the comment body for guidance on which files
+              or concerns to focus on. Read at most 3 files. Spend the
+              reasoning budget on subtle issues pattern matching would
+              miss: cross-file invariant violations, ADR contradictions,
+              second-order effects of new gate branches, contract drift
+              between reader and writer. Output high-confidence findings
+              only — terse over verbose. Skip anything Sonnet would also
+              catch; this mode is for things that need Opus-level
+              reasoning to be reliably surfaced.
 
             Across all modes:
             * Read AGENTS.md once for the operative discipline.
