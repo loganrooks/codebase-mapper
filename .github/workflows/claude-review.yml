@@ -11,7 +11,10 @@ jobs:
   review:
     if: |
       github.event.issue.pull_request != null &&
-      contains(github.event.comment.body, '@claude review') &&
+      (contains(github.event.comment.body, '@claude review') ||
+       contains(github.event.comment.body, '@claude quick') ||
+       contains(github.event.comment.body, '@claude deep') ||
+       contains(github.event.comment.body, '@claude gates')) &&
       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     steps:
@@ -19,29 +22,56 @@ jobs:
         with:
           fetch-depth: 0
           ref: refs/pull/${{ github.event.issue.number }}/head
+      - name: Determine review mode
+        id: mode
+        env:
+          BODY: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+          if   [[ "$BODY" == *"@claude deep"*  ]]; then mode=deep;   model=claude-sonnet-4-6
+          elif [[ "$BODY" == *"@claude quick"* ]]; then mode=quick;  model=claude-haiku-4-5-20251001
+          elif [[ "$BODY" == *"@claude gates"* ]]; then mode=gates;  model=claude-sonnet-4-6
+          else                                          mode=review; model=claude-sonnet-4-6
+          fi
+          echo "mode=$mode"   >> "$GITHUB_OUTPUT"
+          echo "model=$model" >> "$GITHUB_OUTPUT"
+          echo "Selected mode=$mode model=$model"
       - uses: anthropics/claude-code-action@939ae9c056ecf8a1a01409ddd1c4eadec5f8c77b  # v1.0.116
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          trigger_phrase: '@claude review'
+          claude_args: '--model ${{ steps.mode.outputs.model }}'
           prompt: |-
-            Review this PR for the codebase-mapper project. Read AGENTS.md
-            for the operative discipline. Focus on:
+            You are reviewing a pull request for codebase-mapper.
+            Invoked mode: ${{ steps.mode.outputs.mode }}.
 
-            * Cross-file vocabulary: do config readers (cbm/cli.py) and
-              writers (templates, fixtures, config files) use the same
-              field names? Read the relevant files and check.
-            * Gate-logic semantics: any new skip/tolerate/fallback path
-              in gate code (loop-status, checkpoint, disposition,
-              pass-claim) — does the PR Why section justify it?
-            * W/V/B substance: the PR description names verifications.
-              Read the diff and judge whether the named verifications
-              are plausible and specific (a real command, a real test
-              file, a real artifact). You do not have shell access; do
-              not attempt to run commands.
-            * ADR coherence: if .planning/decisions/ADR-*.md changed or
-              if any change contradicts an existing ADR, flag it with
-              the ADR number.
+            Mode behavior:
+            * review (default): focused pass on the PR diff. Read at most
+              15 files. Prioritize cbm/cli.py, cbm/loop_status_config.json,
+              cbm/skill_loader.py, .planning/decisions/ADR-*.md, and gate
+              scripts under {platform/codex,.codex/skills}/**/*.sh. Skip
+              benchmarks, schemas, and planning narratives entirely.
+            * quick: scan the diff only for obvious AI-failure-mode issues
+              (hallucinated references, silent fallbacks, magic values,
+              stale docstrings). Read at most 5 files. Output one short
+              comment. Use this mode for routine PRs.
+            * deep: thorough pass across the full diff with no budget cap.
+              Read what you need. Use only when the reviewer wants depth.
+            * gates: review only files matching cbm/cli.py,
+              cbm/loop_status_config.json, and
+              {platform/codex,.codex/skills}/**/*.sh. Specifically check:
+              new skip/tolerate/fallback branches in gate logic, cross-file
+              vocabulary mismatch (reader vs writer field names), shell
+              hardening on gate scripts.
 
-            Post a single structured comment. Do not modify code.
-            Do not duplicate findings already raised by CodeRabbit if
-            you can see them in the PR thread.
+            Across all modes:
+            * Read AGENTS.md once for the operative discipline.
+            * Focus on AI-authored-code failure modes (hallucinated refs,
+              silent fallbacks, speculative scaffolding, stale docs, magic
+              values) over style.
+            * You do not have shell access; do not attempt to run commands.
+              When the PR description names verifications, judge whether
+              they are plausible and specific (a real command, real test
+              file, real artifact) — do not try to execute them.
+            * Post a single structured comment. Do not modify code.
+            * Do not duplicate findings already raised by CodeRabbit if you
+              can see them in the PR thread.
