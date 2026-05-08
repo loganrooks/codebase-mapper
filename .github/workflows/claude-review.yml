@@ -1,0 +1,42 @@
+name: Claude PR Review (manual)
+on:
+  issue_comment:
+    types: [created]
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+jobs:
+  review:
+    if: |
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '@claude review')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          trigger_phrase: '@claude review'
+          prompt: |-
+            Review this PR for the codebase-mapper project. Read AGENTS.md
+            for the operative discipline. Focus on:
+
+            * Cross-file vocabulary: do config readers (cbm/cli.py) and
+              writers (templates, fixtures, config files) use the same
+              field names? Run grep to verify if uncertain.
+            * Gate-logic semantics: any new skip/tolerate/fallback path
+              in gate code (loop-status, checkpoint, disposition,
+              pass-claim) — does the PR Why section justify it?
+            * W/V/B substance: the PR description names verifications.
+              Where you can run them in the runner (pytest, schema
+              validation), do so and report whether they actually pass.
+            * ADR coherence: if .planning/decisions/ADR-*.md changed or
+              if any change contradicts an existing ADR, flag it with
+              the ADR number.
+
+            Post a single structured comment. Do not modify code.
+            Do not duplicate findings already raised by CodeRabbit if
+            you can see them in the PR thread.
