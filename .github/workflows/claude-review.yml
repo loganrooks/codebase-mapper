@@ -28,18 +28,17 @@ jobs:
           BODY: ${{ github.event.comment.body }}
         run: |
           set -euo pipefail
-          if   [[ "$BODY" == *"@claude deep"*  ]]; then mode=deep;   model=claude-sonnet-4-6
-          elif [[ "$BODY" == *"@claude quick"* ]]; then mode=quick;  model=claude-haiku-4-5-20251001
-          elif [[ "$BODY" == *"@claude gates"* ]]; then mode=gates;  model=claude-sonnet-4-6
-          else                                          mode=review; model=claude-sonnet-4-6
+          if   [[ "$BODY" == *"@claude deep"*  ]]; then mode=deep
+          elif [[ "$BODY" == *"@claude quick"* ]]; then mode=quick
+          elif [[ "$BODY" == *"@claude gates"* ]]; then mode=gates
+          else                                          mode=review
           fi
-          echo "mode=$mode"   >> "$GITHUB_OUTPUT"
-          echo "model=$model" >> "$GITHUB_OUTPUT"
-          echo "Selected mode=$mode model=$model"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Selected mode=$mode"
       - uses: anthropics/claude-code-action@939ae9c056ecf8a1a01409ddd1c4eadec5f8c77b  # v1.0.116
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: '--model ${{ steps.mode.outputs.model }}'
+          claude_args: '--model claude-sonnet-4-6'
           prompt: |-
             You are reviewing a pull request for codebase-mapper.
             Invoked mode: ${{ steps.mode.outputs.mode }}.
