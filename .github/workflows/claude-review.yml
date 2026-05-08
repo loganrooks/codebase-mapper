@@ -7,6 +7,9 @@ permissions:
   pull-requests: write
   issues: write
   id-token: write
+concurrency:
+  group: claude-review-pr-${{ github.event.issue.number }}
+  cancel-in-progress: true
 jobs:
   review:
     if: |
@@ -18,10 +21,11 @@ jobs:
        contains(github.event.comment.body, '@claude opus')) &&
       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
         with:
-          fetch-depth: 0
+          fetch-depth: 50
           ref: refs/pull/${{ github.event.issue.number }}/head
       - name: Determine review mode
         id: mode
