@@ -1,0 +1,9 @@
+MODEL=opus
+PERMISSION_MODE=auto
+TOOLS=Read,Write,Edit,Bash
+SESSION_NAME=xvr-xvr-20260508T023055Z-10836
+MAX_TURNS=''
+MAX_BUDGET_USD=''
+SOFT_BUDGET_GUIDANCE='This is a pass-claim checkpoint, not an open-ended audit. If review breadth grows, prioritize the nine questions in PROMPT.md and write explicit limitations.'
+REQUIRED_OUTPUTS='CHECKPOINT.md, DISPOSITION.md'
+ALLOWED_WRITE_ROOTS=/Users/rookslog/Development/cbm/.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint

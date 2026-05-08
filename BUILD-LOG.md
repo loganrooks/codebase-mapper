@@ -1765,3 +1765,15 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Focused fake-run suite passed: `TMPDIR=/var/tmp pytest -q tests/test_cross_vendor_review_skill.py` reported 9 passed.
   - Diff check passed: `git diff --check -- .codex .planning AGENTS.md BUILD-LOG.md tests`.
   - Pre-commit broad-goal loop-status failed only on expected dirty authority docs: `AGENTS.md` is modified by this slice. Post-commit loop-status must be rerun.
+
+## 2026-05-08 — H1 checkpoint review recovery state
+
+- Added: `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/REVIEW-SPEC.md` so the repo-local cross-vendor review runner had a declared pass-claim checkpoint contract.
+- Ran: `.codex/skills/cross-vendor-review/scripts/run-claude-code-review.sh .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint`.
+- Result: Claude Code completed with exit code 0 as observed model `claude-opus-4-7`, session `b6cbc7cf-fde2-43ca-881c-5166caea7a38`, and reviewer-written `CHECKPOINT.md` / `DISPOSITION.md`.
+- Recovery: the generic verifier exited 1 because `DISPOSITION.md` lacks the exact `disposition: <value>` field expected by `verify-review-output.sh`; the runner wrote `RECOVERY.md` and preserved raw logs under `.xvr-runs/xvr-20260508T023055Z-10836/`.
+- Boundary: no dev-agent edits were made to reviewer identity, confidence, checkpoint findings, or disposition. No follow-up paid Claude resume/rerun was launched. H1 remains active because the required runner success and pass-claim loop-status gate have not both passed.
+- Verification:
+  - `REVIEW-SPEC.md` parsed with PyYAML and declared `CHECKPOINT.md` / `DISPOSITION.md`.
+  - The wrapper's `REVIEW-RUN.json` records `status: failed`, `requested_model: opus`, `observed_model: claude-opus-4-7`, `exit_code: 0`, and `verification_exit_code: 1`.
+  - The wrapper's `VERIFY.json` records one issue: `invalid_disposition` with detail `missing disposition field`.

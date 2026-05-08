@@ -1,0 +1,2 @@
+## intervention-goal-recovery...origin/intervention-goal-recovery [ahead 1]
+?? .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/.xvr-runs/
