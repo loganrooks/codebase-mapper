@@ -46,6 +46,17 @@ jobs:
             You are reviewing a pull request for codebase-mapper.
             Invoked mode: ${{ steps.mode.outputs.mode }}.
 
+            Triggering comment (verbatim, between markers):
+            >>>BEGIN_COMMENT
+            ${{ github.event.comment.body }}
+            >>>END_COMMENT
+
+            Use the triggering comment for targeting hints: explicit file
+            paths, mentioned concerns, references to ADRs or modules, or
+            free-form narrative about what to scrutinize. The PR description
+            may also contain a "Focus:" section naming surfaces the author
+            wants reviewed; treat that as an additional target source.
+
             Mode behavior:
             * review (default): focused pass on the PR diff. Read at most
               15 files. Prioritize cbm/cli.py, cbm/loop_status_config.json,
@@ -65,10 +76,25 @@ jobs:
               vocabulary mismatch (reader vs writer field names), shell
               hardening on gate scripts.
             * opus: targeted, expensive deep-reasoning pass on a small
-              surface. Read the comment body for guidance on which files
-              or concerns to focus on. Read at most 3 files. Spend the
-              reasoning budget on subtle issues pattern matching would
-              miss: cross-file invariant violations, ADR contradictions,
+              surface. REQUIRES explicit targeting. Acceptable target
+              sources, in priority order:
+              1. The triggering comment names specific files, modules,
+                 ADR numbers, or a clear concern (e.g.,
+                 "@claude opus check cross-file vocab between cli.py
+                 and loop_status_config.json").
+              2. The PR description has a "Focus:" section naming the
+                 surfaces the author wants scrutinized.
+              3. The PR is small enough (≤10 changed files) that the
+                 entire diff IS the focus.
+              If none of these are met — the comment is bare
+              `@claude opus` with no specifics, the PR has no Focus
+              section, and the diff is large — DO NOT review. Post a
+              single short comment explaining that opus mode requires
+              explicit targeting and listing the three acceptable target
+              sources above. Stop without spending the reasoning budget.
+              When targeting IS clear: read at most 3 files. Spend the
+              budget on subtle issues pattern matching would miss:
+              cross-file invariant violations, ADR contradictions,
               second-order effects of new gate branches, contract drift
               between reader and writer. Output high-confidence findings
               only — terse over verbose. Skip anything Sonnet would also
