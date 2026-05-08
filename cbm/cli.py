@@ -4715,14 +4715,14 @@ def artifact_produced_by(repo: Path, artifact_path: Path) -> str:
 
 
 def recommended_handoff_next_action(
-    _promoted_runtime_surface: bool,
+    promoted_runtime_surface: bool,
     skeptic_artifacts_reviewed: int,
     contestation_summary: dict[str, Any],
     resolved_skeptic_challenges: int = 0,
 ) -> str:
     return render_recommended_handoff_next_action(
         recommended_handoff_next_action_kind(
-            _promoted_runtime_surface,
+            promoted_runtime_surface,
             skeptic_artifacts_reviewed,
             contestation_summary,
             resolved_skeptic_challenges,
@@ -4731,11 +4731,13 @@ def recommended_handoff_next_action(
 
 
 def recommended_handoff_next_action_kind(
-    _promoted_runtime_surface: bool,
+    promoted_runtime_surface: bool,
     skeptic_artifacts_reviewed: int,
     contestation_summary: dict[str, Any],
     resolved_skeptic_challenges: int = 0,
 ) -> str:
+    if not promoted_runtime_surface:
+        return "produce_runtime_surface_evidence"
     if skeptic_artifacts_reviewed == 0:
         return "run_skeptic_review"
     if contestation_summary.get("open_challenges", 0) > 0:
@@ -4744,10 +4746,14 @@ def recommended_handoff_next_action_kind(
         return "prepare_pass_claim_review"
     if resolved_skeptic_challenges > 0:
         return "prepare_pass_claim_review"
+    if skeptic_artifacts_reviewed > 0:
+        return "prepare_pass_claim_review"
     return "review_handoff"
 
 
 def render_recommended_handoff_next_action(action_kind: str) -> str:
+    if action_kind == "produce_runtime_surface_evidence":
+        return "Produce or import a runtime Surface Mapper artifact before relying on this handoff for Skeptic review or pass-claim review."
     if action_kind == "run_skeptic_review":
         return "Run a real isolated Skeptic review before relying on this handoff for pass-claim review."
     if action_kind == "respond_to_open_challenges":

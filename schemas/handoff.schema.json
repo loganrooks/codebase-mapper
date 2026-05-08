@@ -218,6 +218,7 @@
     },
     "recommended_next_action_kind": {
       "enum": [
+        "produce_runtime_surface_evidence",
         "run_skeptic_review",
         "respond_to_open_challenges",
         "prepare_pass_claim_review",

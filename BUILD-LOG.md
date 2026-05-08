@@ -1739,3 +1739,14 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 119 passed, 2 warnings.
   - Diff check passed: `git diff --check -- cbm tests schemas .planning BUILD-LOG.md`.
   - Broad-goal loop-status passed with `status: ok`, no issues, and no warnings.
+
+## 2026-05-08 — Handoff next-action runtime-surface state correction
+
+- Fixed: `recommended_handoff_next_action_kind` now treats missing promoted runtime Surface Mapper evidence as the first state-machine branch instead of recommending Skeptic review for baseline-only handoffs.
+- Schema: added optional enum value `produce_runtime_surface_evidence` to both root and packaged handoff schemas; `schema_version` remains unchanged because this is an additive optional enum expansion.
+- Boundary: no H1.S3 packet rewrite, checkpoint review, pass claim, or phase status change.
+- Verification:
+  - Schema parity and focused handoff tests passed: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_package_schema_resources_match_root_schemas tests/test_cli.py::test_recommended_handoff_next_action_kind_mapping tests/test_cli.py::test_recommended_handoff_next_action_prose_is_rendered_from_kind tests/test_cli.py::test_init_map_handoff_and_citation_resolution tests/test_cli.py::test_handoff_does_not_count_dev_fixture_skeptic_as_real_review tests/test_cli.py::test_run_backend_codex_cli_skill_skeptic_reviews_existing_surface_artifact tests/test_cli.py::test_handoff_counts_accepted_alternative_as_contested_not_open` reported 7 passed, 2 warnings.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 119 passed, 2 warnings.
+  - Diff check passed: `git diff --check -- cbm tests schemas .planning BUILD-LOG.md`.
+  - Broad-goal loop-status passed with `status: ok`, no issues, and no warnings.

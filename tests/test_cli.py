@@ -114,6 +114,16 @@ def test_package_runtime_skill_resources_match_root_skills() -> None:
 def test_recommended_handoff_next_action_kind_mapping() -> None:
     base_summary = {"open_challenges": 0, "claims_by_status": {"contested": 0}}
 
+    assert recommended_handoff_next_action_kind(False, 0, base_summary) == "produce_runtime_surface_evidence"
+    assert (
+        recommended_handoff_next_action_kind(
+            False,
+            1,
+            {"open_challenges": 1, "claims_by_status": {"contested": 1}},
+            resolved_skeptic_challenges=1,
+        )
+        == "produce_runtime_surface_evidence"
+    )
     assert recommended_handoff_next_action_kind(True, 0, base_summary) == "run_skeptic_review"
     assert (
         recommended_handoff_next_action_kind(True, 1, {"open_challenges": 1, "claims_by_status": {"contested": 0}})
@@ -127,10 +137,14 @@ def test_recommended_handoff_next_action_kind_mapping() -> None:
         recommended_handoff_next_action_kind(True, 1, base_summary, resolved_skeptic_challenges=1)
         == "prepare_pass_claim_review"
     )
-    assert recommended_handoff_next_action_kind(True, 1, base_summary) == "review_handoff"
+    assert recommended_handoff_next_action_kind(True, 1, base_summary) == "prepare_pass_claim_review"
 
 
 def test_recommended_handoff_next_action_prose_is_rendered_from_kind() -> None:
+    assert (
+        render_recommended_handoff_next_action("produce_runtime_surface_evidence")
+        == "Produce or import a runtime Surface Mapper artifact before relying on this handoff for Skeptic review or pass-claim review."
+    )
     assert (
         render_recommended_handoff_next_action("respond_to_open_challenges")
         == "Disposition the Skeptic challenge as accepted, revised, or unresolved contestation and carry the response into the handoff path."
@@ -250,6 +264,11 @@ def test_init_map_handoff_and_citation_resolution(tmp_path: Path) -> None:
 
     frontmatter = yaml.safe_load(handoff.read_text(encoding="utf-8").split("---", 2)[1])
     assert frontmatter["produced_by"] == "cbm-baseline-handoff@0.1"
+    assert frontmatter["recommended_next_action_kind"] == "produce_runtime_surface_evidence"
+    assert (
+        frontmatter["recommended_next_action"]
+        == "Produce or import a runtime Surface Mapper artifact before relying on this handoff for Skeptic review or pass-claim review."
+    )
     assert frontmatter["gate_summary"]["schema_validation"]["passed"] == len(frontmatter["artifacts"])
     assert frontmatter["gate_summary"]["schema_validation"]["failed_artifacts"] == []
     assert frontmatter["gate_summary"]["staleness_check"]["fresh"] == len(frontmatter["inputs"])
