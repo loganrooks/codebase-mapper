@@ -10,12 +10,14 @@ jobs:
   review:
     if: |
       github.event.issue.pull_request != null &&
-      contains(github.event.comment.body, '@claude review')
+      contains(github.event.comment.body, '@claude review') &&
+      contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: refs/pull/${{ github.event.issue.number }}/head
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -26,13 +28,15 @@ jobs:
 
             * Cross-file vocabulary: do config readers (cbm/cli.py) and
               writers (templates, fixtures, config files) use the same
-              field names? Run grep to verify if uncertain.
+              field names? Read the relevant files and check.
             * Gate-logic semantics: any new skip/tolerate/fallback path
               in gate code (loop-status, checkpoint, disposition,
               pass-claim) — does the PR Why section justify it?
             * W/V/B substance: the PR description names verifications.
-              Where you can run them in the runner (pytest, schema
-              validation), do so and report whether they actually pass.
+              Read the diff and judge whether the named verifications
+              are plausible and specific (a real command, a real test
+              file, a real artifact). You do not have shell access; do
+              not attempt to run commands.
             * ADR coherence: if .planning/decisions/ADR-*.md changed or
               if any change contradicts an existing ADR, flag it with
               the ADR number.
