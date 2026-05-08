@@ -97,6 +97,14 @@ The checkpoint reviewer reads only the checkpoint packet: `VISION.md`, `RUNTIME-
 
 Write checkpoint outputs under `.planning/reviews/<date-slug>/CHECKPOINT.md`. The orchestrator must disposition the checkpoint as `accept`, `revise`, `park`, or `reject` before continuing. Cross-model review is preferred when available; a same-model isolated review is acceptable only as a fallback and must be labeled as such. Same-model fallback reviews may clear narrow recovery slices, but they do not clear phase-pass claims, main-merge claims, or minimum-useful-CBM claims unless the user explicitly waives the cross-model gate and the waiver is logged. Decision record: `.planning/decisions/ADR-005-cross-model-checkpoint-mandatory-for-pass-claims.md`.
 
+## Cross-vendor reviews
+
+For cross-vendor or non-current-model reviews, use:
+
+`.codex/skills/cross-vendor-review/SKILL.md`
+
+If Codex does not auto-discover repo-local skills, read that file directly. Do not improvise review execution from chat context. Do not fill reviewer identity or disposition without actual reviewer output. Use the skill's recovery workflow if Claude Code fails, writes partial files, or writes outside the review directory.
+
 ## Execution architecture discipline
 
 - Distinguish the deterministic kernel from the runtime agent layer. Current deterministic commands can produce baseline artifacts and gates; they do not by themselves provide the nuanced hermeneutic understanding described in `VISION.md`.

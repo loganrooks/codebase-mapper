@@ -1750,3 +1750,18 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 119 passed, 2 warnings.
   - Diff check passed: `git diff --check -- cbm tests schemas .planning BUILD-LOG.md`.
   - Broad-goal loop-status passed with `status: ok`, no issues, and no warnings.
+
+## 2026-05-08 — Generic cross-vendor review skill
+
+- Spiked: Claude Code CLI `2.1.126` can run non-interactive review packets, write declared outputs directly, emit stream-json with session/model/usage/cost metadata, and resume explicitly by session name. Result recorded at `.planning/spikes/2026-05-07-claude-code-review-runner/RESULT.md`.
+- Implemented: repo-local `cross-vendor-review` skill under `.codex/skills/cross-vendor-review/` with valid skill frontmatter, progressive-disclosure instructions, generic review-spec contract, Claude Code runbook, failure-mode catalogue, preflight/run/verify/recover scripts, and focused fake-run tests.
+- Adjusted: default runner command omits hard `--max-turns` and `--max-budget-usd`; those remain explicit spec overrides/failure classifications only. Default permission mode is `auto` with `Read,Write,Edit,Bash` so real reviews can inspect code and run local commands while post-run verification enforces declared outputs and allowed write roots.
+- Clarified: review types are open labels, not a closed ontology. The runner supports checkpoint, architecture/design, provenance/artifact, code/diff, and future review types through `REVIEW-SPEC.md` and `PROMPT.md` without hard-coding H1, Phase 01, CBM pass-claim, or minimum-useful semantics.
+- Added: `AGENTS.md` pointer requiring cross-vendor/non-current-model reviews to use the repo-local skill and recovery workflow rather than chat-only execution.
+- Boundary: did not run the H1 checkpoint review, fill reviewer identity/confidence/disposition, mark H1 complete, move to H2, inspect undocumented Claude session storage, use `--continue`, or use `--dangerously-skip-permissions`.
+- Verification:
+  - Skill frontmatter parsed successfully with required `name` and `description`.
+  - Script syntax/compile checks passed: `bash -n .codex/skills/cross-vendor-review/scripts/*.sh` and `python3 -m py_compile .codex/skills/cross-vendor-review/scripts/*.py`.
+  - Focused fake-run suite passed: `TMPDIR=/var/tmp pytest -q tests/test_cross_vendor_review_skill.py` reported 9 passed.
+  - Diff check passed: `git diff --check -- .codex .planning AGENTS.md BUILD-LOG.md tests`.
+  - Pre-commit broad-goal loop-status failed only on expected dirty authority docs: `AGENTS.md` is modified by this slice. Post-commit loop-status must be rerun.
