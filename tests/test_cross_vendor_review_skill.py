@@ -261,6 +261,80 @@ allowed_dispositions:
     assert any(issue["code"] == "missing_reviewer_identity" for issue in data["issues"])
 
 
+def test_structured_disposition_json_satisfies_checkpoint_verifier(tmp_path: Path, monkeypatch) -> None:
+    install_fake_claude(tmp_path, monkeypatch)
+    repo = make_repo(tmp_path)
+    review_dir = write_review(
+        repo,
+        "checkpoint-json",
+        spec_extra="""\
+review_type: pass_claim_checkpoint
+decision_required: true
+allowed_dispositions:
+  - accept
+  - revise
+""",
+        outputs=("DISPOSITION.md",),
+    )
+    (review_dir / "DISPOSITION.md").write_text("Decision: accept\n\n## Final Disposition\n\naccept\n", encoding="utf-8")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "write prose disposition")
+    preflight = run(["bash", str(SCRIPTS / "preflight.sh"), str(review_dir), "verify-json-checkpoint"], cwd=repo)
+    assert preflight.returncode == 0, preflight.stderr
+
+    writer = run(
+        [
+            "python3",
+            str(SCRIPTS / "write-disposition.py"),
+            str(review_dir),
+            "--reviewer-model-id",
+            "claude-opus-fake",
+            "--disposition",
+            "accept",
+        ],
+        cwd=repo,
+    )
+    assert writer.returncode == 0, writer.stderr
+    payload = json.loads((review_dir / "DISPOSITION.json").read_text(encoding="utf-8"))
+    assert payload["reviewer_model_id"] == "claude-opus-fake"
+    assert payload["disposition"] == "accept"
+
+    verify = run(["bash", str(SCRIPTS / "verify-review-output.sh"), str(review_dir), "verify-json-checkpoint"], cwd=repo)
+    assert verify.returncode == 0, verify.stderr
+    data = json.loads((review_dir / ".xvr-runs" / "verify-json-checkpoint" / "VERIFY.json").read_text(encoding="utf-8"))
+    assert data["status"] == "ok"
+
+
+def test_structured_disposition_writer_rejects_invalid_disposition(tmp_path: Path, monkeypatch) -> None:
+    install_fake_claude(tmp_path, monkeypatch)
+    repo = make_repo(tmp_path)
+    review_dir = write_review(
+        repo,
+        "checkpoint-invalid-json",
+        spec_extra="""\
+review_type: pass_claim_checkpoint
+decision_required: true
+allowed_dispositions:
+  - accept
+""",
+        outputs=("DISPOSITION.md",),
+    )
+    result = run(
+        [
+            "python3",
+            str(SCRIPTS / "write-disposition.py"),
+            str(review_dir),
+            "--reviewer-model-id",
+            "claude-opus-fake",
+            "--disposition",
+            "revise",
+        ],
+        cwd=repo,
+    )
+    assert result.returncode != 0
+    assert "invalid disposition" in result.stderr
+
+
 def test_malformed_stream_json_writes_recovery_without_success(tmp_path: Path, monkeypatch) -> None:
     install_fake_claude(tmp_path, monkeypatch)
     repo = make_repo(tmp_path)

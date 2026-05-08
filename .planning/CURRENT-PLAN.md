@@ -1,21 +1,21 @@
 # Current Plan
 
-Status: active; recovery interventions complete, H1.S1 completed, H1.S2a remediation complete, H1.S2b complete, H1.S2c complete, H1.S3 packet prepared, checkpoint pending
-Last updated: 2026-05-07
+Status: active; H1 complete and Phase 01 closed, next focus is H2 planning
+Last updated: 2026-05-08
 Supersedes: direct use of `docs/roadmap.md` as current execution plan
 Superseded by: none
-Current horizon: H1
-Current stage: H1.S3
+Current horizon: H2
+Current stage: H2.S1
 
 ## Objective
 
-Recover the project to a state where `/goal` can run again without repeating the kernel-hardening drift, then advance through `.planning/HORIZONS.md` one executable stage at a time.
+Advance from the accepted H1 minimum-useful demonstration into H2 repeatability planning, one executable stage at a time.
 
 The current work is an intervention, not a product feature sprint. Its purpose is to install enough architecture clarity, planning discipline, and immediate code correction that the next autonomous loop has a narrow, falsifiable path.
 
 Implementation phase bundle: `.planning/phases/01-first-runtime-producer-evidence/`.
 
-Current boundary: the Tier 1 and Tier 5 R-OK interventions from `.planning/reviews/2026-05-02-opus-cross-vendor-audit/INTERVENTIONS.md` are implemented. The current runtime-producer/Skeptic slice is useful substrate evidence, not the full `VISION.md` minimum-useful CBM floor.
+Current boundary: H1 is accepted for one pinned external target only. This is not Phase B+, repeatability, beta readiness, or broad runtime orchestration. H2 must plan the second target before running it.
 
 ## Locked Decisions
 
@@ -54,17 +54,17 @@ Current boundary: the Tier 1 and Tier 5 R-OK interventions from `.planning/revie
 21. Apply all Tier 1 and Tier 5 R-OK interventions from the Opus cross-vendor audit. Status: completed across `f004657` through `65c19f2`.
 22. Run post-H1.S1 Opus review. Status: completed; disposition accepted with blockers at `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md`.
 
-H1.S1 is completed narrowly. H1.S2a evidence-bundle repair is complete. H1.S2b real isolated Skeptic production is complete. H1.S2c challenge disposition and mapper response are complete. Broad unattended `/goal` may now proceed only to H1.S3 validated minimum-useful handoff preparation. Phase B+ pass claims and minimum-useful-CBM claims remain blocked until their specific horizon evidence and checkpoint evidence exist.
+H1.S1 is completed narrowly. H1.S2a evidence-bundle repair is complete. H1.S2b real isolated Skeptic production is complete. H1.S2c challenge disposition and mapper response are complete. H1.S3 validated handoff and non-current-model checkpoint review are complete. Phase B+ and repeatability claims remain blocked until their specific horizon evidence and checkpoint evidence exist.
 
 ## Next `/goal` Track
 
-The current `/goal` track is H1.S3 from `.planning/HORIZONS.md`: the validated minimum-useful handoff and non-current-model checkpoint packet have been prepared. The next action is to run the non-current-model checkpoint review.
+The current `/goal` track is H2.S1 from `.planning/HORIZONS.md`: plan the runtime-producer repeatability run.
 
 Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, the live isolation probe reported no access to parent-only session context, a skill-loaded `skeptic@1.2` subprocess produced an ingested interpretive challenge on the same pinned benchmark, H1.S1 produced a real non-baseline `surface-mapper@1.2` surface map on MCP `src/git`, H1.S2b produced a real isolated `skeptic@1.2` review over that H1.S1 map, H1.S2c accepted the `auth-001` / `chl-10001` challenge as an alternative reading carried into handoff contestation, and H1.S3 prepared a handoff/checkpoint packet at `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/` plus `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`.
 
-The full `VISION.md` minimum-useful CBM floor is not met yet. The handoff packet is prepared, but H1 remains open until a non-current-model checkpoint disposition accepts the H1 pass claim. The next proof target is the checkpoint review, not H2.
+The H1 minimum-useful floor is accepted for one pinned external target. The next proof target is repeatability planning, not another H1 checkpoint and not a second-target run without a plan.
 
-This is not a Phase B+ pass claim and not an accepted minimum-useful-CBM pass claim. It is a prepared H1 pass-claim packet pending non-current-model review.
+This is not a Phase B+ pass claim, not repeatability, and not beta readiness. It is an accepted H1 pass claim scoped to the MCP `src/git` target.
 
 ## H1.S2a Review Blocker Remediation
 
@@ -78,23 +78,19 @@ Accepted blockers from `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITIO
 
 ## Allowed Next Code Work
 
-Only these code categories are allowed while H1.S3 checkpoint review is pending:
+Only these work categories are allowed while H2.S1 planning is current:
 
-- Skeptic runtime producer implementation or dispatch;
-- isolated context/backend checks required for Skeptic;
-- challenge ingestion and contestation ledger fixes required by Skeptic output;
-- `--backend` and run-manifest plumbing;
-- benchmark harness or fixture work;
-- Codex isolation spike support;
-- minimal loop-status/preflight work that enforces this recovery plan;
-- runtime-producer adapter hardening required before live agent dispatch;
-- ADRs or review dispositions that preserve accepted recovery decisions.
-- narrow documentation or verification updates required to run and disposition the H1.S3 checkpoint.
+- choose and justify the second pinned external target or materially different subtree;
+- define H2 acceptance and verification commands;
+- identify which H1 packet caveats matter for repeatability;
+- update benchmark planning artifacts and authority docs required for H2;
+- narrow verifier/tooling fixes required to keep the H2 plan executable.
 
 Explicitly disallowed:
 
 - new kernel-only validators, gates, rejection rules, or artifact strictness slices;
 - new project packs unrelated to the benchmark;
+- running the H2 live producer before the H2 plan is written;
 - Phase B-F pass claims;
 - hook policy expansion.
 

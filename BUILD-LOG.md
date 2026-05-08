@@ -1777,3 +1777,20 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - `REVIEW-SPEC.md` parsed with PyYAML and declared `CHECKPOINT.md` / `DISPOSITION.md`.
   - The wrapper's `REVIEW-RUN.json` records `status: failed`, `requested_model: opus`, `observed_model: claude-opus-4-7`, `exit_code: 0`, and `verification_exit_code: 1`.
   - The wrapper's `VERIFY.json` records one issue: `invalid_disposition` with detail `missing disposition field`.
+
+## 2026-05-08 — Structured disposition envelope and H1 closure
+
+- Added: deterministic `DISPOSITION.json` support for cross-vendor review gates. The structured envelope records only gate-level machine facts: reviewer model identity, same-model fallback flag, accepted disposition, and optional gate-level confidence if provided. Nuanced confidence, caveats, and finding-level judgment remain in `CHECKPOINT.md` / `DISPOSITION.md`.
+- Added: `.codex/skills/cross-vendor-review/scripts/write-disposition.py` to write the structured envelope after a reviewer has actually supplied the decision facts.
+- Updated: cross-vendor verification and `cbm-loop-status` read `DISPOSITION.json` first while preserving legacy Markdown metadata fallback.
+- Resolved: H1 checkpoint verifier now passes for preserved run `xvr-20260508T023055Z-10836` without a Claude rerun. `DISPOSITION.json` records reviewer model `claude-opus-4-7` and disposition `accept`.
+- Closed: H1 and Phase 01 are complete for one pinned external target. Next focus is H2 repeatability planning only.
+- Boundary: this is not Phase B+, repeatability, beta readiness, mature orchestration, or H2 execution.
+- Verification:
+  - Script checks passed: `python3 -m py_compile .codex/skills/cross-vendor-review/scripts/*.py` and `bash -n .codex/skills/cross-vendor-review/scripts/*.sh`.
+  - Focused tests passed: `TMPDIR=/var/tmp pytest -q tests/test_cross_vendor_review_skill.py tests/test_cli.py::test_loop_status_accepts_pass_claim_with_structured_disposition_json tests/test_cli.py::test_loop_status_accepts_pass_claim_with_cross_model_reviewer tests/test_cli.py::test_loop_status_pass_claim_blocked_until_cross_model_disposition tests/test_cli.py::test_loop_status_broad_goal_uses_prior_accepted_checkpoint_when_pass_claim_pending tests/test_cli.py::test_checkpoint_command_emits_packet_with_required_files` reported 16 passed, 2 warnings.
+  - Focused integration regression passed after preserving the separate broad-goal resume gate: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_loop_status_blocks_broad_goal_until_checkpoint_satisfies_resume tests/test_cli.py::test_loop_status_accepts_pass_claim_with_structured_disposition_json tests/test_cross_vendor_review_skill.py` reported 13 passed, 2 warnings.
+  - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 131 passed, 2 warnings.
+  - Diff check passed: `git diff --check -- .codex cbm tests`.
+  - H1 review verifier passed: `.codex/skills/cross-vendor-review/scripts/verify-review-output.sh .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint xvr-20260508T023055Z-10836` exited 0.
+  - Loop status passed: `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category runtime-producer --json` and `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` both reported `status: ok`.

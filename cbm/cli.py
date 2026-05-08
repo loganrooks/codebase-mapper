@@ -5470,10 +5470,22 @@ def checkpoint_metadata(path: Path | None) -> dict[str, str]:
 def checkpoint_disposition_metadata(path: Path | None) -> dict[str, str]:
     if not path:
         return {}
+    metadata: dict[str, str] = {}
+    disposition_json = path.with_name("DISPOSITION.json")
+    if nonempty(disposition_json):
+        try:
+            parsed = json.loads(disposition_json.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            parsed = {}
+        if isinstance(parsed, dict):
+            for key, value in parsed.items():
+                normalized_key = str(key).strip().lower().replace(" ", "_").replace("-", "_")
+                metadata[normalized_key] = "" if value is None else str(value).strip()
     disposition = path.with_name("DISPOSITION.md")
-    if not nonempty(disposition):
-        return {}
-    return markdown_metadata(disposition.read_text(encoding="utf-8"))
+    if nonempty(disposition):
+        markdown = markdown_metadata(disposition.read_text(encoding="utf-8"))
+        metadata = {**markdown, **metadata}
+    return metadata
 
 
 CHECKPOINT_DIFF_PATHS = [
@@ -5625,7 +5637,8 @@ def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scop
     if not path:
         return [{"code": "missing_checkpoint", "message": "no checkpoint review artifact found under .planning/reviews"}]
     metadata = checkpoint_metadata(path)
-    reviewer_model_id = metadata.get("reviewer_model_id", "").strip()
+    disposition = checkpoint_disposition_metadata(path)
+    reviewer_model_id = (metadata.get("reviewer_model_id") or disposition.get("reviewer_model_id") or "").strip()
     if not reviewer_model_id:
         return [
             {
@@ -5634,7 +5647,7 @@ def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scop
             }
         ]
     same_model = model_matches_family(reviewer_model_id, list(config["current_dev_agent_model_families"]))
-    same_model_fallback = truthy(metadata.get("same_model_fallback"))
+    same_model_fallback = truthy(metadata.get("same_model_fallback") or disposition.get("same_model_fallback"))
     if same_model and scope == "pass-claim":
         return [
             {
@@ -5649,7 +5662,6 @@ def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scop
                 "message": f"{path} uses same-model reviewer '{reviewer_model_id}' without same_model_fallback: true",
             }
         ]
-    disposition = checkpoint_disposition_metadata(path)
     disposition_value = (metadata.get("disposition") or disposition.get("disposition") or "").lower()
     if scope == "pass-claim" and disposition_value not in {"accept", "accepted", "waived-by-user"}:
         return [

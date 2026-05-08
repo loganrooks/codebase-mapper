@@ -92,31 +92,50 @@ decision_required = bool(manifest.get("decision_required"))
 checkpointish = decision_required or "checkpoint" in review_type or "pass_claim" in review_type
 if checkpointish:
     disposition_path = review_dir / "DISPOSITION.md"
+    disposition_json_path = review_dir / "DISPOSITION.json"
+    structured_disposition = {}
+    if disposition_json_path.exists() and disposition_json_path.stat().st_size > 0:
+        try:
+            loaded = json.loads(disposition_json_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                structured_disposition = loaded
+            else:
+                issues.append({"code": "invalid_disposition", "path": str(disposition_json_path), "detail": "DISPOSITION.json must be an object"})
+        except Exception as exc:
+            issues.append({"code": "invalid_disposition", "path": str(disposition_json_path), "detail": str(exc)})
     if not disposition_path.exists() or disposition_path.stat().st_size == 0:
-        issues.append({"code": "missing_expected_output", "path": str(disposition_path), "detail": "checkpoint decision output is required"})
+        if not structured_disposition:
+            issues.append({"code": "missing_expected_output", "path": str(disposition_path), "detail": "checkpoint decision output is required"})
+        text = ""
     else:
         text = disposition_path.read_text(encoding="utf-8")
-        model_match = re.search(r"(?im)^\s*(reviewer[_ -]?model(?:_id)?|model[_ -]?id)\s*:\s*(.+?)\s*$", text)
-        if not model_match or not model_match.group(2).strip():
-            issues.append({"code": "missing_reviewer_identity", "path": str(disposition_path)})
-            reviewer_model = ""
-        else:
-            reviewer_model = model_match.group(2).strip()
-        disposition_match = re.search(r"(?im)^\s*disposition\s*:\s*([a-zA-Z0-9_-]+)\s*$", text)
-        if decision_required and not disposition_match:
-            issues.append({"code": "invalid_disposition", "path": str(disposition_path), "detail": "missing disposition field"})
-            disposition = ""
-        else:
-            disposition = disposition_match.group(1).strip().lower() if disposition_match else ""
-        allowed = [str(item).lower() for item in manifest.get("allowed_dispositions") or []]
-        if disposition and allowed and disposition not in allowed:
-            issues.append({"code": "invalid_disposition", "path": str(disposition_path), "detail": disposition})
-        disallowed_families = [str(item).lower() for item in manifest.get("disallowed_reviewer_model_families") or []]
-        if reviewer_model:
-            reviewer_lower = reviewer_model.lower()
-            for family in disallowed_families:
-                if family and family in reviewer_lower:
-                    issues.append({"code": "same_model_disallowed", "path": str(disposition_path), "detail": reviewer_model})
+    model_match = re.search(r"(?im)^\s*(reviewer[_ -]?model(?:_id)?|model[_ -]?id)\s*:\s*(.+?)\s*$", text)
+    structured_model = str(structured_disposition.get("reviewer_model_id") or "").strip()
+    if structured_model:
+        reviewer_model = structured_model
+    elif not model_match or not model_match.group(2).strip():
+        issues.append({"code": "missing_reviewer_identity", "path": str(disposition_json_path if structured_disposition else disposition_path)})
+        reviewer_model = ""
+    else:
+        reviewer_model = model_match.group(2).strip()
+    disposition_match = re.search(r"(?im)^\s*disposition\s*:\s*([a-zA-Z0-9_-]+)\s*$", text)
+    structured_value = str(structured_disposition.get("disposition") or "").strip().lower()
+    if structured_value:
+        disposition = structured_value
+    elif decision_required and not disposition_match:
+        issues.append({"code": "invalid_disposition", "path": str(disposition_json_path if structured_disposition else disposition_path), "detail": "missing disposition field"})
+        disposition = ""
+    else:
+        disposition = disposition_match.group(1).strip().lower() if disposition_match else ""
+    allowed = [str(item).lower() for item in manifest.get("allowed_dispositions") or []]
+    if disposition and allowed and disposition not in allowed:
+        issues.append({"code": "invalid_disposition", "path": str(disposition_json_path if structured_disposition else disposition_path), "detail": disposition})
+    disallowed_families = [str(item).lower() for item in manifest.get("disallowed_reviewer_model_families") or []]
+    if reviewer_model:
+        reviewer_lower = reviewer_model.lower()
+        for family in disallowed_families:
+            if family and family in reviewer_lower:
+                issues.append({"code": "same_model_disallowed", "path": str(disposition_json_path if structured_disposition else disposition_path), "detail": reviewer_model})
 
 verify = {
     "run_id": manifest.get("run_id"),

@@ -3444,6 +3444,32 @@ def test_loop_status_accepts_pass_claim_with_cross_model_reviewer(tmp_path: Path
     assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 0
 
 
+def test_loop_status_accepts_pass_claim_with_structured_disposition_json(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(repo, "# Checkpoint\n\nReview complete.\n", disposition="Decision: accept\n")
+    disposition_json = repo / ".planning" / "reviews" / "checkpoint" / "DISPOSITION.json"
+    disposition_json.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "review_id": "checkpoint",
+                "status": "complete",
+                "reviewer_model_id": "claude-opus-4-7",
+                "same_model_fallback": False,
+                "confidence": "high",
+                "disposition": "accept",
+                "decided_at": "2026-05-08T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", ".planning")
+    git(repo, "commit", "-m", "add structured disposition")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 0
+
+
 def test_loop_status_warns_on_repeated_rework_pattern(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     repo = make_repo(tmp_path)
     write_loop_status_scaffold(repo, checkpoint_satisfies=True)

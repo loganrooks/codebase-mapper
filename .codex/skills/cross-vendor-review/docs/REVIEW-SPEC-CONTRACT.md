@@ -115,7 +115,17 @@ raw_logs:
   retain_on_failure: true
 ```
 
-For checkpoint reviews, the verifier expects disposition output to include a real reviewer model identity and an allowed disposition. It does not create or infer either value.
+For checkpoint reviews, prefer a structured `DISPOSITION.json` written by the deterministic disposition writer:
+
+```bash
+.codex/skills/cross-vendor-review/scripts/write-disposition.py .planning/reviews/<review-id> \
+  --reviewer-model-id claude-opus-4-7 \
+  --disposition accept
+```
+
+The writer validates the disposition against `allowed_dispositions` from `REVIEW-SPEC.md` and writes the minimal machine-readable fields the verifier consumes: reviewer identity, same-model fallback flag, and disposition. `--confidence` is optional and should be used only as a gate-level summary when the reviewer actually provided one. Nuanced confidence, contested evidence, limits, and finding-by-finding judgments belong in `CHECKPOINT.md` / `DISPOSITION.md` or a future finding-level artifact, not in this envelope.
+
+`DISPOSITION.md` remains the human review narrative. The verifier still supports legacy Markdown metadata, but new decision packets should use `DISPOSITION.json` as the machine contract.
 
 ## Example: Open-Ended Review
 

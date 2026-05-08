@@ -46,7 +46,7 @@ Verification:
 
 ## H1 - True Minimum-Useful CBM
 
-Status: active
+Status: complete
 
 Vision link: `VISION.md` requires one runtime-agent-produced run on a pinned external codebase: real Surface Mapper output, reviewed by a real isolated Skeptic, with at least one non-trivial cited interpretive claim or challenge and a validated handoff.
 
@@ -188,7 +188,7 @@ Pushback handling:
 
 ### H1.S3 - Validated Minimum-Useful Handoff
 
-Status: current; handoff packet prepared, checkpoint pending
+Status: complete
 
 Objective:
 
@@ -210,10 +210,11 @@ Packet evidence prepared:
 - H1.S3 verification record: `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/VERIFY.md`.
 - Non-current-model checkpoint packet: `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`.
 
-Pending evidence:
+Completion evidence:
 
-- Non-current-model reviewer fills `CHECKPOINT.md` and `DISPOSITION.md`.
-- `cbm-loop-status --scope pass-claim --work-category runtime-producer` exits 0 after accepted non-current-model disposition.
+- Non-current-model checkpoint accepted H1 at `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`.
+- Structured gate disposition exists at `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/DISPOSITION.json`.
+- `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` exited 0.
 
 Verification:
 
@@ -229,7 +230,7 @@ Pushback handling:
 
 ## H2 - Runtime Producer Repeatability
 
-Status: pending
+Status: current
 
 Objective:
 
@@ -241,6 +242,34 @@ Acceptance:
 - Surface Mapper and Skeptic both run with recorded producer identities.
 - At least one non-trivial claim/challenge survives citation and review.
 - Differences from H1 are recorded in `.planning/STATE.md`.
+
+### H2.S1 - Repeatability Plan
+
+Status: current
+
+Objective:
+
+Choose the next pinned target or materially different subtree, define the exact repeatability acceptance criteria, and prepare the run packet before launching live producers.
+
+Allowed work:
+
+- target selection and justification;
+- benchmark packet planning;
+- H2 acceptance and verification command definition;
+- planning/state updates that keep the next run auditable;
+- narrow tooling checks needed before dispatch.
+
+Disallowed work:
+
+- launching the second live Surface Mapper or Skeptic run before the H2 plan exists;
+- Phase B+ or beta-readiness claims;
+- broad kernel hardening unrelated to repeatability.
+
+Acceptance:
+
+- `.planning/CURRENT-PLAN.md` names the exact H2 run target and verification path.
+- H2 benchmark packet or phase note records why the target is meaningfully repeatability evidence.
+- `cbm-loop-status --scope broad-goal --work-category runtime-producer` passes before live dispatch.
 
 ## H3 - Goal-Bound Cards And Intervention Handoff
 

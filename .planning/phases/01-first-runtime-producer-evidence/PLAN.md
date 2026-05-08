@@ -1,13 +1,13 @@
 # Phase 01: First Runtime Producer Evidence
 
-Status: active; H1.S3 packet prepared, pass-claim checkpoint pending
-Last updated: 2026-05-07
+Status: closed
+Last updated: 2026-05-08
 
 ## Objective
 
 Build the runtime-producer evidence substrate required before the true `VISION.md` minimum-useful CBM floor can be cleared.
 
-Acceptance criterion: recovery interventions are complete, runtime-producer/Skeptic evidence exists, and planning truthfully routes the next `/goal` to H1 in `.planning/HORIZONS.md`. The true minimum-useful-CBM pass claim remains open until H1.S1-H1.S3 are complete and cross-model reviewed.
+Acceptance criterion: recovery interventions are complete, runtime Surface Mapper/Skeptic evidence exists, H1.S1-H1.S3 are complete, and the H1 pass claim is accepted by non-current-model checkpoint review. Status: met for one pinned external target.
 
 ## Intervention Track
 
@@ -25,9 +25,9 @@ Acceptance criterion: recovery interventions are complete, runtime-producer/Skep
 - H1.S2a: H1.S1 evidence-bundle repair. Status: completed; H1.S1 handoff honesty, dev-fixture Skeptic handling, unknown-edge acceptance, repair evidence preservation, and packet caveats were remediated before real Skeptic review.
 - H1.S2b: real isolated Skeptic review on pinned MCP `src/git`. Status: completed; evidence at `.planning/benchmarks/2026-05-07-mcp-git-h1s2b-skeptic/RESULT.md`.
 - H1.S2c: challenge ingestion and mapper response disposition. Status: completed; evidence at `.planning/benchmarks/2026-05-07-mcp-git-h1s2c-disposition/RESULT.md`.
-- H1.S3: validated minimum-useful handoff and non-current-model checkpoint packet. Status: prepared; packet at `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/`, checkpoint skeleton at `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`.
+- H1.S3: validated minimum-useful handoff and non-current-model checkpoint packet. Status: completed and accepted; packet at `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/`, checkpoint at `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`.
 
-Phase 01 remains open until the non-current-model checkpoint disposition accepts the H1 pass claim.
+Phase 01 is closed. H2 repeatability planning is next.
 
 ## Verification
 
@@ -38,6 +38,7 @@ Phase 01 remains open until the non-current-model checkpoint disposition accepts
 - H1.S2b Skeptic validation, citation resolution, run-manifest validation, handoff validation, and surface-map evidence validation as recorded in `.planning/benchmarks/2026-05-07-mcp-git-h1s2b-skeptic/RESULT.md`.
 - H1.S2c surface-map validation, citation resolution, evidence check, handoff validation, and full suite as recorded in `.planning/benchmarks/2026-05-07-mcp-git-h1s2c-disposition/RESULT.md`.
 - H1.S3 handoff packet validation is recorded in `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/VERIFY.md`.
+- H1 checkpoint acceptance is recorded in `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/CHECKPOINT.md`, `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/DISPOSITION.md`, and `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/DISPOSITION.json`.
 
 ## Stop Conditions
 
