@@ -63,7 +63,28 @@ jobs:
       - uses: anthropics/claude-code-action@939ae9c056ecf8a1a01409ddd1c4eadec5f8c77b  # v1.0.116
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: '--model ${{ steps.mode.outputs.model }} --add-dir pr-head'
+          # --allowedTools grants Claude the specific shell tools it
+          # needs to: (a) read the PR (gh pr view, gh pr diff), (b) check
+          # existing CodeRabbit findings (gh pr view --comments), and most
+          # importantly (c) post the final review via the narrow wrapper
+          # at .github/scripts/post-claude-review.sh.
+          #
+          # Why the wrapper instead of Bash(gh pr comment:*):
+          # - gh pr comment supports --body-file <path>, so a broad
+          #   allowlist would let prompt-injected content tell Claude to
+          #   post arbitrary runner files (e.g. /proc/self/environ,
+          #   leaking GH_TOKEN/GITHUB_TOKEN) into a public PR comment.
+          # - gh pr comment --body "..." would shell-expand $(...), $var,
+          #   and backticks in the review body before gh saw them; since
+          #   the body is synthesized from untrusted PR content that is
+          #   another secret-exfiltration channel.
+          # The wrapper takes ONE integer-validated PR-number argument
+          # and reads the body from stdin only (forwarded to gh as
+          # --body-file -). It refuses --body-file <path>, --body, and
+          # any other gh flag. Combined with the prompt's quoted-heredoc
+          # discipline (<<'EOF'), the body cannot be expanded by bash
+          # before it reaches the wrapper.
+          claude_args: '--model ${{ steps.mode.outputs.model }} --add-dir pr-head --allowedTools "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(./.github/scripts/post-claude-review.sh:*)"'
           prompt: |-
             You are reviewing a pull request for codebase-mapper.
             Invoked mode: ${{ steps.mode.outputs.mode }}.
@@ -131,14 +152,33 @@ jobs:
               reasoning to be reliably surfaced.
 
             Across all modes:
-            * Read AGENTS.md once for the operative discipline.
+            * Read AGENTS.md once (at pr-head/AGENTS.md) for the operative
+              discipline.
             * Focus on AI-authored-code failure modes (hallucinated refs,
               silent fallbacks, speculative scaffolding, stale docs, magic
               values) over style.
-            * You do not have shell access; do not attempt to run commands.
-              When the PR description names verifications, judge whether
-              they are plausible and specific (a real command, real test
-              file, real artifact) — do not try to execute them.
-            * Post a single structured comment. Do not modify code.
-            * Do not duplicate findings already raised by CodeRabbit if you
-              can see them in the PR thread.
+            * Available shell tools:
+              - `gh pr view ${{ github.event.issue.number }} --comments`
+                to see existing CodeRabbit / Codex findings and avoid
+                duplicating them.
+              - `gh pr diff ${{ github.event.issue.number }}` to inspect
+                the diff if needed.
+              - `./.github/scripts/post-claude-review.sh <pr-number>` —
+                the ONLY way to post your final review (see below).
+              You do NOT have access to test runners (pytest, schema
+              validators, etc.) or to `gh pr comment` directly; when the
+              PR description names verifications, judge whether they are
+              plausible and specific without trying to execute them.
+            * When done, post your review as a single top-level PR comment
+              by piping the body into the wrapper script via a QUOTED
+              heredoc. The single quotes around `'EOF'` are required —
+              they prevent bash from expanding $(...), $var, or backticks
+              in your review text before the wrapper sees it:
+
+                  ./.github/scripts/post-claude-review.sh ${{ github.event.issue.number }} <<'EOF'
+                  <your review body here, multi-line OK>
+                  EOF
+
+              Post exactly one comment. Do not post inline comments. Do
+              not modify code. Do not attempt to use `gh pr comment`
+              directly — it is not in the allowlist.
