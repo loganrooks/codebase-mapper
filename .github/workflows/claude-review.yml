@@ -26,9 +26,23 @@ jobs:
     # that obviously aren't review triggers. The central workflow ALSO
     # gates on this (defense in depth) — security does not depend on
     # this if-condition being correct in callers.
+    #
+    # Audit branch mirrors agentic-ops review.yml: non-PR issue comments
+    # are allowed only when the trigger is `@claude audit` (bare, with
+    # space, with newline, or with `:lens`), since `audit` is the only
+    # mode that runs without a PR diff. All other modes still require a
+    # PR. The newline form lets `@claude audit` be followed by details on
+    # subsequent lines.
     if: |
-      github.event.issue.pull_request != null &&
-      startsWith(github.event.comment.body, '@claude ')
+      startsWith(github.event.comment.body, '@claude ') &&
+      (
+        github.event.issue.pull_request != null ||
+        github.event.comment.body == '@claude audit' ||
+        startsWith(github.event.comment.body, '@claude audit ') ||
+        startsWith(github.event.comment.body, '@claude audit
+      ') ||
+        startsWith(github.event.comment.body, '@claude audit:')
+      )
     uses: loganrooks/agentic-ops/.github/workflows/review.yml@v1
     with:
       # Enable the central platform modes consumed by CBM. The gates
