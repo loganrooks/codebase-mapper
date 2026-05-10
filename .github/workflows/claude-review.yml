@@ -31,9 +31,12 @@ jobs:
       startsWith(github.event.comment.body, '@claude ')
     uses: loganrooks/agentic-ops/.github/workflows/review.yml@v1
     with:
-      # All five modes — codebase-mapper has gate scripts under
-      # platform/codex/ and .codex/skills/, so 'gates' is meaningful here.
-      enabled_modes: '["review","quick","deep","gates","opus"]'
+      # Enable the central platform modes consumed by CBM. The gates
+      # mode is meaningful here because codebase-mapper has gate scripts
+      # under platform/codex/ and .codex/skills/.
+      enabled_modes: '["review","quick","deep","gates","opus","survey","audit"]'
+      # Static-analysis-only tool extensions. Do not add test runners here.
+      extra_allowed_tools: 'Bash(ruff:*),Bash(mypy:*),Bash(rg:*)'
       # Priority paths in 'review' mode: cli/config surface + ADRs +
       # gate scripts. Other files in the diff still get attention but
       # these get the budget first.
