@@ -5430,12 +5430,14 @@ def load_loop_status_config() -> dict[str, Any]:
 def markdown_metadata(text: str) -> dict[str, str]:
     metadata: dict[str, str] = {}
     if text.startswith("---\n"):
-        _, frontmatter, _ = text.split("---", 2)
-        parsed = yaml.safe_load(frontmatter) or {}
-        if isinstance(parsed, dict):
-            for key, value in parsed.items():
-                normalized_key = str(key).strip().lower().replace(" ", "_").replace("-", "_")
-                metadata[normalized_key] = "" if value is None else str(value).strip()
+        parts = text.split("---", 2)
+        if len(parts) == 3:
+            _, frontmatter, _ = parts
+            parsed = yaml.safe_load(frontmatter) or {}
+            if isinstance(parsed, dict):
+                for key, value in parsed.items():
+                    normalized_key = str(key).strip().lower().replace(" ", "_").replace("-", "_")
+                    metadata[normalized_key] = "" if value is None else str(value).strip()
     for line in text.splitlines():
         if ":" not in line or line.startswith("#"):
             continue
@@ -5634,6 +5636,9 @@ Disposition:
     return 0
 
 
+SCOPES_REQUIRING_CROSS_MODEL = {"pass-claim", "main-merge", "broad-goal-restart"}
+
+
 def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scope: str) -> list[dict[str, str]]:
     if not path:
         return [{"code": "missing_checkpoint", "message": "no checkpoint review artifact found under .planning/reviews"}]
@@ -5649,7 +5654,7 @@ def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scop
         ]
     same_model = model_matches_family(reviewer_model_id, list(config["current_dev_agent_model_families"]))
     same_model_fallback = truthy(metadata.get("same_model_fallback") or disposition.get("same_model_fallback"))
-    if same_model and scope == "pass-claim":
+    if same_model and scope in SCOPES_REQUIRING_CROSS_MODEL:
         return [
             {
                 "code": "same_model_checkpoint",
@@ -5663,21 +5668,21 @@ def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scop
                 "message": f"{path} uses same-model reviewer '{reviewer_model_id}' without same_model_fallback: true",
             }
         ]
-    if scope == "pass-claim":
+    if scope in SCOPES_REQUIRING_CROSS_MODEL:
         checkpoint_scope = (metadata.get("scope") or disposition.get("scope") or "").strip().lower()
-        if checkpoint_scope != "pass-claim":
+        if checkpoint_scope != scope:
             return [
                 {
                     "code": "checkpoint_scope_mismatch",
-                    "message": f"{path} has scope '{checkpoint_scope or 'unset'}' but pass-claim gate requires a checkpoint with scope: pass-claim",
+                    "message": f"{path} has scope '{checkpoint_scope or 'unset'}' but {scope} gate requires a checkpoint with scope: {scope}",
                 }
             ]
     disposition_value = (metadata.get("disposition") or disposition.get("disposition") or "").lower()
-    if scope == "pass-claim" and disposition_value not in {"accept", "accepted", "waived-by-user"}:
+    if scope in SCOPES_REQUIRING_CROSS_MODEL and disposition_value not in {"accept", "accepted", "waived-by-user"}:
         return [
             {
                 "code": "checkpoint_disposition_not_accepted",
-                "message": f"{path} has no accepted disposition for pass-claim scope",
+                "message": f"{path} has no accepted disposition for {scope} scope",
             }
         ]
     return []
@@ -5844,7 +5849,7 @@ def command_loop_status(args: argparse.Namespace) -> int:
         else:
             warnings.append(issue)
 
-    if args.scope == "pass-claim":
+    if args.scope in SCOPES_REQUIRING_CROSS_MODEL:
         issues.extend(checkpoint_pass_claim_issues(checkpoint_path, config, args.scope))
     elif args.scope == "recovery-slice":
         recovery_model_issues = checkpoint_pass_claim_issues(checkpoint_path, config, args.scope)

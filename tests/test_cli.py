@@ -3461,6 +3461,72 @@ def test_loop_status_blocks_pass_claim_when_checkpoint_scope_is_unset(tmp_path: 
     assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 1
 
 
+def test_loop_status_blocks_main_merge_with_same_model_reviewer(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(
+        repo,
+        "# Checkpoint\n\nscope: main-merge\nreviewer_model_id: gpt-5.5-pro\nDisposition: accept\n",
+    )
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "main-merge", "--work-category", "loop-status"]) == 1
+
+
+def test_loop_status_blocks_main_merge_when_checkpoint_scope_is_pass_claim(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(
+        repo,
+        "# Checkpoint\n\nscope: pass-claim\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n",
+    )
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "main-merge", "--work-category", "loop-status"]) == 1
+
+
+def test_loop_status_accepts_main_merge_with_matching_scope_and_cross_model(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(
+        repo,
+        "# Checkpoint\n\nscope: main-merge\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n",
+    )
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "main-merge", "--work-category", "loop-status"]) == 0
+
+
+def test_loop_status_blocks_broad_goal_restart_with_same_model_reviewer(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(
+        repo,
+        "# Checkpoint\n\nscope: broad-goal-restart\nreviewer_model_id: gpt-5.5-pro\nDisposition: accept\n",
+    )
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal-restart", "--work-category", "loop-status"]) == 1
+
+
+def test_loop_status_accepts_broad_goal_restart_with_matching_scope_and_cross_model(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(
+        repo,
+        "# Checkpoint\n\nscope: broad-goal-restart\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n",
+    )
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal-restart", "--work-category", "loop-status"]) == 0
+
+
+def test_markdown_metadata_handles_truncated_frontmatter() -> None:
+    from cbm.cli import markdown_metadata
+
+    # Truncated frontmatter (no closing `---`) must NOT raise ValueError.
+    # The body-line parser may still pick up allowlisted fields from the
+    # unclosed frontmatter contents; that is acceptable.
+    truncated = "---\nstatus: pending\nreviewer_model_id: claude-opus-4-7\n"
+    parsed = markdown_metadata(truncated)
+    assert parsed.get("status") == "pending"
+    assert parsed.get("reviewer_model_id") == "claude-opus-4-7"
+
+    closed = "---\nstatus: pending\nreviewer_model_id: claude-opus-4-7\n---\nbody\n"
+    parsed_closed = markdown_metadata(closed)
+    assert parsed_closed.get("reviewer_model_id") == "claude-opus-4-7"
+
+
 def test_loop_status_accepts_pass_claim_with_structured_disposition_json(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     write_checkpoint_packet(repo, "# Checkpoint\n\nscope: pass-claim\nReview complete.\n", disposition="Decision: accept\n")

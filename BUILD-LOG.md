@@ -1819,3 +1819,24 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Focused regressions: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_loop_status_blocks_pass_claim_with_missing_reviewer_model_id tests/test_cli.py::test_loop_status_blocks_pass_claim_with_same_model_reviewer tests/test_cli.py::test_loop_status_accepts_pass_claim_with_cross_model_reviewer tests/test_cli.py::test_loop_status_blocks_pass_claim_when_checkpoint_scope_is_recovery_slice tests/test_cli.py::test_loop_status_blocks_pass_claim_when_checkpoint_scope_is_unset tests/test_cli.py::test_loop_status_accepts_pass_claim_with_structured_disposition_json tests/test_cli.py::test_loop_status_recovery_slice_tolerates_labeled_same_model_fallback tests/test_cli.py::test_loop_status_pass_claim_blocked_until_cross_model_disposition tests/test_cli.py::test_checkpoint_command_emits_packet_with_required_files tests/test_cli.py::test_checkpoint_command_disposition_template_uses_disposition_field` reported 10 passed, 2 warnings.
   - Full suite passed: `TMPDIR=/var/tmp pytest -q` reported 134 passed, 2 warnings.
   - Loop-status after staging (pre-commit): `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` issued only `dirty_authority_docs` for the in-flight AGENTS.md edit; checkpoint scope-match passed on the H1 packet.
+
+## 2026-05-15 — PR #1 review remediation pass 2: W-NEW-1 main-merge/broad-goal-restart parity and S-NEW-1 frontmatter guard
+
+- Context: Claude survey on PR #1 (running at default effort on the OLD caller stub from main, before PR #10 landed the workflow uplift to main) caught a net-new P1: the F3 fix earlier this day extended `checkpoint_pass_claim_issues` to require cross-model reviewer + scope-match — but only for `--scope pass-claim`. Per ADR-005 and AGENTS.md:34, `main-merge` and `broad-goal-restart` also require cross-model checkpoints; they were silently passing through `checkpoint_satisfies_resume` alone. The earlier F3 fix was therefore too narrow. Survey also caught S-NEW-1: `markdown_metadata` unpacks `text.split("---", 2)` as a 3-tuple, which raises `ValueError` on a truncated frontmatter (no closing `---`).
+- Implemented:
+  - Introduced `SCOPES_REQUIRING_CROSS_MODEL = {"pass-claim", "main-merge", "broad-goal-restart"}` in `cbm/cli.py`. Extended `checkpoint_pass_claim_issues` so its same-model check, scope-match check, and disposition-accept check all fire for any scope in the set, with the scope-match message and disposition-not-accepted message templated against the requested scope. Updated `command_loop_status` to dispatch `checkpoint_pass_claim_issues` for all three scopes (previously only `pass-claim`).
+  - Guarded `markdown_metadata` against truncated frontmatter: `text.split("---", 2)` is now checked for `len(parts) == 3` before unpacking; partial frontmatter no longer raises and falls through to the body-line allowlist parser, which is the existing safety net.
+- Tests added (`tests/test_cli.py`):
+  - `test_loop_status_blocks_main_merge_with_same_model_reviewer`
+  - `test_loop_status_blocks_main_merge_when_checkpoint_scope_is_pass_claim` (a pass-claim checkpoint must not clear a main-merge gate)
+  - `test_loop_status_accepts_main_merge_with_matching_scope_and_cross_model`
+  - `test_loop_status_blocks_broad_goal_restart_with_same_model_reviewer`
+  - `test_loop_status_accepts_broad_goal_restart_with_matching_scope_and_cross_model`
+  - `test_markdown_metadata_handles_truncated_frontmatter`
+- Verification:
+  - Focused suite: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_loop_status_blocks_main_merge_* tests/test_cli.py::test_loop_status_accepts_main_merge_* tests/test_cli.py::test_loop_status_blocks_broad_goal_restart_* tests/test_cli.py::test_loop_status_accepts_broad_goal_restart_* tests/test_cli.py::test_markdown_metadata_handles_truncated_frontmatter` reported 6 passed, 2 warnings.
+  - Full suite: `TMPDIR=/var/tmp pytest -q` reported 140 passed, 2 warnings.
+  - `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` returned `status: ok` on the H1 checkpoint.
+- Boundary:
+  - Workflow-only review-discovery iteration, not a horizon advance. CURRENT-PLAN.md remains on H2.S1.
+  - W-NEW-2 (`DEFAULT_CODEX_CLI_MODEL = "gpt-5.4-mini"` plausibility) deferred — live regressions exercise this default and pass; no current evidence of breakage. Will revisit if a Codex live run begins failing model selection.
