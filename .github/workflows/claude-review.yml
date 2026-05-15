@@ -9,6 +9,11 @@ name: Claude PR Review (manual)
 # Bumping the agentic-ops version: change the @v1 ref below. v1 is a
 # floating major-version tag; minor/patch updates land transparently,
 # breaking changes will land on @v2.
+#
+# TEMPORARY EXPERIMENT (2026-05-15): pinned to feat-effort-level branch
+# (agentic-ops PR #21) to exercise the new effort_level=max dial on
+# PR #1 review remediation. Restore the @v1 pin once the central PR
+# merges and v1 is fast-forwarded.
 
 on:
   issue_comment:
@@ -43,29 +48,47 @@ jobs:
       ') ||
         startsWith(github.event.comment.body, '@claude audit:')
       )
-    uses: loganrooks/agentic-ops/.github/workflows/review.yml@v1
+    # SHA-pinned to feat-effort-level (PR #21 on agentic-ops). Restore
+    # to @v1 after merge + v1 fast-forward.
+    uses: loganrooks/agentic-ops/.github/workflows/review.yml@f0046cb673e40248b2f5e14e1fd2df1bf21f6456
     with:
       # Enable the central platform modes consumed by CBM. The gates
       # mode is meaningful here because codebase-mapper has gate scripts
       # under platform/codex/ and .codex/skills/.
       enabled_modes: '["review","quick","deep","gates","opus","survey","audit"]'
+      # Global effort dial (ADR-010 on agentic-ops). max promotes all
+      # modes to Opus and removes per-mode file caps in the prompt
+      # directive. Reserved for high-stakes work (horizon closeouts,
+      # large diffs, post-incident audits). Routine reviews should
+      # drop this to default or high; we keep max while PR #1 is open
+      # because the close is high-stakes and the surface is large.
+      effort_level: max
+      # Bumped to give max-effort runs headroom over the 45-min default.
+      timeout_minutes: 90
       # Static-analysis-only tool extensions. Do not add test runners here.
       extra_allowed_tools: 'Bash(ruff:*),Bash(mypy:*),Bash(rg:*)'
       # Priority paths in 'review' mode: cli/config surface + ADRs +
-      # gate scripts. Other files in the diff still get attention but
-      # these get the budget first.
+      # gate scripts + runtime skill loader and skill builder. Other
+      # files in the diff still get attention but these get the budget
+      # first.
       review_focus_paths: |
         cbm/cli.py
         cbm/loop_status_config.json
         cbm/skill_loader.py
+        cbm/skills.py
         .planning/decisions/ADR-*.md
         platform/codex/**/*.sh
         .codex/skills/**/*.sh
       # 'gates' mode reviews ONLY these. Tighter than review_focus_paths
-      # because gates is a depth-on-narrow-surface pass.
+      # because gates is a depth-on-narrow-surface pass. skills.py and
+      # skill_loader.py are added because runtime-producer correctness
+      # relies on the skill-loading surface (hash recording, schema
+      # validation chain).
       gates_paths: |
         cbm/cli.py
         cbm/loop_status_config.json
+        cbm/skill_loader.py
+        cbm/skills.py
         platform/codex/**/*.sh
         .codex/skills/**/*.sh
       agents_md_path: AGENTS.md
