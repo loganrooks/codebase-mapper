@@ -21,7 +21,7 @@ This makes the guardrails load-bearing. Use all of them, always.
 
 ## Continuous guardrails (always running)
 
-- **Schema validation in CI** from day one. Every artifact your code emits validates against `schemas/*.json`. CI failure halts merge.
+- **Schema validation in CI** from day one. Every artifact your code emits validates against `cbm/schemas/*.json` (the authoritative tree; `schemas/` is mirrored for repo-root browsing and pytest enforces identity via `test_package_schema_resources_match_root_schemas`). CI failure halts merge.
 - **Citation resolution tests** as soon as the kernel produces citations. Every cited `path:lines@sha` resolves at the recorded SHA.
 - **Example validation.** Your implementation must produce artifacts that pass schema validation and structurally resemble `examples/intervention-card-example.md`.
 - **Branch discipline.** Work on feature branches per phase or substantive change. Main only via merged, validated branches.

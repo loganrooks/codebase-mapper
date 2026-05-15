@@ -228,6 +228,8 @@ Last known full suite after skill-loader slice: `TMPDIR=/var/tmp pytest -q` repo
 
 Last known full suite after structured runtime challenge ingestion: `TMPDIR=/var/tmp pytest -q` reported `68 passed, 2 warnings`.
 
+Last known full suite after PR #1 review remediation (F3 pass-claim scope match + F1 DISPOSITION template vocabulary): `TMPDIR=/var/tmp pytest -q` reported `134 passed, 2 warnings`.
+
 Last known skill package verification: a temp wheel built under `/var/tmp` contained 7 `cbm/runtime_skills/*.md` package entries.
 
 Last known skill-loaded live benchmark run: `TMPDIR=/var/tmp python3 -m cbm.cli run --repo /tmp/cbm-live-mcp-servers-4503e2d/src/git --goal "understand MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-skeptic-mode skill --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-codex-skeptic-skill-4` exited 0; `handoff.md` reported `skeptic_review.challenges_logged: 1` and `contestation_summary.open_challenges: 1`.

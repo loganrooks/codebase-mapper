@@ -3439,14 +3439,31 @@ def test_loop_status_blocks_pass_claim_with_same_model_reviewer(tmp_path: Path) 
 
 def test_loop_status_accepts_pass_claim_with_cross_model_reviewer(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
-    write_checkpoint_packet(repo, "# Checkpoint\n\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n")
+    write_checkpoint_packet(repo, "# Checkpoint\n\nscope: pass-claim\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n")
 
     assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 0
 
 
+def test_loop_status_blocks_pass_claim_when_checkpoint_scope_is_recovery_slice(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(
+        repo,
+        "# Checkpoint\n\nscope: recovery-slice\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n",
+    )
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 1
+
+
+def test_loop_status_blocks_pass_claim_when_checkpoint_scope_is_unset(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(repo, "# Checkpoint\n\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 1
+
+
 def test_loop_status_accepts_pass_claim_with_structured_disposition_json(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
-    write_checkpoint_packet(repo, "# Checkpoint\n\nReview complete.\n", disposition="Decision: accept\n")
+    write_checkpoint_packet(repo, "# Checkpoint\n\nscope: pass-claim\nReview complete.\n", disposition="Decision: accept\n")
     disposition_json = repo / ".planning" / "reviews" / "checkpoint" / "DISPOSITION.json"
     disposition_json.write_text(
         json.dumps(
@@ -3518,6 +3535,18 @@ def test_checkpoint_command_emits_packet_with_required_files(tmp_path: Path) -> 
     assert "status: pending" in checkpoint_text
     assert "scope: recovery-slice" in checkpoint_text
     assert "pass_criterion: test criterion" in checkpoint_text
+
+
+def test_checkpoint_command_disposition_template_uses_disposition_field(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+
+    assert main(["checkpoint", "--repo", str(repo), "--pass-criterion", "vocab criterion", "--scope", "recovery-slice"]) == 0
+    checkpoint = latest_checkpoint_file(repo)
+    disposition_path = checkpoint.with_name("DISPOSITION.md")
+    disposition_text = disposition_path.read_text(encoding="utf-8")
+    assert "Disposition:" in disposition_text
+    assert "Decision:" not in disposition_text
 
 
 def test_checkpoint_packet_includes_diff_since_last_checkpoint(tmp_path: Path) -> None:
@@ -3595,11 +3624,11 @@ def test_checkpoint_pass_claim_warns_on_same_model_fallback(tmp_path: Path, caps
 
 def test_loop_status_pass_claim_blocked_until_cross_model_disposition(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
-    write_checkpoint_packet(repo, "# Checkpoint\n\nreviewer_model_id: gpt-5.5-pro\nDisposition: accept\n")
+    write_checkpoint_packet(repo, "# Checkpoint\n\nscope: pass-claim\nreviewer_model_id: gpt-5.5-pro\nDisposition: accept\n")
     assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 1
 
     checkpoint = repo / ".planning" / "reviews" / "checkpoint" / "CHECKPOINT.md"
-    checkpoint.write_text("# Checkpoint\n\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n", encoding="utf-8")
+    checkpoint.write_text("# Checkpoint\n\nscope: pass-claim\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n", encoding="utf-8")
     git(repo, "add", ".planning")
     git(repo, "commit", "-m", "use cross model checkpoint")
     assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 0

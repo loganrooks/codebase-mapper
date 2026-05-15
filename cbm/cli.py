@@ -5447,6 +5447,7 @@ def markdown_metadata(text: str) -> dict[str, str]:
             "disposition",
             "status",
             "satisfies_resume_gate",
+            "scope",
         }:
             metadata.setdefault(normalized_key, value.strip())
     return metadata
@@ -5624,7 +5625,7 @@ disposition:
     disposition = """# Checkpoint Disposition
 
 Status: pending
-Decision:
+Disposition:
 """
     (packet / "PROMPT.md").write_text(prompt, encoding="utf-8")
     (packet / "CHECKPOINT.md").write_text(checkpoint, encoding="utf-8")
@@ -5662,6 +5663,15 @@ def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scop
                 "message": f"{path} uses same-model reviewer '{reviewer_model_id}' without same_model_fallback: true",
             }
         ]
+    if scope == "pass-claim":
+        checkpoint_scope = (metadata.get("scope") or disposition.get("scope") or "").strip().lower()
+        if checkpoint_scope != "pass-claim":
+            return [
+                {
+                    "code": "checkpoint_scope_mismatch",
+                    "message": f"{path} has scope '{checkpoint_scope or 'unset'}' but pass-claim gate requires a checkpoint with scope: pass-claim",
+                }
+            ]
     disposition_value = (metadata.get("disposition") or disposition.get("disposition") or "").lower()
     if scope == "pass-claim" and disposition_value not in {"accept", "accepted", "waived-by-user"}:
         return [

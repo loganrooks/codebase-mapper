@@ -1,4 +1,5 @@
 {
+  "_documentation": "current_dev_agent_model_families lists the model families used as RUNTIME PRODUCERS (Surface Mapper, Skeptic, etc.) in cbm runs, not the build-agent that authored this repository's code. ADR-005 requires that pass-claim checkpoints be reviewed by a model from a DIFFERENT family than the runtime producers. If pass-claim scope is ever extended to gate code-change PRs reviewed by the same family that wrote them, add the build-agent family (e.g. 'claude', 'anthropic') here and record the decision in BUILD-LOG.md.",
   "current_dev_agent_model_families": [
     "gpt",
     "openai",
