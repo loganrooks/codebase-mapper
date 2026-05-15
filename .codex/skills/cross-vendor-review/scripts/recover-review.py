@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shlex
 import sys
 from pathlib import Path
@@ -41,11 +42,15 @@ def classify(manifest: dict, verify: dict | None, raw_dir: Path) -> list[str]:
         classes.append("malformed_stream_json")
     if "max_turns" in subtype or "max_budget" in subtype or terminal in {"max_turns", "max_budget"}:
         classes.append("max_turns_or_budget")
-    if "auth" in combined or "login" in combined:
+    # S3 fix (gates review): bare substring matches for "auth"/"login"/
+    # "permission" produced false positives when reviewer logs incidentally
+    # mentioned those words (e.g., reading a `permissions.md` doc). Use
+    # targeted patterns that match the actual error phrasing.
+    if re.search(r"\b(auth(entication)?|login)\s+(failed|required|expired|denied)\b", combined):
         classes.append("auth_failed")
     if "model" in combined and ("unavailable" in combined or "not available" in combined or "unknown model" in combined):
         classes.append("model_unavailable")
-    if "permission" in combined or claude.get("permission_denials"):
+    if re.search(r"\bpermission\s+denied\b", combined) or claude.get("permission_denials"):
         classes.append("permission_blocked")
 
     if verify:
