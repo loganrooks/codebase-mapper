@@ -183,6 +183,12 @@ if checkpointish and dirty_lines and not allow_dirty:
         "Dirty worktree before checkpoint/pass-claim review. Set allow_dirty_worktree: true only if this is intentional.\n",
         encoding="utf-8",
     )
+    # S4 fix (gates review): mark .latest-run-id with a sentinel so a
+    # subsequent verify-review-output.sh without an explicit run-id
+    # does not silently fall back to a prior successful run.
+    (review_dir / ".xvr-runs" / ".latest-run-id").write_text(
+        "PREFLIGHT-FAILED:" + run_id + "\n", encoding="utf-8"
+    )
     raise SystemExit(10)
 
 manifest = {

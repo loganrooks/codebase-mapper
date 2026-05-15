@@ -51,8 +51,13 @@ env_path.write_text(
             f"PERMISSION_MODE={q(manifest.get('permission_mode') or 'auto')}",
             f"TOOLS={q(tools)}",
             f"SESSION_NAME={q(manifest.get('claude', {}).get('session_name') or ('xvr-' + manifest['run_id']))}",
-            f"MAX_TURNS={q(manifest.get('max_turns') or '')}",
-            f"MAX_BUDGET_USD={q(manifest.get('max_budget_usd') or '')}",
+            # S2 fix (gates review): an explicitly declared `max_turns: 0`
+            # or `max_budget_usd: 0` is a deliberate override (recover-review
+            # already handles this case). The `or ''` form collapsed 0 to
+            # empty string, silently dropping the cap. Use explicit None / ''
+            # checks so 0 reaches MAX_TURNS / MAX_BUDGET_USD in the env file.
+            f"MAX_TURNS={q('' if manifest.get('max_turns') in (None, '') else str(manifest['max_turns']))}",
+            f"MAX_BUDGET_USD={q('' if manifest.get('max_budget_usd') in (None, '') else str(manifest['max_budget_usd']))}",
             f"SOFT_BUDGET_GUIDANCE={q(manifest.get('soft_budget_guidance') or '')}",
             f"REQUIRED_OUTPUTS={q(', '.join(manifest.get('required_outputs') or []))}",
             f"ALLOWED_WRITE_ROOTS={q(', '.join(manifest.get('allowed_write_roots') or []))}",
@@ -132,7 +137,12 @@ date -u +%Y-%m-%dT%H:%M:%SZ > "$RAW_DIR/claude.completed-at.txt"
 
 if git rev-parse --show-toplevel >/dev/null 2>&1; then
   git status --short --branch > "$RAW_DIR/git-status-after.txt" 2>/dev/null || true
-  git diff -- > "$RAW_DIR/git-diff-after.patch" 2>/dev/null || true
+  # S6 fix (gates review): `git diff --` captures only unstaged changes.
+  # A misbehaving reviewer that stages writes via `git add` would leave
+  # no record in the human-inspection patch even though git status (used
+  # by verify-review-output.sh) sees the staged paths. `git diff HEAD --`
+  # captures staged + unstaged.
+  git diff HEAD -- > "$RAW_DIR/git-diff-after.patch" 2>/dev/null || true
 else
   : > "$RAW_DIR/git-status-after.txt"
   : > "$RAW_DIR/git-diff-after.patch"
