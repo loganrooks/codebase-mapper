@@ -232,6 +232,8 @@ Last known full suite after PR #1 review remediation (F3 pass-claim scope match 
 
 Last known full suite after PR #1 review remediation pass 2 (W-NEW-1 cross-model parity for main-merge/broad-goal-restart + S-NEW-1 markdown_metadata frontmatter guard): `TMPDIR=/var/tmp pytest -q` reported `140 passed, 2 warnings`.
 
+Last known full suite after PR #1 review remediation pass 3 (W-OP-1 selector parity for cross-model scopes — checkpoint_for_loop_scope filters by declared scope before falling back to mtime-only; S-OP-1 dedup of missing_checkpoint issue): `TMPDIR=/var/tmp pytest -q` reported `141 passed, 2 warnings`.
+
 Last known skill package verification: a temp wheel built under `/var/tmp` contained 7 `cbm/runtime_skills/*.md` package entries.
 
 Last known skill-loaded live benchmark run: `TMPDIR=/var/tmp python3 -m cbm.cli run --repo /tmp/cbm-live-mcp-servers-4503e2d/src/git --goal "understand MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-skeptic-mode skill --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-codex-skeptic-skill-4` exited 0; `handoff.md` reported `skeptic_review.challenges_logged: 1` and `contestation_summary.open_challenges: 1`.

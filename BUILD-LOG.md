@@ -1840,3 +1840,25 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
 - Boundary:
   - Workflow-only review-discovery iteration, not a horizon advance. CURRENT-PLAN.md remains on H2.S1.
   - W-NEW-2 (`DEFAULT_CODEX_CLI_MODEL = "gpt-5.4-mini"` plausibility) deferred — live regressions exercise this default and pass; no current evidence of breakage. Will revisit if a Codex live run begins failing model selection.
+
+## 2026-05-15 — PR #1 review remediation pass 3: W-OP-1 selector parity for cross-model scopes + S-OP-1 dedup + ADR-005 vocab clarification
+
+- Context: `@claude opus cbm/cli.py` at Opus 4.7 / effort=max caught a P1 (W-OP-1) that the W-NEW-1 fix earlier this day introduced as a regression. The W-NEW-1 fix made the checkpoint's declared scope load-bearing in `checkpoint_pass_claim_issues` (scope-mismatch is a returned issue), but `checkpoint_for_loop_scope` still selected checkpoints by mtime alone for cross-model scopes. In a multi-checkpoint repo, a newer-mtime checkpoint with a different scope would shadow a valid scope-matching checkpoint and the gate would emit a spurious `checkpoint_scope_mismatch`. Same class of bug as F3 (gate vs reader/writer drift), one layer up.
+- Opus also raised P2 W-OP-2 (ADR-005 says "minimum-useful-CBM" but code uses "broad-goal-restart"; this is vocabulary drift between the ADR claim-type taxonomy and the implementation's scope-id taxonomy) and P3 S-OP-1 (duplicate `missing_checkpoint` issue emission for new cross-model scopes when the checkpoint is absent).
+- Implemented:
+  - Extended `checkpoint_for_loop_scope` to filter by declared scope for any scope in `SCOPES_REQUIRING_CROSS_MODEL`. The selector now iterates checkpoints (newest mtime first) and returns the first whose declared scope matches the requested gate scope. If no match is found, falls through to the existing `checkpoints[0]` fallback so the gate emits `checkpoint_scope_mismatch` (specific) rather than `missing_checkpoint` (generic) — preserves the existing error vocabulary.
+  - Guarded the `checkpoint_pass_claim_issues` call in `command_loop_status` against the `checkpoint_path is None` case so the dispatcher does not emit `missing_checkpoint` twice when a missing checkpoint is also a cross-model scope.
+  - Updated ADR-005 to record the mapping: minimum-useful-CBM claim is gated under `pass-claim` scope in the implementation; `SCOPES_REQUIRING_CROSS_MODEL = {"pass-claim", "main-merge", "broad-goal-restart"}` in `cbm/cli.py`; the selector now filters by scope so a newer checkpoint for a different scope does not shadow a valid scope-matching one.
+- Tests added:
+  - `test_loop_status_selects_scope_matching_checkpoint_when_newer_mismatched_exists` writes a valid main-merge checkpoint and a newer pass-claim checkpoint to separate review directories; asserts both `--scope main-merge` and `--scope pass-claim` return `status: ok` (each picks the scope-matching checkpoint).
+- Deferred:
+  - Opus S-OP-2 (mkdir before reviewer validation): low confidence; minor cleanup; defer.
+  - Opus S-OP-3 (substring-match disposition in `checkpoint_satisfies_resume`): low impact; only affects `--scope broad-goal` which is the lightest scope; defer.
+  - Gates W1-W4 + S1-S6 (10 findings on `.codex/skills/cross-vendor-review/scripts/`): all real; bundled into a separate follow-up slice (post-PR-#1 merge). Most load-bearing items are W3 (preflight/verify checkpointish drift, same class as F1) and W4 (model-identity cross-check between observed_model and reviewer_model_id). Both 2-line fixes.
+- Verification:
+  - Focused: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_loop_status_selects_scope_matching_checkpoint_when_newer_mismatched_exists tests/test_cli.py::test_loop_status_blocks_main_merge_when_checkpoint_scope_is_pass_claim tests/test_cli.py::test_loop_status_blocks_pass_claim_when_checkpoint_scope_is_recovery_slice tests/test_cli.py::test_loop_status_accepts_pass_claim_with_cross_model_reviewer` reported 4 passed, 2 warnings.
+  - Full suite: `TMPDIR=/var/tmp pytest -q` reported 141 passed, 2 warnings.
+  - `python3 -m cbm.cli loop-status --scope pass-claim --work-category runtime-producer --json` returns `status: ok` on the H1 checkpoint.
+- Boundary:
+  - This regression and the workflow-uplift cycle that surfaced it are review-discovery iterations on PR #1, not a horizon advance.
+  - The fix scope-matches the H1 checkpoint correctly: H1 packet declares `scope: pass-claim`, gate request is `--scope pass-claim`, selector picks the H1 packet, gate passes.

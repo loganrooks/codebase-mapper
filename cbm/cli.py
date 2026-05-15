@@ -5395,6 +5395,20 @@ def checkpoint_for_loop_scope(repo: Path, scope: str) -> Path | None:
     checkpoints = checkpoint_files(repo)
     if not checkpoints:
         return None
+    if scope in SCOPES_REQUIRING_CROSS_MODEL:
+        # Cross-model scopes require scope-label match (ADR-005 + W-NEW-1).
+        # Select the most-recent checkpoint whose declared scope matches
+        # the requested gate scope. If none match, fall through to the
+        # most-recent overall so the gate can emit the specific
+        # `checkpoint_scope_mismatch` issue rather than the generic
+        # `missing_checkpoint` issue. This preserves the error vocabulary
+        # for an operator who created a checkpoint for the wrong scope.
+        for checkpoint in checkpoints:
+            metadata = checkpoint_metadata(checkpoint)
+            disposition = checkpoint_disposition_metadata(checkpoint)
+            checkpoint_scope = (metadata.get("scope") or disposition.get("scope") or "").strip().lower()
+            if checkpoint_scope == scope:
+                return checkpoint
     if scope in {"broad-goal", "broad-goal-restart"}:
         for checkpoint in checkpoints:
             if checkpoint_satisfies_resume(checkpoint):
@@ -5849,7 +5863,10 @@ def command_loop_status(args: argparse.Namespace) -> int:
         else:
             warnings.append(issue)
 
-    if args.scope in SCOPES_REQUIRING_CROSS_MODEL:
+    if args.scope in SCOPES_REQUIRING_CROSS_MODEL and checkpoint_path is not None:
+        # When checkpoint_path is None, the missing_checkpoint issue is
+        # already appended above; skip the call to avoid emitting the
+        # same issue twice.
         issues.extend(checkpoint_pass_claim_issues(checkpoint_path, config, args.scope))
     elif args.scope == "recovery-slice":
         recovery_model_issues = checkpoint_pass_claim_issues(checkpoint_path, config, args.scope)

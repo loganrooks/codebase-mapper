@@ -3511,6 +3511,54 @@ def test_loop_status_accepts_broad_goal_restart_with_matching_scope_and_cross_mo
     assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal-restart", "--work-category", "loop-status"]) == 0
 
 
+def test_loop_status_selects_scope_matching_checkpoint_when_newer_mismatched_exists(tmp_path: Path) -> None:
+    """W-OP-1 regression: with a valid main-merge checkpoint plus a newer
+    pass-claim checkpoint, --scope main-merge must select the older
+    scope-matching checkpoint rather than the newer-mtime mismatched one.
+    Otherwise the W-NEW-1 scope-match gate produces a spurious
+    `checkpoint_scope_mismatch` when a valid checkpoint exists.
+    """
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+
+    # Older main-merge checkpoint (valid for the gate we'll query).
+    main_merge_dir = repo / ".planning" / "reviews" / "2026-05-08-main-merge"
+    main_merge_dir.mkdir(parents=True)
+    (main_merge_dir / "CHECKPOINT.md").write_text(
+        "# Checkpoint\n\nscope: main-merge\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n",
+        encoding="utf-8",
+    )
+    (main_merge_dir / "DISPOSITION.md").write_text(
+        "# Disposition\n\nDisposition: accept\n",
+        encoding="utf-8",
+    )
+    import os
+    import time
+
+    older = time.time() - 7200
+    os.utime(main_merge_dir / "CHECKPOINT.md", (older, older))
+
+    # Newer pass-claim checkpoint (would be selected by mtime alone).
+    pass_claim_dir = repo / ".planning" / "reviews" / "2026-05-12-pass-claim"
+    pass_claim_dir.mkdir(parents=True)
+    (pass_claim_dir / "CHECKPOINT.md").write_text(
+        "# Checkpoint\n\nscope: pass-claim\nreviewer_model_id: claude-opus-4-7\nDisposition: accept\n",
+        encoding="utf-8",
+    )
+    (pass_claim_dir / "DISPOSITION.md").write_text(
+        "# Disposition\n\nDisposition: accept\n",
+        encoding="utf-8",
+    )
+
+    git(repo, "add", ".planning")
+    git(repo, "commit", "-m", "add coexisting checkpoints")
+
+    # main-merge gate must select the older main-merge-scoped checkpoint.
+    assert main(["loop-status", "--repo", str(repo), "--scope", "main-merge", "--work-category", "loop-status"]) == 0
+    # pass-claim gate must select the newer pass-claim-scoped checkpoint.
+    assert main(["loop-status", "--repo", str(repo), "--scope", "pass-claim", "--work-category", "loop-status"]) == 0
+
+
 def test_markdown_metadata_handles_truncated_frontmatter() -> None:
     from cbm.cli import markdown_metadata
 
