@@ -3683,6 +3683,25 @@ def test_checkpoint_command_emits_packet_with_required_files(tmp_path: Path) -> 
     assert "pass_criterion: test criterion" in checkpoint_text
 
 
+def test_checkpoint_rejects_cross_model_scope_without_reviewer(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """S-OP-2 regression: `cbm checkpoint --scope pass-claim` without
+    --reviewer must fail BEFORE creating the packet directory. Otherwise
+    an empty packet pollutes .planning/reviews/ with mtime noise that
+    the selector has to navigate.
+    """
+    repo = make_repo(tmp_path)
+    write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+
+    reviews_before = sorted((repo / ".planning" / "reviews").glob("*/CHECKPOINT.md"))
+
+    assert main(["checkpoint", "--repo", str(repo), "--pass-criterion", "test", "--scope", "pass-claim"]) == 1
+    err = capsys.readouterr().err
+    assert "requires --reviewer" in err
+
+    reviews_after = sorted((repo / ".planning" / "reviews").glob("*/CHECKPOINT.md"))
+    assert reviews_after == reviews_before, "S-OP-2 regression: empty packet directory was created on failed checkpoint"
+
+
 def test_checkpoint_command_disposition_template_uses_disposition_field(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     write_loop_status_scaffold(repo, checkpoint_satisfies=True)

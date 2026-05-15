@@ -5586,11 +5586,23 @@ def next_checkpoint_dir(repo: Path, pass_criterion: str) -> Path:
 
 def command_checkpoint(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
+    # S-OP-2 fix (opus review): validate args before mkdir. Previously a
+    # `cbm checkpoint --scope pass-claim` with no --reviewer would create
+    # an empty packet directory that loop-status would later reject with
+    # missing_reviewer_model_id, leaving mtime noise in .planning/reviews/
+    # that the selector at checkpoint_for_loop_scope had to navigate.
+    same_model_fallback = bool(args.reviewer_fallback_same_model)
+    if args.scope in SCOPES_REQUIRING_CROSS_MODEL and not args.reviewer and not same_model_fallback:
+        print(
+            f"error: --scope {args.scope} requires --reviewer (cross-model checkpoint per ADR-005). "
+            "Pass --reviewer <model-id> or use --reviewer-fallback-same-model only for recovery-slice scope.",
+            file=sys.stderr,
+        )
+        return 1
     packet = next_checkpoint_dir(repo, args.pass_criterion)
     packet.mkdir(parents=True, exist_ok=False)
     date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     reviewer = args.reviewer or ""
-    same_model_fallback = bool(args.reviewer_fallback_same_model)
     if same_model_fallback and args.scope != "recovery-slice":
         print("warning: same-model fallback cannot clear pass-claim, main-merge, or broad-goal-restart scope", file=sys.stderr)
     state_path = repo / ".planning" / "STATE.md"
