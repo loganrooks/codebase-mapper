@@ -2612,6 +2612,11 @@ def apply_runtime_skeptic_challenges(repo: Path, artifact_path: Path, data: dict
     if not ledger_path.exists():
         ledger_path = artifact_path.parents[1] / "evidence-ledger.jsonl"
     ingested_ids: list[str] = []
+    # Buffer ledger entries; commit only after the mutated artifact
+    # validates (F2 from Codex review). Otherwise a validation failure
+    # leaves the append-only ledger with `claim_challenged` rows that
+    # reference challenges not present in the persisted artifact.
+    pending_entries: list[dict[str, Any]] = []
     for item in challenges:
         claim_id = item["claim_id"]
         claim = find_claim(data, claim_id)
@@ -2637,28 +2642,33 @@ def apply_runtime_skeptic_challenges(repo: Path, artifact_path: Path, data: dict
         }
         claim.setdefault("challenges", []).append(challenge)
         claim["claim_status"] = "contested" if len(claim["challenges"]) > 1 else "challenged"
-        entry = {
-            "schema_version": SCHEMA_VERSION,
-            "entry_id": next_ledger_id(ledger_path),
-            "ts": utc_now(),
-            "entry_kind": "claim_challenged",
-            "agent": raised_by,
-            "skill_version": "1.2",
-            "run_id": data["run_id"],
-            "source_sha": data["source_sha"],
-            "artifact_path": str(artifact_path.relative_to(repo)),
-            "claim_id": claim_id,
-            "challenge_id": challenge_id,
-            "challenge": item["competing_reading"],
-            "competing_evidence": evidence,
-        }
-        append_ledger_entry(repo, ledger_path, entry)
+        pending_entries.append(
+            {
+                "schema_version": SCHEMA_VERSION,
+                # entry_id assigned at commit time (after validation) so a
+                # buffered batch does not collide on ids.
+                "ts": utc_now(),
+                "entry_kind": "claim_challenged",
+                "agent": raised_by,
+                "skill_version": "1.2",
+                "run_id": data["run_id"],
+                "source_sha": data["source_sha"],
+                "artifact_path": str(artifact_path.relative_to(repo)),
+                "claim_id": claim_id,
+                "challenge_id": challenge_id,
+                "challenge": item["competing_reading"],
+                "competing_evidence": evidence,
+            }
+        )
         ingested_ids.append(challenge_id)
     errors = validate_data(repo, data, artifact_type)
     errors.extend(extractor_registry_errors_for_artifact(repo, data))
     errors.extend(check_claim_evidence(data, extractors_for_artifact(repo, data)))
     if errors:
         raise ValueError("\n".join(errors))
+    for entry in pending_entries:
+        entry["entry_id"] = next_ledger_id(ledger_path)
+        append_ledger_entry(repo, ledger_path, entry)
     write_json(artifact_path, data)
     return ingested_ids
 
@@ -4847,6 +4857,26 @@ def command_handoff(args: argparse.Namespace) -> int:
     if not uncertainty_append_only_ok:
         print(f"uncertainty register append-only verification failed: {uncertainty_append_only_reason}", file=sys.stderr)
         return 1
+    # Validate the surface BEFORE mutating any append-only ledger or
+    # uncertainty register (F4 from Codex review): a validation failure
+    # after the ledger writes leaves durable provenance pointing at a
+    # finding card that was never written.
+    unknown_edge = next((edge for edge in surface["edges"] if edge["kind"] == "unknown"), None)
+    if unknown_edge is None:
+        print("surface map is missing an edge with kind == unknown", file=sys.stderr)
+        return 1
+    errors = validate_data(repo, surface, "surface_map")
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    evidence_errors = extractor_registry_errors_for_artifact(repo, surface)
+    evidence_errors.extend(check_claim_evidence(surface, extractors_for_artifact(repo, surface)))
+    if evidence_errors:
+        for error in evidence_errors:
+            print(f"evidence-fail {error}", file=sys.stderr)
+        return 1
+    # Validation passed; now commit ledger entries and write artifact.
     now = utc_now()
     citation_entry = {
         "schema_version": SCHEMA_VERSION,
@@ -4898,21 +4928,6 @@ def command_handoff(args: argparse.Namespace) -> int:
         append_ledger_entry(repo, ledger_path, uncertainty_entry)
     except ValueError as exc:
         print(exc, file=sys.stderr)
-        return 1
-    unknown_edge = next((edge for edge in surface["edges"] if edge["kind"] == "unknown"), None)
-    if unknown_edge is None:
-        print("surface map is missing an edge with kind == unknown", file=sys.stderr)
-        return 1
-    errors = validate_data(repo, surface, "surface_map")
-    if errors:
-        for error in errors:
-            print(error, file=sys.stderr)
-        return 1
-    evidence_errors = extractor_registry_errors_for_artifact(repo, surface)
-    evidence_errors.extend(check_claim_evidence(surface, extractors_for_artifact(repo, surface)))
-    if evidence_errors:
-        for error in evidence_errors:
-            print(f"evidence-fail {error}", file=sys.stderr)
         return 1
     write_json(surface_path, surface)
     if skeptic_path.exists():

@@ -136,6 +136,28 @@ if checkpointish:
         for family in disallowed_families:
             if family and family in reviewer_lower:
                 issues.append({"code": "same_model_disallowed", "path": str(disposition_json_path if structured_disposition else disposition_path), "detail": reviewer_model})
+    # W4 fix (gates review): the self-reported reviewer_model_id can be
+    # mis-stated; cross-check against the live stream-captured
+    # observed_model from the runner. Flag (a) observed_model in a
+    # disallowed family and (b) observed_model that disagrees with
+    # the self-reported reviewer_model_id.
+    observed_model = str(manifest.get("claude", {}).get("observed_model") or "").strip()
+    if observed_model:
+        observed_lower = observed_model.lower()
+        for family in disallowed_families:
+            if family and family in observed_lower:
+                issues.append({
+                    "code": "same_model_disallowed_observed",
+                    "path": str(manifest_path),
+                    "detail": f"observed_model={observed_model}",
+                })
+                break
+        if reviewer_model and reviewer_model.strip().lower() != observed_lower:
+            issues.append({
+                "code": "reviewer_observed_model_mismatch",
+                "path": str(manifest_path),
+                "detail": f"reviewer_model_id={reviewer_model} observed_model={observed_model}",
+            })
 
 verify = {
     "run_id": manifest.get("run_id"),

@@ -158,7 +158,12 @@ for line in status_before.splitlines():
     if xvr_status_prefix and (payload == xvr_status_prefix or payload.startswith(xvr_status_prefix + "/")):
         continue
     dirty_lines.append(line)
-checkpointish = "checkpoint" in review_type.lower() or "pass_claim" in review_type.lower()
+# W3 fix (gates review): align preflight's checkpointish predicate to
+# verify-review-output.sh:92. Verify includes decision_required so a spec
+# with decision_required: true and a non-checkpoint review_type is
+# correctly recognized as checkpointish. Same vocabulary, one definition.
+decision_required = as_bool(spec.get("decision_required"), False)
+checkpointish = decision_required or "checkpoint" in review_type.lower() or "pass_claim" in review_type.lower()
 allow_dirty = as_bool(spec.get("allow_dirty_worktree"), False)
 if checkpointish and dirty_lines and not allow_dirty:
     (run_dir / "PREFLIGHT-FAILED.txt").write_text(

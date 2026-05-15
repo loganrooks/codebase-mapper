@@ -1862,3 +1862,27 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
 - Boundary:
   - This regression and the workflow-uplift cycle that surfaced it are review-discovery iterations on PR #1, not a horizon advance.
   - The fix scope-matches the H1 checkpoint correctly: H1 packet declares `scope: pass-claim`, gate request is `--scope pass-claim`, selector picks the H1 packet, gate passes.
+
+## 2026-05-15 — PR #1 follow-up slice 1: F2 + F4 (ledger before validation) + gates W3 + W4 (review-skill drift + observed_model)
+
+- Context: After the comprehensive disposition map went up, drained the remaining deferred slice while user was offline. Four findings from prior review rounds: F2 + F4 (Codex round 1, ledger-before-validation in skeptic ingestion and baseline handoff) and gates W3 + W4 (cross-vendor-review skill scripts — checkpointish reader/writer drift + missing observed_model cross-check).
+- Implemented:
+  - **F2** (`cbm/cli.py` `apply_runtime_skeptic_challenges`): buffer the `claim_challenged` ledger entries in `pending_entries` while challenges are validated against the in-memory artifact. Only after `validate_data` + extractor registry + claim-evidence checks all pass do we assign sequential `entry_id` values via `next_ledger_id(ledger_path)` and append. A validation failure now raises with the append-only ledger unchanged.
+  - **F4** (`cbm/cli.py` baseline handoff path): moved the unknown-edge check + `validate_data(surface_map)` + `extractor_registry_errors_for_artifact` + `check_claim_evidence` BEFORE the citation/uncertainty/uncertainty_entry ledger writes. The directories `mkdir(parents=True, exist_ok=True)` remain at the top of the function (idempotent, no durable artifact state).
+  - **gates W3** (`.codex/skills/cross-vendor-review/scripts/preflight.sh`): aligned the `checkpointish` predicate to `verify-review-output.sh:92` by including `decision_required = as_bool(spec.get("decision_required"), False)` in the disjunction. The drift the gates reviewer flagged — a `decision_required: true` non-checkpoint spec is checkpointish at verify but not at preflight — no longer exists.
+  - **gates W4** (`.codex/skills/cross-vendor-review/scripts/verify-review-output.sh`): added a cross-check against `manifest["claude"]["observed_model"]` (captured from the live stream JSON by `run-claude-code-review.sh`). Two new issue codes: `same_model_disallowed_observed` (observed_model matches a disallowed family even when reviewer_model_id is honest), and `reviewer_observed_model_mismatch` (the reviewer's self-report and the live-stream observation disagree).
+- Tests added:
+  - `test_handoff_does_not_pollute_ledger_when_surface_validation_fails` (F4 regression): corrupts a surface map so handoff fails on evidence validation, captures `evidence-ledger.jsonl` size before and after the failing handoff call, and asserts the ledger is byte-identical. Pinned to the new validation-before-ledger ordering.
+- Not added: a direct unit test for F2 (apply_runtime_skeptic_challenges with a deliberately-invalid mutation). The function is currently exercised through live integration tests with valid inputs only; constructing a failure-path unit test would require building a schema-shaped surface map with a challenge that mutates the artifact into an invalid state. The change is mechanical (buffer-then-validate-then-commit) and inspected; F4 regression test illustrates the pattern.
+- Verification:
+  - Cross-vendor-review skill tests: `TMPDIR=/var/tmp pytest -q tests/test_cross_vendor_review_skill.py` reported 11 passed.
+  - Focused F4: `TMPDIR=/var/tmp pytest -q tests/test_cli.py::test_handoff_does_not_pollute_ledger_when_surface_validation_fails tests/test_cli.py::test_handoff_rejects_evidence_invalid_surface` reported 2 passed.
+  - Full suite: `TMPDIR=/var/tmp pytest -q` reported 142 passed, 2 warnings.
+  - `python3 -m cbm.cli loop-status --scope pass-claim --work-category runtime-producer --json` returns `status: ok` on the H1 checkpoint.
+- Deferred to later (not blocking H1 merge):
+  - Gates W1 + W2 (pyyaml-missing silent no-ops): low priority; deployment hosts have pyyaml. Add stderr warnings in a later cleanup.
+  - Gates S1-S6 (review-skill smaller robustness items): bundle in a later cleanup pass.
+  - S-OP-2 (opus: mkdir before reviewer validation), S-OP-3 (opus: substring match in `checkpoint_satisfies_resume`): low confidence per opus; defer.
+  - W-NEW-2 (Codex model string plausibility): exercise at H2 if Codex live runs continue.
+  - agentic-ops PR #21 v1 fast-forward + CBM stub `@<sha>` → `@v1` revert: needs user approval on agentic-ops PR #21 first.
+- Boundary: review-discovery follow-up; no horizon advance.
