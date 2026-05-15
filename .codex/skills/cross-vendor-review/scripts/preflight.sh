@@ -87,6 +87,19 @@ def load_spec(path: Path) -> dict:
         if not isinstance(data, dict):
             raise SystemExit("REVIEW-SPEC.md must parse to a mapping")
         return data
+    # W2 fix (gates review): the bare-host fallback parser drops every
+    # indented line, which is exactly how YAML expresses lists. Without
+    # this warning, `allowed_dispositions`, `disallowed_reviewer_model_families`,
+    # `allowed_write_roots`, `required_outputs`, and `tools` silently
+    # become empty and the corresponding verify-review-output.sh gates
+    # never fire. Make the degraded path loud.
+    sys.stderr.write(
+        "preflight: warning: pyyaml unavailable; falling back to line-mode parser. "
+        "List-valued spec fields (allowed_dispositions, disallowed_reviewer_model_families, "
+        "allowed_write_roots, required_outputs, tools) will be EMPTY and the corresponding "
+        "verify-review-output.sh gates will NOT fire on this host. Install pyyaml for full "
+        "spec enforcement.\n"
+    )
     data: dict[str, object] = {}
     for line in text.splitlines():
         if ":" not in line or line.lstrip().startswith("#") or line.startswith(" "):

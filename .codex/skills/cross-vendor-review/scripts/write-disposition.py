@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -19,7 +20,18 @@ def utc_now() -> str:
 
 def load_spec(review_dir: Path) -> dict[str, Any]:
     spec_path = review_dir / "REVIEW-SPEC.md"
-    if not spec_path.exists() or yaml is None:
+    if not spec_path.exists():
+        return {}
+    if yaml is None:
+        # W1 fix (gates review): a missing pyyaml turns this script into
+        # a no-op disposition-validator. Make that condition loud so the
+        # silent fallback is at least visible in the recovery log.
+        print(
+            f"write-disposition: warning: pyyaml is unavailable; cannot validate "
+            f"disposition against {spec_path}. Disposition will be persisted "
+            f"without spec-level enforcement (allowed_dispositions check skipped).",
+            file=sys.stderr,
+        )
         return {}
     data = yaml.safe_load(spec_path.read_text(encoding="utf-8")) or {}
     return data if isinstance(data, dict) else {}
