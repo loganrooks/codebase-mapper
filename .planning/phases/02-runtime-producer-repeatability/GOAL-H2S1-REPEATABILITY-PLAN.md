@@ -2,6 +2,9 @@
 
 Status: proposed
 Date: 2026-05-16
+Last updated: 2026-05-16
+Supersedes: none
+Superseded by: none
 Audience: AI agent executing the work, and human reviewer auditing the result
 Primary horizon: H2 — Runtime Producer Repeatability
 Current stage: H2.S1
@@ -87,19 +90,19 @@ H2.S1 must preserve all of these as open questions, not assume them resolved.
 
 ## H2.S1 Deliverables
 
-Produce these artifacts:
+Produce (new) or expand (existing) these artifacts:
 
 ```text
 .planning/phases/02-runtime-producer-repeatability/
-  PLAN.md                          (phase overview, status: active)
-  SUMMARY.md                       (short summary, status: active)
-  VERIFICATION.md                  (phase-level verification record skeleton)
-  GOAL-H2S1-REPEATABILITY-PLAN.md  (this file — keep up to date as state changes)
-  H2-TARGET-SELECTION.md           (candidate targets, reasoning, user-confirmed pick)
-  H2-PLAN.md                       (binding H2 plan: target, acceptance, verification,
+  PLAN.md                          (stub exists; expand with concrete H2.S1/S2/S3 detail)
+  SUMMARY.md                       (stub exists; expand as H2.S1 advances)
+  VERIFICATION.md                  (stub exists; expand with H2.S1 verification record)
+  GOAL-H2S1-REPEATABILITY-PLAN.md  (this file — keep "Last updated" current as state changes)
+  H2-TARGET-SELECTION.md           (new — candidate targets, reasoning, user-confirmed pick)
+  H2-PLAN.md                       (new — binding H2 plan: target, acceptance, verification,
                                     H2.S2/H2.S3 slice structure)
-  H2-BENCHMARK-PACKET-SKELETON.md  (expected packet paths and artifact contracts for H2.S2+)
-  H2-PREFLIGHT.md                  (preflight concerns to resolve before H2.S2 dispatch)
+  H2-BENCHMARK-PACKET-SKELETON.md  (new — expected packet paths and artifact contracts for H2.S2+)
+  H2-PREFLIGHT.md                  (new — preflight concerns to resolve before H2.S2 dispatch)
 ```
 
 Update these existing artifacts:
@@ -323,41 +326,23 @@ After the H2 target is locked and `H2-PLAN.md` is filled:
 
 ### `.planning/phases/02-runtime-producer-repeatability/PLAN.md`
 
-Create with this skeleton:
+The stub created when this brief landed already carries Status / Last updated / Supersedes / Superseded-by metadata and a track skeleton (H2.S1 / H2.S2 / H2.S3). Expand it as H2.S1 advances:
 
-```markdown
-# Phase 02: Runtime Producer Repeatability
+- bump `Last updated:` to the current date;
+- update the H2.S1 track entry to "in progress" or "completed" with a reference to the produced deliverables;
+- carry forward the H2.S2 and H2.S3 track entries from `H2-PLAN.md` once the target is locked;
+- copy the concrete verification command list from `H2-PLAN.md` into the `## Verification` section.
 
-Status: active
-Last updated: <date>
-
-## Objective
-
-Prove the H1 minimum-useful demonstration was not an MCP `src/git`-specific artifact by
-repeating real Surface Mapper + Skeptic + carried challenge + validated handoff + cross-
-model checkpoint on a second pinned external target.
-
-Acceptance criterion: H2.A1-H2.A5 (see GOAL-H2S1-REPEATABILITY-PLAN.md and H2-PLAN.md).
-
-## Track
-
-- H2.S1: Repeatability plan. Status: in progress / completed.
-- H2.S2: Live Surface Mapper + Skeptic run on chosen target. Status: pending until H2.S1 completes.
-- H2.S3: Validated handoff + cross-vendor checkpoint. Status: pending until H2.S2 completes.
-
-## Verification
-
-(carried forward from H2-PLAN.md once filled)
-
-## Stop Conditions
-
-Follow `AGENTS.md` and the stop-and-surface conditions in
-`GOAL-H2S1-REPEATABILITY-PLAN.md`.
-```
+Do not rewrite the phase objective or overwrite the metadata block.
 
 ### `.planning/phases/02-runtime-producer-repeatability/SUMMARY.md` and `VERIFICATION.md`
 
-Create as short stubs that point at `PLAN.md` and `H2-PLAN.md`. Do not over-write before evidence exists.
+Both stubs exist with metadata + minimal body. Expand them as evidence accrues:
+
+- `SUMMARY.md`: keep one orienting paragraph plus a short factual state list; never let it overclaim. Bump `Last updated:` on every change.
+- `VERIFICATION.md`: append the concrete commands run, exit codes, test counts, and loop-status outcomes for each H2.S1 deliverable. Continue appending for H2.S2 and H2.S3 as they produce evidence. Bump `Last updated:` on every change.
+
+Do not overwrite the existing stubs without preserving their metadata fields.
 
 ### `BUILD-LOG.md`
 
@@ -404,7 +389,7 @@ This goal is complete when:
 - `H2-PLAN.md` fills H2 acceptance, verification commands, and slice structure for the chosen target.
 - `H2-BENCHMARK-PACKET-SKELETON.md` enumerates expected H2.S2 and H2.S3 packet paths and contracts.
 - `H2-PREFLIGHT.md` documents at least concerns 1–5 above plus any target-specific risks.
-- Phase 02 directory contains `PLAN.md`, `SUMMARY.md`, `VERIFICATION.md` skeletons.
+- Phase 02 directory's `PLAN.md`, `SUMMARY.md`, and `VERIFICATION.md` stubs are expanded with concrete H2.S1 content (metadata bumped; tracks/state/verification fields filled with `H2-PLAN.md`-derived values).
 - `.planning/CURRENT-PLAN.md`, `.planning/HORIZONS.md`, `.planning/STATE.md`, and `BUILD-LOG.md` reflect H2.S1 status.
 - `TMPDIR=/var/tmp pytest -q` passes.
 - `cbm-loop-status --scope broad-goal --work-category runtime-producer` passes.
