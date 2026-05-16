@@ -1,7 +1,7 @@
 # CBM Horizons
 
 Status: active
-Last updated: 2026-05-07
+Last updated: 2026-05-16
 Supersedes: direct execution from `VISION.md`
 Superseded by: none
 
@@ -245,7 +245,7 @@ Acceptance:
 
 ### H2.S1 - Repeatability Plan
 
-Status: current
+Status: current; `/goal` brief drafted at `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` on 2026-05-16. Awaiting `/goal` execution to produce H2-TARGET-SELECTION.md (with user-confirmed target pick), H2-PLAN.md, H2-BENCHMARK-PACKET-SKELETON.md, H2-PREFLIGHT.md, and phase 02 PLAN/SUMMARY/VERIFICATION skeletons.
 
 Objective:
 

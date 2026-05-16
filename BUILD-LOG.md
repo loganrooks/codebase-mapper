@@ -1968,3 +1968,22 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
 - Boundary:
   - Post-H1 cleanup; no horizon advance.
   - W-NEW-2 (`DEFAULT_CODEX_CLI_MODEL` plausibility) STILL deferred — that one is intentionally exercised at H2 when live Codex runs resume.
+
+## 2026-05-16 — H2.S1 repeatability plan brief drafted
+
+- Context: PR #1 (H1 minimum-useful close) merged to main on 2026-05-16 as `76db3bc`; PR #12 reverted the CBM caller stub to `agentic-ops@v1` as `bf277dc`; PR #13 drained the post-H1 P3 cleanup as `6b5e502`. Working tree on `main` is clean. Per `.planning/HORIZONS.md`, the current horizon is H2 — Runtime Producer Repeatability, and the current stage is H2.S1 — Repeatability Plan. The recovery-loop discipline established across H1 is per-slice `/goal` invocation (H1.S1 → H1.S2a → H1.S2b → H1.S2c → H1.S3, each with its own `token_budget` and its own ADR-005 cross-model checkpoint); the H2 execution should mirror that shape (H2.S1 planning, then H2.S2 live run, then H2.S3 handoff + cross-vendor checkpoint). This slice drafts the H2.S1 `/goal` brief — the executable specification for the planning slice — not the products of H2.S1.
+- Implemented:
+  - Created `.planning/phases/02-runtime-producer-repeatability/`.
+  - Added `GOAL-H2S1-REPEATABILITY-PLAN.md` modeled on `GOAL-H1S3-MINIMUM-USEFUL-HANDOFF.md`. Sections: one-sentence mission, non-negotiable scope (planning only — no live producer run against the new target), required reading, current facts to preserve, deliverables (H2-TARGET-SELECTION.md / H2-PLAN.md / H2-BENCHMARK-PACKET-SKELETON.md / H2-PREFLIGHT.md plus phase 02 PLAN/SUMMARY/VERIFICATION skeletons), target selection criteria (5 hard + 4 anti-criteria), 3 candidate axes (same-repo-different-subtree, different-repo-same-language, different-repo-different-language) with stop-and-surface for the user pick, H2.A1–A5 acceptance template, H2 verification command template, proposed H2.S2/H2.S3 slice structure, packet skeleton plan, 5 preflight concerns (producer-skill language generalization, backend budget, cross-vendor-review skill repeatability, schema/validator drift, H1-caveat carryover classification), planning-doc update requirements, required verification commands for the H2.S1 `/goal` exit, completion criteria, stop-and-surface conditions (10 trip points), expected commit messages, and post-goal follow-up that explicitly mandates a fresh `/goal` for H2.S2 against the locked target rather than a mega-`/goal` covering all of H2.
+  - Updated `.planning/CURRENT-PLAN.md`: added Active Recovery Sequence item 26 recording the brief drafting; extended the "Next /goal Track" section with the per-slice rationale (token budget per slice, ADR-005 checkpoint per slice, recovery boundary per slice; mirrors the accepted H1 execution shape).
+  - Updated `.planning/STATE.md`: extended the PR #1 summary line to mention PR #12 (caller-stub revert) and PR #13 (P3 cleanup); added a new fact line for the H2.S1 brief; updated the "pending next work" line to point at the H2.S1 `/goal` execution rather than at completed items; appended a verification footer for the planning-doc-only slice.
+  - Updated `.planning/HORIZONS.md`: bumped "Last updated" to 2026-05-16; annotated H2.S1 status with the brief path and a one-line description of what the `/goal` execution will produce.
+- Tests: none. Planning-doc-only slice; no source change; no schema change; no scripts changed.
+- Verification:
+  - Pre-edit `git status` reported `.planning/phases/02-runtime-producer-repeatability/` and `.claude/` as the only untracked entries; tracked tree was clean.
+  - No `pytest`, no `cbm-loop-status` run for this slice (no source mutation; loop-status status is preserved from PR #13's verification footer at `146 passed, 2 warnings` and `pass-claim` `status: ok` on the H1 checkpoint).
+  - Phase 02 PLAN.md/SUMMARY.md/VERIFICATION.md skeletons intentionally NOT pre-created — those are the first deliverables of the H2.S1 `/goal` itself.
+- Boundary:
+  - Drafted the H2.S1 `/goal` brief, not executed it. No target picked. No live producer run. No claim of H2 progress beyond "brief exists".
+  - Phase B+ and repeatability claims remain blocked behind the H2.S1/S2/S3 evidence chain.
+  - The brief preserves H1 as accepted for one pinned target only; H2 is open.
