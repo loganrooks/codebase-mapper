@@ -3893,7 +3893,13 @@ def envelope_refusal(gate_envelope: dict[str, Any], args: argparse.Namespace) ->
         return "gate requires dependency installation outside approved envelope"
     if gate_envelope.get("mutates_filesystem") and not args.allow_mutation:
         return "gate mutates the filesystem outside approved envelope"
-    if gate_envelope["max_duration_seconds"] > args.max_duration:
+    # S-OPUS-14 (verify-gates S14) fix: use .get() instead of [] indexing.
+    # The schema makes max_duration_seconds optional, but the previous
+    # form raised KeyError on a hand-edited artifact that omitted the
+    # field — surfacing as an uncaught traceback rather than refusing
+    # cleanly. Other envelope flags above already use .get().
+    max_duration_seconds = gate_envelope.get("max_duration_seconds")
+    if max_duration_seconds is not None and max_duration_seconds > args.max_duration:
         return "gate max duration exceeds approved envelope"
     return None
 
@@ -5448,6 +5454,20 @@ def checkpoint_for_loop_scope(repo: Path, scope: str) -> Path | None:
 
 ACCEPTED_DISPOSITION_VALUES = {"accept", "accepted", "waived-by-user"}
 
+# S-OPUS-4 fix: scope-set constants moved to the same module-level
+# block as ACCEPTED_DISPOSITION_VALUES so the read order matches the
+# usage order. Previously these were declared at line 5764, well after
+# their first reference at line 5428 (checkpoint_for_loop_scope), which
+# worked at runtime because Python resolves names at call time but was
+# read-order-fragile (a refactor that used them in a default arg or at
+# import-time would have broken in a confusing way).
+SCOPES_REQUIRING_CROSS_MODEL = {"pass-claim", "main-merge", "broad-goal-restart"}
+# Scope sets used by command_loop_status; named so the three
+# close-together inline literals at the call sites cannot drift.
+SCOPES_TREATING_HORIZON_AS_HARD = {"broad-goal", "broad-goal-restart", "pass-claim", "main-merge"}
+SCOPES_TREATING_MISSING_CHECKPOINT_AS_HARD = SCOPES_TREATING_HORIZON_AS_HARD
+SCOPES_REQUIRING_RESUME_GATE = {"broad-goal", "broad-goal-restart"}
+
 
 def checkpoint_satisfies_resume(path: Path) -> bool:
     # Verify-gates Warning 7 fix: previously this used substring `in`
@@ -5462,7 +5482,12 @@ def checkpoint_satisfies_resume(path: Path) -> bool:
     # "Satisfies resume gate: yes" marker remains as a legacy override
     # for older checkpoints that predate the disposition field.
     text = path.read_text(encoding="utf-8")
-    if "Satisfies resume gate: yes" in text:
+    # S-OPUS-3 fix: anchor the legacy marker to a line start so
+    # narrative text incidentally containing the phrase
+    # (e.g. quoted examples in a CHECKPOINT.md body) does not
+    # accidentally satisfy the resume gate. Case-insensitive +
+    # multi-line + optional trailing word characters.
+    if re.search(r"(?im)^Satisfies resume gate:\s*yes\b", text):
         return True
     metadata = checkpoint_metadata(path)
     disposition_md = checkpoint_disposition_metadata(path)
@@ -5761,14 +5786,6 @@ Disposition:
     return 0
 
 
-SCOPES_REQUIRING_CROSS_MODEL = {"pass-claim", "main-merge", "broad-goal-restart"}
-# Verify-gates Warning 10 fix: name the scope sets used by command_loop_status
-# so the three close-together inline literals at the call sites cannot drift.
-SCOPES_TREATING_HORIZON_AS_HARD = {"broad-goal", "broad-goal-restart", "pass-claim", "main-merge"}
-SCOPES_TREATING_MISSING_CHECKPOINT_AS_HARD = SCOPES_TREATING_HORIZON_AS_HARD
-SCOPES_REQUIRING_RESUME_GATE = {"broad-goal", "broad-goal-restart"}
-
-
 def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scope: str) -> list[dict[str, str]]:
     if not path:
         return [{"code": "missing_checkpoint", "message": "no checkpoint review artifact found under .planning/reviews"}]
@@ -5808,7 +5825,21 @@ def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scop
                 }
             ]
     disposition_value = (metadata.get("disposition") or disposition.get("disposition") or "").lower()
-    if scope in SCOPES_REQUIRING_CROSS_MODEL and disposition_value not in ACCEPTED_DISPOSITION_VALUES:
+    if (
+        scope in SCOPES_REQUIRING_CROSS_MODEL
+        and scope not in SCOPES_REQUIRING_RESUME_GATE
+        and disposition_value not in ACCEPTED_DISPOSITION_VALUES
+    ):
+        # S-OPUS-2 fix: for scopes in BOTH SCOPES_REQUIRING_CROSS_MODEL
+        # AND SCOPES_REQUIRING_RESUME_GATE (today: only
+        # broad-goal-restart), the same root cause "disposition is
+        # pending" surfaces both as `checkpoint_pending` (from
+        # checkpoint_satisfies_resume at the command_loop_status level)
+        # AND would surface here as `checkpoint_disposition_not_accepted`.
+        # Two issue codes for one root cause is noise. The resume-gate
+        # signal is sufficient; suppress the cross-model disposition
+        # check for the overlap. pass-claim and main-merge remain
+        # caught here because they are NOT in the resume-gate set.
         return [
             {
                 "code": "checkpoint_disposition_not_accepted",
@@ -5866,7 +5897,14 @@ def rework_pattern_warnings(repo: Path, threshold: int) -> list[dict[str, str]]:
     for block in recent_slices:
         if not corrective_re.search(block):
             continue
-        for path in path_re.findall(block):
+        # S-OPUS-1 / S11 fix: dedupe per block. The threshold semantics
+        # are "this path is corrective in N of the last N slices" — i.e.
+        # slice MEMBERSHIP, not raw occurrence count. The previous
+        # `findall` form incremented once per occurrence, so a single
+        # slice mentioning a path six times tripped the default
+        # threshold (6) by itself. Setting the path-per-block view to
+        # a set first gives the intended slice-membership semantic.
+        for path in set(path_re.findall(block)):
             path_counts[path] = path_counts.get(path, 0) + 1
     warnings: list[dict[str, str]] = []
     for path, count in sorted(path_counts.items()):
@@ -6082,8 +6120,11 @@ def command_hook_stop(args: argparse.Namespace) -> int:
                 )
             )
             return 0
-        detail = f"run {args.run_id} not found" if args.run_id else "no .research run found"
-        print(json.dumps({"continue": True, "systemMessage": f"CBM: {detail} for stop-hook validation."}))
+        # S-OPUS-13 (verify-gates S13) fix: by this point args.run_id
+        # is always falsy — the truthy branch at the inner `if
+        # args.run_id` above returns at line 6116. The previous
+        # ternary expression was dead code.
+        print(json.dumps({"continue": True, "systemMessage": "CBM: no .research run found for stop-hook validation."}))
         return 0
     handoff = run_dir / "handoff.md"
     if not handoff.exists():
