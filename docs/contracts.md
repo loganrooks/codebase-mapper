@@ -109,7 +109,7 @@ Read-only recovery preflight. Checks that live planning files exist, `.planning/
 
 ### `cbm-checkpoint` / `cbm checkpoint` (recovery)
 
-Create a checkpoint review packet under `.planning/reviews/<date-slug>/`. Required inputs: `--pass-criterion <text>` and `--scope <recovery-slice|pass-claim|main-merge|broad-goal-restart>`. Optional inputs: `--reviewer <model-id>` and `--reviewer-fallback-same-model`. Outputs `PROMPT.md`, `CHECKPOINT.md`, and `DISPOSITION.md`; pass-claim acceptance is enforced later by `cbm-loop-status`.
+Create a checkpoint review packet under `.planning/reviews/<date-slug>/`. Required inputs: `--pass-criterion <text>` and `--scope <recovery-slice|pass-claim|main-merge|broad-goal-restart>`. For cross-model scopes (`pass-claim`, `main-merge`, `broad-goal-restart`) `--reviewer <non-current-model-id>` is required; `--reviewer-fallback-same-model` is rejected and the command exits 1 before creating the packet (ADR-005). For `recovery-slice` `--reviewer` is optional and `--reviewer-fallback-same-model` is permitted with a labeled fallback. Outputs `PROMPT.md`, `CHECKPOINT.md`, and `DISPOSITION.md`; pass-claim acceptance is enforced later by `cbm-loop-status`.
 
 ### `cbm-bind <goal-string>`
 

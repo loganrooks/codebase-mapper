@@ -162,10 +162,22 @@ if checkpointish:
         if reviewer_model:
             reviewer_lower_norm = reviewer_model.strip().lower()
             # Allow either ordering; reviewer_lower_norm == observed_lower
-            # also passes both startswith checks.
+            # also passes both startswith checks. Minimum-length floor
+            # of 6 chars on the shorter string prevents a deliberately
+            # vague reviewer_model_id (e.g. "claude") from prefix-matching
+            # any observed model in the same family. Real model ids land
+            # well above this floor (claude-opus-4-7 = 14, gpt-5.4-mini =
+            # 12, etc.); the floor only rejects degenerate stubs.
+            shorter_len = min(len(reviewer_lower_norm), len(observed_lower))
             agrees = (
-                observed_lower.startswith(reviewer_lower_norm)
-                or reviewer_lower_norm.startswith(observed_lower)
+                reviewer_lower_norm == observed_lower
+                or (
+                    shorter_len >= 6
+                    and (
+                        observed_lower.startswith(reviewer_lower_norm)
+                        or reviewer_lower_norm.startswith(observed_lower)
+                    )
+                )
             )
             if not agrees:
                 issues.append({

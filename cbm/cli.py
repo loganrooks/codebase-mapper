@@ -5631,8 +5631,12 @@ def command_checkpoint(args: argparse.Namespace) -> int:
     packet.mkdir(parents=True, exist_ok=False)
     date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     reviewer = args.reviewer or ""
-    if same_model_fallback and args.scope != "recovery-slice":
-        print("warning: same-model fallback cannot clear pass-claim, main-merge, or broad-goal-restart scope", file=sys.stderr)
+    # Note: the prior post-mkdir warning at this site ("same-model
+    # fallback cannot clear pass-claim, main-merge, or
+    # broad-goal-restart scope") is now dead code — the W8 fix above
+    # hard-errors at arg-validation time before reaching this point.
+    # Kept the comment as a marker so a future contributor doesn't
+    # re-introduce the post-mkdir warn-then-continue pattern.
     state_path = repo / ".planning" / "STATE.md"
     horizons_path = repo / ".planning" / "HORIZONS.md"
     plan_path = repo / ".planning" / "CURRENT-PLAN.md"
