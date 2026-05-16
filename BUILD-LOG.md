@@ -1935,3 +1935,36 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Focused W-OPUS-1 + F4 + evidence-invalid regressions: 3 passed.
   - `python3 -m cbm.cli loop-status --scope pass-claim --work-category runtime-producer --json` returns `status: ok` on the H1 checkpoint.
 - Boundary: final outside-eyes verification iteration before merge; no horizon advance. The 4 S-OPUS suggestions deferred to a post-merge cleanup pass alongside the previously-deferred verify-gates findings.
+
+## 2026-05-16 — Post-H1 P3 cleanup: gates S1 + S5 + verify-gates W5/W6/S11/S13/S14 + opus S-OPUS-1/2/3/4
+
+- Context: deferred P3 findings from across the PR #1 review cycle (gates round 1, verify-gates, final-opus). All low-impact edge cases by themselves; bundled in a single follow-up PR per the comprehensive disposition map. The user explicitly asked to drain this while context is fresh, with second-order audit applied to each fix.
+- Implemented (CLI side, `cbm/cli.py`):
+  - **S-OPUS-4**: moved `SCOPES_REQUIRING_CROSS_MODEL`, `SCOPES_TREATING_HORIZON_AS_HARD`, `SCOPES_REQUIRING_RESUME_GATE`, `SCOPES_TREATING_MISSING_CHECKPOINT_AS_HARD` to the same module-level block as `ACCEPTED_DISPOSITION_VALUES`, so read order matches usage order. Eliminates the read-order-fragile pattern where constants were declared after their first reference at runtime.
+  - **S-OPUS-3**: anchored the legacy `Satisfies resume gate: yes` marker in `checkpoint_satisfies_resume` to a line-start regex (`(?im)^Satisfies resume gate:\s*yes\b`). Narrative-text checkpoints incidentally containing the phrase (e.g., quoted examples) no longer accidentally satisfy the resume gate.
+  - **S-OPUS-2**: suppressed the `checkpoint_disposition_not_accepted` issue in `checkpoint_pass_claim_issues` when scope is in BOTH `SCOPES_REQUIRING_CROSS_MODEL` AND `SCOPES_REQUIRING_RESUME_GATE` (today: only `broad-goal-restart`). The resume-gate already signals the same root cause as `checkpoint_pending`; two codes for one cause is noise. `pass-claim` and `main-merge` (cross-model only, not resume-gate) remain unaffected.
+  - **S-OPUS-1 / S11**: fixed `rework_pattern_warnings` per-block path counting. Previous `path_re.findall(block)` form counted occurrences, so a single slice mentioning a path N times tripped the default threshold (6) by itself. Wrapped in `set(...)` for slice-membership semantics.
+  - **S13**: removed dead ternary in `command_hook_stop`. By line 6117, `args.run_id` is always falsy (the truthy branch returns at 6116). Replaced with the unconditional message.
+  - **S14**: replaced `gate_envelope["max_duration_seconds"]` indexing with `.get()` + None-guard in `envelope_refusal`. Other envelope flags already used `.get()`; hand-edited gate artifacts missing the field now refuse cleanly instead of raising KeyError.
+- Implemented (review-skill side):
+  - **Gates S1** (`recover-review.py:204`): the second RECOVERY.md write to `review_dir/` now respects `manifest["allowed_write_roots"]`. If a spec narrows the write scope to a sub-path of review_dir, the second copy is skipped. The run_dir copy is always preserved (it lives inside `.xvr-runs/<run_id>/`, the runner's owned subtree).
+  - **Gates S5**: documented the parser duplication between `preflight.sh:160` (`git_status_payload`) and `verify-review-output.sh:76` (`status_path`) with matching sync-marker comments in both files. Added `test_git_status_parser_stays_in_sync_between_preflight_and_verify` in `tests/test_cross_vendor_review_skill.py` which extracts the 4-line body after each `def` and asserts byte-equality after per-line strip. Drift now fails CI.
+  - **Verify-gates W5** (`platform/codex/gate-artifact.sh:10`): replaced parameter-expansion default (`${2:-$(git rev-parse ...)}`) with explicit capture + non-empty check. `set -eu` does NOT trip on command-substitution failure inside a default expansion; previously a bare host with no arg silently passed `REPO=""` to `cbm gate-artifact --repo ""` which resolved to cwd. Now fails loudly with exit 2.
+  - **Verify-gates W6** (`preflight.sh:212`): on a non-git host (`git_root is None`) a checkpointish review previously silent-skipped the dirty-worktree gate because `dirty_lines` was empty. Now fails closed with exit 12 + `PREFLIGHT-FAILED.txt` unless `allow_dirty_worktree: true` is explicitly set in the spec.
+- Tests added:
+  - `test_git_status_parser_stays_in_sync_between_preflight_and_verify` (gates S5).
+- Second-order audit applied:
+  - **S-OPUS-2 suppression**: verified the H1 checkpoint (scope: pass-claim) still passes; verified `main-merge` and `broad-goal-restart` still emit `checkpoint_scope_mismatch` correctly (no false negatives from the suppression). Cross-scope smoke: all 5 scopes (recovery-slice, pass-claim, main-merge, broad-goal, broad-goal-restart) return the same status as before this change.
+  - **S-OPUS-4 reorder**: verified by grep that all references to the moved constants still resolve at call time (Python resolves names at call time; the move is pure organizational).
+  - **S-OPUS-3 anchor**: verified the strategy-workflow legacy checkpoint at `.planning/reviews/2026-05-01-strategy-workflow-vision-audit/CHECKPOINT.md` still has `Satisfies resume gate: yes` at line 5 (line-start), so its broad-goal scope still passes.
+  - **W6 fail-closed**: behaviorally equivalent to C2 (pyyaml-missing fail-closed) — both refuse to run checkpointish reviews on degraded hosts unless explicitly waived. Audit: no consumer relies on the previous silent-skip behavior; tests don't exercise the non-git path.
+  - **W5 explicit non-empty check**: `set -eu` interaction audited. The new form captures + checks before use.
+  - **S1 review_dir scope respect**: audited the H1 checkpoint review packet has no narrowed `allowed_write_roots` so RECOVERY.md (when written) lands at the top of review_dir as before. Behavior unchanged for unscoped specs.
+- Verification:
+  - Full suite: `TMPDIR=/var/tmp pytest -q` reported 146 passed, 2 warnings (was 145; +1 S5 sync test).
+  - Cross-vendor-review tests: 12 passed (was 11).
+  - All 5 loop-status scopes return their expected status post-cleanup.
+  - `python3 -m cbm.cli loop-status --scope pass-claim --work-category runtime-producer --json` returns `status: ok` on the H1 checkpoint.
+- Boundary:
+  - Post-H1 cleanup; no horizon advance.
+  - W-NEW-2 (`DEFAULT_CODEX_CLI_MODEL` plausibility) STILL deferred — that one is intentionally exercised at H2 when live Codex runs resume.

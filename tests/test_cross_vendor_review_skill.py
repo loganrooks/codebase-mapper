@@ -347,3 +347,42 @@ def test_malformed_stream_json_writes_recovery_without_success(tmp_path: Path, m
     assert result.returncode != 0
     recovery = (review_dir / "RECOVERY.md").read_text(encoding="utf-8")
     assert "`malformed_stream_json`" in recovery
+
+
+def _normalized_parser_lines(text: str, def_line_marker: str) -> list[str]:
+    """Extract the parser function body by locating the `def` line marker,
+    taking the four lines following (the function body is fixed-shape: one
+    `payload = ...` line, one `if ...` line, one indented assignment line,
+    one `return` line), and stripping each line's leading whitespace.
+
+    Used to assert the duplicated git-status-payload parser stays in sync
+    between preflight.sh and verify-review-output.sh (gates S5).
+    """
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if def_line_marker in line:
+            return [line.strip() for line in lines[i + 1 : i + 5]]
+    raise AssertionError(f"could not locate `{def_line_marker}` in given text")
+
+
+def test_git_status_parser_stays_in_sync_between_preflight_and_verify() -> None:
+    """Gates S5 regression: preflight.sh defines `git_status_payload(line)`;
+    verify-review-output.sh defines `status_path(line)` with byte-identical
+    body. Both are inside Python heredocs in shell scripts and cannot
+    `import` each other; this test takes the four body lines after each
+    function's `def` line, strips per-line whitespace, and asserts the
+    bodies remain in sync. If this test fails, port the fix to BOTH
+    locations (see the sync-marker comment in each script).
+    """
+    preflight_text = (SCRIPTS / "preflight.sh").read_text(encoding="utf-8")
+    verify_text = (SCRIPTS / "verify-review-output.sh").read_text(encoding="utf-8")
+    preflight_body = _normalized_parser_lines(preflight_text, "def git_status_payload(line: str) -> str:")
+    verify_body = _normalized_parser_lines(verify_text, "def status_path(line: str) -> str:")
+    assert preflight_body == verify_body, (
+        "git-status-payload parser drift between preflight.sh and verify-review-output.sh. "
+        "Both functions must stay byte-identical (modulo their function names + indentation) "
+        "until they are extracted to a shared helper. See gates S5 sync-marker comments in "
+        "both scripts.\n"
+        f"preflight: {preflight_body}\n"
+        f"verify: {verify_body}"
+    )

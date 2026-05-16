@@ -257,6 +257,8 @@ Last known full suite after PR #1 verify-gates iteration (C1 recovery-slice miss
 
 Last known full suite after PR #1 final-opus iteration (W-OPUS-1 ledger writes now buffer until BOTH surface AND card validation pass; W-OPUS-2 loop_status_config malformed-JSON loud signal; W-OPUS-3 DISPOSITION.json malformed-JSON loud signal; W-OPUS-4 stage validation upgraded from substring to anchored regex; W-OPUS-1 regression test asserts ledger byte-identical when verify_card_confidence is mocked to fail): `TMPDIR=/var/tmp pytest -q` reported `145 passed, 2 warnings`.
 
+Last known full suite after post-H1 P3 cleanup (gates S1 RECOVERY.md scope-respect; gates S5 parser sync marker + drift regression; verify-gates W5 gate-artifact non-git fail-loud; W6 preflight non-git fail-closed; S11/S-OPUS-1 rework_pattern slice-membership semantics; S13 dead ternary; S14 envelope_refusal KeyError guard; S-OPUS-2 broad-goal-restart issue-code dedupe; S-OPUS-3 legacy resume marker anchored; S-OPUS-4 scope constants reordered): `TMPDIR=/var/tmp pytest -q` reported `146 passed, 2 warnings`.
+
 Last known skill package verification: a temp wheel built under `/var/tmp` contained 7 `cbm/runtime_skills/*.md` package entries.
 
 Last known skill-loaded live benchmark run: `TMPDIR=/var/tmp python3 -m cbm.cli run --repo /tmp/cbm-live-mcp-servers-4503e2d/src/git --goal "understand MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-skeptic-mode skill --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-codex-skeptic-skill-4` exited 0; `handoff.md` reported `skeptic_review.challenges_logged: 1` and `contestation_summary.open_challenges: 1`.

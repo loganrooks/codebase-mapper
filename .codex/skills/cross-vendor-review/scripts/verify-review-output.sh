@@ -73,6 +73,12 @@ if repo_root and before_path.exists() and after_path.exists():
     new_lines = sorted(after - before)
     root = Path(repo_root).resolve(strict=False)
 
+    # S5 fix (gates review, sync-marker form): this parser is
+    # duplicated in preflight.sh as `git_status_payload(line)`. Both
+    # functions MUST stay byte-identical (modulo function name).
+    # When updating one, update the other in the same commit. See
+    # the matching comment in preflight.sh for the consolidation
+    # rationale.
     def status_path(line: str) -> str:
         payload = line[3:] if len(line) > 3 else line
         if " -> " in payload:

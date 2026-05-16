@@ -201,8 +201,25 @@ def main(argv: list[str]) -> int:
         "",
     ]
     text = "\n".join(recovery)
+    # Run-dir copy is always preserved; it lives inside .xvr-runs/<run_id>/
+    # which is the runner's owned subtree, never narrowed by spec.
     (run_dir / "RECOVERY.md").write_text(text, encoding="utf-8")
-    (review_dir / "RECOVERY.md").write_text(text, encoding="utf-8")
+    # S1 fix (gates review): the review-dir copy lands at the top of
+    # the review_dir, which a spec MAY narrow via `allowed_write_roots`.
+    # Honor that narrowing: only write the review_dir copy if no
+    # narrower scope is declared, OR if review_dir itself is the only
+    # declared root. The run_dir copy still survives for archeology.
+    allowed_roots_raw = manifest.get("allowed_write_roots") or []
+    review_dir_resolved = review_dir.resolve(strict=False)
+    review_dir_in_scope = True
+    if allowed_roots_raw:
+        allowed_paths = [Path(item).resolve(strict=False) for item in allowed_roots_raw]
+        review_dir_in_scope = any(
+            review_dir_resolved == root or review_dir_resolved.is_relative_to(root)
+            for root in allowed_paths
+        )
+    if review_dir_in_scope:
+        (review_dir / "RECOVERY.md").write_text(text, encoding="utf-8")
     return 0
 
 

@@ -157,6 +157,14 @@ permission_mode = str(spec.get("permission_mode") or "auto")
 model = str(spec.get("preferred_model") or spec.get("model") or "opus")
 status_before = (raw_dir / "git-status-before.txt").read_text(encoding="utf-8")
 
+# S5 fix (gates review, sync-marker form): this parser is duplicated
+# in verify-review-output.sh as `status_path(line)`. Both functions
+# MUST stay byte-identical (modulo function name). When updating one,
+# update the other in the same commit. Consolidation to a shared
+# helper is deferred; the parsers are inside Python heredocs in
+# different shell scripts and cannot `import` each other cleanly. A
+# regression test in tests/test_cross_vendor_review_skill.py asserts
+# the bodies remain in sync after dedenting.
 def git_status_payload(line: str) -> str:
     payload = line[3:] if len(line) > 3 else line
     if " -> " in payload:
@@ -210,6 +218,24 @@ if checkpointish and yaml is None:
     )
     raise SystemExit(11)
 allow_dirty = as_bool(spec.get("allow_dirty_worktree"), False)
+# W6 fix (verify-gates review): a checkpointish review on a non-git
+# host yielded empty `dirty_lines` (status_before is empty) and the
+# `if checkpointish and dirty_lines and not allow_dirty` guard below
+# never fired. The dirty-worktree gate is the primary reason
+# checkpointish reviews must run from a clean repo; silently skipping
+# it on non-git hosts is fail-open. Require explicit allow_dirty_worktree
+# opt-in for non-git checkpointish runs.
+if checkpointish and git_root is None and not allow_dirty:
+    (run_dir / "PREFLIGHT-FAILED.txt").write_text(
+        "Checkpointish review attempted on a non-git host. The dirty-worktree gate "
+        "cannot run without a git repository. Pass allow_dirty_worktree: true only "
+        "if running outside a repo is intentional.\n",
+        encoding="utf-8",
+    )
+    (review_dir / ".xvr-runs" / ".latest-run-id").write_text(
+        "PREFLIGHT-FAILED:" + run_id + "\n", encoding="utf-8"
+    )
+    raise SystemExit(12)
 if checkpointish and dirty_lines and not allow_dirty:
     (run_dir / "PREFLIGHT-FAILED.txt").write_text(
         "Dirty worktree before checkpoint/pass-claim review. Set allow_dirty_worktree: true only if this is intentional.\n",
