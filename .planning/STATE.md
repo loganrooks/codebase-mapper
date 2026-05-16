@@ -236,6 +236,8 @@ Last known full suite after PR #1 review remediation pass 3 (W-OP-1 selector par
 
 Last known full suite after PR #1 follow-up slice 1 (F2 + F4 ledger-before-validation ordering; gates W3 + W4 cross-vendor-review skill drift + observed_model cross-check; F4 regression test): `TMPDIR=/var/tmp pytest -q` reported `142 passed, 2 warnings`.
 
+Last known full suite after PR #1 verify-gates iteration (C1 recovery-slice missing-reviewer fired; C2 pyyaml fail-closed for checkpointish; W4 observed_model prefix-compare; W8 same-model fallback rejected for cross-model scopes; scaffold updated): `TMPDIR=/var/tmp pytest -q` reported `144 passed, 2 warnings`.
+
 Last known skill package verification: a temp wheel built under `/var/tmp` contained 7 `cbm/runtime_skills/*.md` package entries.
 
 Last known skill-loaded live benchmark run: `TMPDIR=/var/tmp python3 -m cbm.cli run --repo /tmp/cbm-live-mcp-servers-4503e2d/src/git --goal "understand MCP git server surfaces" --backend codex-cli --allow-live-codex --codex-skeptic-mode skill --codex-model gpt-5.4-mini --codex-reasoning-effort medium --mode lightweight --run-id run-mcp-git-codex-skeptic-skill-4` exited 0; `handoff.md` reported `skeptic_review.challenges_logged: 1` and `contestation_summary.open_challenges: 1`.

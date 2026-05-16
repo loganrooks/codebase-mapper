@@ -141,6 +141,13 @@ if checkpointish:
     # observed_model from the runner. Flag (a) observed_model in a
     # disallowed family and (b) observed_model that disagrees with
     # the self-reported reviewer_model_id.
+    #
+    # Verify-gates Warning 4 refinement: observed_model often carries a
+    # date suffix (e.g., claude-opus-4-7-20251031) while reviewer_model_id
+    # is typically the bare model id (claude-opus-4-7). Direct equality
+    # after lower() would false-positive every time a dated model lands.
+    # Treat the two as agreeing when one is a prefix of the other under
+    # the canonical hyphen-and-numbers naming convention.
     observed_model = str(manifest.get("claude", {}).get("observed_model") or "").strip()
     if observed_model:
         observed_lower = observed_model.lower()
@@ -152,12 +159,20 @@ if checkpointish:
                     "detail": f"observed_model={observed_model}",
                 })
                 break
-        if reviewer_model and reviewer_model.strip().lower() != observed_lower:
-            issues.append({
-                "code": "reviewer_observed_model_mismatch",
-                "path": str(manifest_path),
-                "detail": f"reviewer_model_id={reviewer_model} observed_model={observed_model}",
-            })
+        if reviewer_model:
+            reviewer_lower_norm = reviewer_model.strip().lower()
+            # Allow either ordering; reviewer_lower_norm == observed_lower
+            # also passes both startswith checks.
+            agrees = (
+                observed_lower.startswith(reviewer_lower_norm)
+                or reviewer_lower_norm.startswith(observed_lower)
+            )
+            if not agrees:
+                issues.append({
+                    "code": "reviewer_observed_model_mismatch",
+                    "path": str(manifest_path),
+                    "detail": f"reviewer_model_id={reviewer_model} observed_model={observed_model}",
+                })
 
 verify = {
     "run_id": manifest.get("run_id"),

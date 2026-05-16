@@ -3315,11 +3315,20 @@ def write_loop_status_scaffold(repo: Path, *, checkpoint_satisfies: bool) -> Non
         encoding="utf-8",
     )
     gate_value = "yes" if checkpoint_satisfies else "no"
-    (repo / ".planning" / "reviews" / "checkpoint" / "CHECKPOINT.md").write_text(
-        f"# Checkpoint\n\nSatisfies resume gate: {gate_value}\n",
-        encoding="utf-8",
-    )
-    (repo / ".planning" / "reviews" / "checkpoint" / "DISPOSITION.md").write_text("# Disposition\n\nDisposition: accept\n", encoding="utf-8")
+    # Default scaffold checkpoint now declares a cross-model reviewer
+    # identity (verify-gates Critical 1 fix to command_loop_status: any
+    # checkpoint inspected on recovery-slice scope must declare
+    # reviewer_model_id). Tests that need the missing-identity failure
+    # mode override CHECKPOINT.md directly after calling this scaffold.
+    # Disposition: accept is only written when the resume gate is
+    # satisfied; otherwise we omit it so checkpoint_satisfies_resume's
+    # substring check correctly returns False.
+    body = f"# Checkpoint\n\nSatisfies resume gate: {gate_value}\nreviewer_model_id: claude-opus-4-7\nsame_model_fallback: false\n"
+    if checkpoint_satisfies:
+        body += "Disposition: accept\n"
+    (repo / ".planning" / "reviews" / "checkpoint" / "CHECKPOINT.md").write_text(body, encoding="utf-8")
+    disposition_body = "# Disposition\n\nDisposition: accept\n" if checkpoint_satisfies else "# Disposition\n\nStatus: pending\n"
+    (repo / ".planning" / "reviews" / "checkpoint" / "DISPOSITION.md").write_text(disposition_body, encoding="utf-8")
     for name in ["AGENTS.md", "VISION.md", "RUNTIME-CONSTITUTION.md"]:
         (repo / name).write_text(f"# {name}\n", encoding="utf-8")
     git(repo, "add", ".planning", "AGENTS.md", "VISION.md", "RUNTIME-CONSTITUTION.md")
@@ -3543,6 +3552,20 @@ def test_loop_status_accepts_broad_goal_restart_with_matching_scope_and_cross_mo
     assert main(["loop-status", "--repo", str(repo), "--scope", "broad-goal-restart", "--work-category", "loop-status"]) == 0
 
 
+def test_loop_status_blocks_recovery_slice_with_missing_reviewer_model_id(tmp_path: Path) -> None:
+    """Verify-gates Critical 1 regression: a recovery-slice checkpoint
+    with NO reviewer_model_id field must fail loop-status. The previous
+    filter at command_loop_status only retained
+    `unlabeled_same_model_checkpoint`, dropping the
+    `missing_reviewer_model_id` issue and silently clearing the gate.
+    ADR-005 requires explicit reviewer identity for recovery slices.
+    """
+    repo = make_repo(tmp_path)
+    write_checkpoint_packet(repo, "# Checkpoint\n\nDisposition: accept\n")
+
+    assert main(["loop-status", "--repo", str(repo), "--scope", "recovery-slice", "--work-category", "loop-status"]) == 1
+
+
 def test_loop_status_selects_scope_matching_checkpoint_when_newer_mismatched_exists(tmp_path: Path) -> None:
     """W-OP-1 regression: with a valid main-merge checkpoint plus a newer
     pass-claim checkpoint, --scope main-merge must select the older
@@ -3762,9 +3785,17 @@ def test_checkpoint_recovery_slice_allows_same_model_fallback_with_flag(tmp_path
     assert "same_model_fallback: true" in text
 
 
-def test_checkpoint_pass_claim_warns_on_same_model_fallback(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_checkpoint_pass_claim_rejects_same_model_fallback(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Verify-gates Warning 8 regression: --reviewer-fallback-same-model is
+    incompatible with cross-model scopes (pass-claim, main-merge,
+    broad-goal-restart). Previously this only emitted a warning AFTER
+    creating a packet that would never clear the cross-model gate.
+    Now it fails at arg validation before mkdir.
+    """
     repo = make_repo(tmp_path)
     write_loop_status_scaffold(repo, checkpoint_satisfies=True)
+
+    reviews_before = sorted((repo / ".planning" / "reviews").glob("*/CHECKPOINT.md"))
 
     assert (
         main(
@@ -3781,10 +3812,16 @@ def test_checkpoint_pass_claim_warns_on_same_model_fallback(tmp_path: Path, caps
                 "--reviewer-fallback-same-model",
             ]
         )
-        == 0
+        == 1
     )
     captured = capsys.readouterr()
-    assert "same-model fallback cannot clear pass-claim" in captured.err
+    assert "incompatible with --scope pass-claim" in captured.err
+
+    reviews_after = sorted((repo / ".planning" / "reviews").glob("*/CHECKPOINT.md"))
+    assert reviews_after == reviews_before, (
+        "Verify-gates W8 regression: packet directory was created despite "
+        "incompatible --reviewer-fallback-same-model flag"
+    )
 
 
 def test_loop_status_pass_claim_blocked_until_cross_model_disposition(tmp_path: Path) -> None:

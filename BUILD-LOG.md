@@ -1886,3 +1886,31 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - W-NEW-2 (Codex model string plausibility): exercise at H2 if Codex live runs continue.
   - agentic-ops PR #21 v1 fast-forward + CBM stub `@<sha>` → `@v1` revert: needs user approval on agentic-ops PR #21 first.
 - Boundary: review-discovery follow-up; no horizon advance.
+
+## 2026-05-15 — PR #1 verify-gates iteration: C1 + C2 + W4 + W8 fixes
+
+- Context: re-fired `@claude gates` at Opus/MAX on the new HEAD after the W1-W4 + S-OP-2 fixes landed. Verification produced 15 NEW findings. The two Critical-severity items and two of the Warning-severity items were direct flaws in my own prior fixes:
+  - **Verify-gates Critical 1**: command_loop_status:5898-5900 filter for recovery-slice scope only retained `unlabeled_same_model_checkpoint`. checkpoint_pass_claim_issues short-circuits on `missing_reviewer_model_id` (returns it as the only issue), so for recovery-slice the missing-reviewer issue never reached the issues list — a recovery-slice checkpoint with empty `reviewer_model_id` silently cleared the gate. ADR-005 requires reviewer identity for recovery slices too.
+  - **Verify-gates Critical 2**: my W2 fix added a stderr warning when pyyaml is missing but let the script proceed. For checkpointish reviews on a bare host, every list-valued gate (`allowed_dispositions`, `disallowed_reviewer_model_families`, `allowed_write_roots`, `required_outputs`, `tools`) became empty in the manifest, and downstream `verify-review-output.sh` gates lost their input — silently passing. The warning was visibility-only; the actual mitigation was fail-open.
+  - **Verify-gates Warning 4**: my W4 fix used `reviewer.strip().lower() != observed.strip().lower()`. The observed_model captured from the SDK stream often carries a date suffix (`claude-opus-4-7-20251031`) while `reviewer_model_id` is the bare id. Direct equality would false-positive every time a dated model lands.
+  - **Verify-gates Warning 8**: my S-OP-2 fix only caught the no-flag case. The partial-flag form `--scope pass-claim --reviewer-fallback-same-model` (no `--reviewer`) bypassed the required-reviewer check because the same-model fallback defanged the original `not same_model_fallback` clause, and only a stderr warning fired AFTER the packet was mkdir'd.
+- Implemented:
+  - **C1**: command_loop_status recovery-slice filter now retains both `unlabeled_same_model_checkpoint` AND `missing_reviewer_model_id`. Other inner-gate issue codes (scope_mismatch, disposition-not-accepted) remain correctly suppressed for recovery-slice.
+  - **C2**: preflight.sh now writes `PREFLIGHT-FAILED.txt`, sentinel `.latest-run-id`, and exits 11 when pyyaml is missing AND the review is checkpointish (decision_required: true or review_type contains 'checkpoint' / 'pass_claim' / 'pass-claim'). Non-checkpointish reviews still degrade gracefully with the line-mode parser + stderr warning. Also covered the verify-gates W3 vocabulary-drift sub-finding (pass-claim hyphenated form now matched alongside pass_claim).
+  - **W4**: `reviewer_observed_model_mismatch` now treats the two model strings as agreeing when one is a prefix of the other (handles the dated-suffix case). Direct equality only fires now on genuinely-different model families.
+  - **W8**: `cbm checkpoint` rejects `--reviewer-fallback-same-model` at arg-validation time when scope is in SCOPES_REQUIRING_CROSS_MODEL, BEFORE the packet directory mkdir. The flag is now valid only on `--scope recovery-slice`.
+- Tests:
+  - `test_loop_status_blocks_recovery_slice_with_missing_reviewer_model_id` (C1 regression).
+  - `test_checkpoint_pass_claim_rejects_same_model_fallback` (W8 regression — renamed from the previous `_warns_` test which had expected exit 0; now asserts exit 1 + the new error message + no packet directory created).
+  - Scaffold update: `write_loop_status_scaffold` now writes a checkpoint with `reviewer_model_id: claude-opus-4-7` and `same_model_fallback: false`, plus a conditional `Disposition: accept` only when `checkpoint_satisfies=True`. This was the right state to have all along — the prior scaffold relied on the buggy filter to pass recovery-slice tests.
+- Deferred (verify-gates Warning 3, 5, 6, 7, 9, 10 and Suggestions 11-15):
+  - W3 vocabulary drift: partial — covered the preflight predicate, the loop-status side is N/A (already uses canonical `pass-claim`).
+  - W5/W6 (non-git host edge cases for gate-artifact.sh and preflight.sh): defer; non-git deployment of the gate scripts is out-of-scope.
+  - W7 (substring vs lowercase exact-match in checkpoint_satisfies_resume vs checkpoint_pass_claim_issues): defer; substring `in` matching is broad but the two functions are NEVER queried for the same disposition value in production today.
+  - W9 (load_loop_status_config swallows JSONDecodeError silently): defer; the broad except is intentional for upgrade paths.
+  - W10 (scope sets duplicated as inline literals): defer; refactor to constants is a worthwhile cleanup but adds risk.
+  - S11-S15 (rework_pattern off-by-one, skills.py repo arg drift, dead ternary, KeyError on envelope, work-category message): all small cleanups; bundle later.
+- Verification:
+  - Full suite: `TMPDIR=/var/tmp pytest -q` reported 144 passed, 2 warnings (was 143).
+  - `python3 -m cbm.cli loop-status --scope pass-claim --work-category runtime-producer --json` returns `status: ok` on the H1 checkpoint.
+- Boundary: review-discovery iteration; no horizon advance.

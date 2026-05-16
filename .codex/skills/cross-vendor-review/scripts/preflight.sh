@@ -87,18 +87,25 @@ def load_spec(path: Path) -> dict:
         if not isinstance(data, dict):
             raise SystemExit("REVIEW-SPEC.md must parse to a mapping")
         return data
-    # W2 fix (gates review): the bare-host fallback parser drops every
-    # indented line, which is exactly how YAML expresses lists. Without
-    # this warning, `allowed_dispositions`, `disallowed_reviewer_model_families`,
-    # `allowed_write_roots`, `required_outputs`, and `tools` silently
-    # become empty and the corresponding verify-review-output.sh gates
-    # never fire. Make the degraded path loud.
+    # Verify-gates Critical 2 fix (gates review): the bare-host fallback
+    # parser drops every indented line, which is exactly how YAML
+    # expresses lists. Without pyyaml, allowed_dispositions,
+    # disallowed_reviewer_model_families, allowed_write_roots,
+    # required_outputs, and tools silently become empty in the manifest
+    # and the corresponding verify-review-output.sh gates lose their
+    # input. The previous W2 fix only printed a warning and let the
+    # script proceed; this is fail-open behavior. The classification of
+    # the run as checkpointish is computed by the caller using the
+    # parsed spec dict that this function returns, so checkpointish
+    # gating cannot happen here. Conservative line-mode parsing is
+    # acceptable for non-checkpoint reviews; the caller (below) must
+    # fail-closed for checkpointish.
     sys.stderr.write(
         "preflight: warning: pyyaml unavailable; falling back to line-mode parser. "
         "List-valued spec fields (allowed_dispositions, disallowed_reviewer_model_families, "
-        "allowed_write_roots, required_outputs, tools) will be EMPTY and the corresponding "
-        "verify-review-output.sh gates will NOT fire on this host. Install pyyaml for full "
-        "spec enforcement.\n"
+        "allowed_write_roots, required_outputs, tools) will be EMPTY in this run. "
+        "Checkpointish reviews will be REJECTED downstream; non-checkpointish reviews "
+        "will proceed with degraded gate coverage. Install pyyaml for full spec enforcement.\n"
     )
     data: dict[str, object] = {}
     for line in text.splitlines():
@@ -175,8 +182,33 @@ for line in status_before.splitlines():
 # verify-review-output.sh:92. Verify includes decision_required so a spec
 # with decision_required: true and a non-checkpoint review_type is
 # correctly recognized as checkpointish. Same vocabulary, one definition.
+# Also match both pass_claim (XVR) and pass-claim (CBM scope vocab) so
+# a spec written with either form is treated consistently.
 decision_required = as_bool(spec.get("decision_required"), False)
-checkpointish = decision_required or "checkpoint" in review_type.lower() or "pass_claim" in review_type.lower()
+review_type_lower = review_type.lower()
+checkpointish = (
+    decision_required
+    or "checkpoint" in review_type_lower
+    or "pass_claim" in review_type_lower
+    or "pass-claim" in review_type_lower
+)
+# Verify-gates Critical 2 fix: fail-closed on bare hosts for checkpointish
+# reviews. Without pyyaml the load_spec fallback yields empty lists for
+# every gate-relevant field, and downstream verify-review-output.sh
+# would silently pass every list-shaped gate. A checkpoint that may
+# clear pass-claim, main-merge, or broad-goal-restart scope MUST be
+# enforced; warn-and-proceed is not acceptable for those scopes.
+if checkpointish and yaml is None:
+    (run_dir / "PREFLIGHT-FAILED.txt").write_text(
+        "pyyaml is unavailable on this host; spec list-valued fields cannot be parsed reliably. "
+        "Checkpointish reviews (review_type contains 'checkpoint' / 'pass_claim' / 'pass-claim' "
+        "or decision_required: true) refuse to proceed in degraded mode. Install pyyaml.\n",
+        encoding="utf-8",
+    )
+    (review_dir / ".xvr-runs" / ".latest-run-id").write_text(
+        "PREFLIGHT-FAILED:" + run_id + "\n", encoding="utf-8"
+    )
+    raise SystemExit(11)
 allow_dirty = as_bool(spec.get("allow_dirty_worktree"), False)
 if checkpointish and dirty_lines and not allow_dirty:
     (run_dir / "PREFLIGHT-FAILED.txt").write_text(

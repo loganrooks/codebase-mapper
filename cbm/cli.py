@@ -5592,10 +5592,26 @@ def command_checkpoint(args: argparse.Namespace) -> int:
     # missing_reviewer_model_id, leaving mtime noise in .planning/reviews/
     # that the selector at checkpoint_for_loop_scope had to navigate.
     same_model_fallback = bool(args.reviewer_fallback_same_model)
-    if args.scope in SCOPES_REQUIRING_CROSS_MODEL and not args.reviewer and not same_model_fallback:
+    # Verify-gates Warning 8 fix: the S-OP-2 check only caught the
+    # no-flag case. The partial-flag form
+    # `--scope pass-claim --reviewer-fallback-same-model` (no --reviewer)
+    # bypassed the required-reviewer check because same_model_fallback
+    # made the original `not same_model_fallback` clause false, and then
+    # only printed a stderr warning at line 5606 AFTER the packet
+    # directory had already been mkdir'd. Be explicit: same-model fallback
+    # is REJECTED at parse time for cross-model scopes, not just warned.
+    if args.scope in SCOPES_REQUIRING_CROSS_MODEL and same_model_fallback:
+        print(
+            f"error: --reviewer-fallback-same-model is incompatible with --scope {args.scope} "
+            "(ADR-005 requires a cross-model reviewer). The flag is valid only on "
+            "--scope recovery-slice.",
+            file=sys.stderr,
+        )
+        return 1
+    if args.scope in SCOPES_REQUIRING_CROSS_MODEL and not args.reviewer:
         print(
             f"error: --scope {args.scope} requires --reviewer (cross-model checkpoint per ADR-005). "
-            "Pass --reviewer <model-id> or use --reviewer-fallback-same-model only for recovery-slice scope.",
+            "Pass --reviewer <non-current-model-id>.",
             file=sys.stderr,
         )
         return 1
@@ -5896,8 +5912,20 @@ def command_loop_status(args: argparse.Namespace) -> int:
         # same issue twice.
         issues.extend(checkpoint_pass_claim_issues(checkpoint_path, config, args.scope))
     elif args.scope == "recovery-slice":
+        # Verify-gates Critical 1 fix: ADR-005 requires recovery-slice
+        # checkpoints to carry reviewer model identity (the same-model
+        # fallback is only valid when LABELED, not when reviewer_model_id
+        # is missing entirely). Retain both the unlabeled-fallback issue
+        # AND the missing-reviewer-identity issue from the inner gate.
+        # Other issue codes (scope_mismatch, disposition-not-accepted)
+        # only fire for cross-model scopes and are correctly suppressed
+        # for recovery-slice.
         recovery_model_issues = checkpoint_pass_claim_issues(checkpoint_path, config, args.scope)
-        issues.extend(item for item in recovery_model_issues if item["code"] == "unlabeled_same_model_checkpoint")
+        issues.extend(
+            item
+            for item in recovery_model_issues
+            if item["code"] in {"unlabeled_same_model_checkpoint", "missing_reviewer_model_id"}
+        )
 
     review_issues = review_session_completion_issues(repo)
     if args.scope == "broad-goal":
