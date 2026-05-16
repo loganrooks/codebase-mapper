@@ -9,11 +9,6 @@ name: Claude PR Review (manual)
 # Bumping the agentic-ops version: change the @v1 ref below. v1 is a
 # floating major-version tag; minor/patch updates land transparently,
 # breaking changes will land on @v2.
-#
-# TEMPORARY EXPERIMENT (2026-05-15): pinned to feat-effort-level branch
-# (agentic-ops PR #21) to exercise the new effort_level=max dial on
-# PR #1 review remediation. Restore the @v1 pin once the central PR
-# merges and v1 is fast-forwarded.
 
 on:
   issue_comment:
@@ -48,9 +43,7 @@ jobs:
       ') ||
         startsWith(github.event.comment.body, '@claude audit:')
       )
-    # SHA-pinned to feat-effort-level (PR #21 on agentic-ops). Restore
-    # to @v1 after merge + v1 fast-forward.
-    uses: loganrooks/agentic-ops/.github/workflows/review.yml@f0046cb673e40248b2f5e14e1fd2df1bf21f6456
+    uses: loganrooks/agentic-ops/.github/workflows/review.yml@v1
     with:
       # Enable the central platform modes consumed by CBM. The gates
       # mode is meaningful here because codebase-mapper has gate scripts
