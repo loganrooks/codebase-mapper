@@ -5895,7 +5895,7 @@ def command_loop_status(args: argparse.Namespace) -> int:
         issues.append(
             {
                 "code": "work_category_blocked",
-                "message": f"work category '{args.work_category}' is not allowed during recovery",
+                "message": f"work category '{args.work_category}' is not in the recovery-allowed set",
             }
         )
 
