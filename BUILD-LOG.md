@@ -1914,3 +1914,24 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - Full suite: `TMPDIR=/var/tmp pytest -q` reported 144 passed, 2 warnings (was 143).
   - `python3 -m cbm.cli loop-status --scope pass-claim --work-category runtime-producer --json` returns `status: ok` on the H1 checkpoint.
 - Boundary: review-discovery iteration; no horizon advance.
+
+## 2026-05-15 — PR #1 final-opus iteration: W-OPUS-1 card-side ledger staging + W-OPUS-2/3 loud config errors + W-OPUS-4 stage anchor
+
+- Context: fired one more `@claude opus cbm/cli.py` at Opus/MAX as the user-requested outside-eyes verification before merge. Opus surfaced 8 new findings. The P1 (W-OPUS-1) is a direct regression of my own F4 fix: the previous F4 fix moved SURFACE validation ahead of the ledger writes but left CARD validation (frontmatter schema, contestation propagation, confidence, coverage) DOWNSTREAM of the ledger writes. A card-side validation failure would still leave durable `citation_introduced` + `uncertainty_logged` entries pointing at a card that was never written — the exact failure mode F4 was meant to eliminate. Same class as F4 itself; same shape as the user's "second-order audit" feedback.
+- Implemented:
+  - **W-OPUS-1**: in `command_handoff`, buffered the citation_entry / uncertainty / uncertainty_logged entries as `pending_*` dicts after surface validation passes; deferred the actual `append_ledger_entry` / `append_uncertainty_entry` calls until just before `card_path.write_text` at the end of card validation. entry_ids assigned at commit time via the F2 pattern. Now both validation windows are closed.
+  - **W-OPUS-2**: `load_loop_status_config` now distinguishes "file absent / package missing" (silent fallback to hardcoded defaults — acceptable) from "file present but malformed JSON" (loud stderr warning naming the parse error). `current_dev_agent_model_families` is the load-bearing input to the ADR-005 gate; a JSON typo in an operator-extended config now signals loudly instead of silently reverting.
+  - **W-OPUS-3**: `checkpoint_disposition_metadata` now prints a stderr warning when DISPOSITION.json is present-but-malformed-JSON. Falls through to DISPOSITION.md as before, but the operator gets a loud signal that structured disposition is not being enforced on that packet.
+  - **W-OPUS-4**: `horizon_plan_issues` stage check upgraded from naked substring `in` to anchored regex `^###\s+<stage_id>\b`, matching the existing horizon check's word-boundary regex shape. Prevents false-pass when CURRENT-PLAN.md names `H1.S3` and HORIZONS.md contains `H1.S30` or `H1.S3-old`. Note: the horizon check uses `## ` while the stage check uses `### ` (different heading levels per HORIZONS.md convention).
+- Tests added:
+  - `test_handoff_does_not_pollute_ledger_when_card_validation_fails`: monkeypatches `verify_card_confidence` to return a violation, runs handoff with otherwise-valid surface, asserts both `evidence-ledger.jsonl` and `uncertainty-register.jsonl` are byte-identical before vs after the failing handoff. Locks in the new ordering.
+- Deferred (opus suggestions, all P3):
+  - **S-OPUS-1**: `rework_pattern_warnings` counts path occurrences within a slice (not slice membership) — could trip threshold on one slice that mentions a path N times. Real but rare.
+  - **S-OPUS-2**: `broad-goal-restart` emits both `checkpoint_pending` and `checkpoint_disposition_not_accepted` for the same underlying state. Cosmetic dedup.
+  - **S-OPUS-3**: `checkpoint_satisfies_resume` legacy marker substring scans full body. Real edge case for novel-prose checkpoints.
+  - **S-OPUS-4**: `SCOPES_REQUIRING_*` constants declared after first use (works at runtime, read-order-fragile).
+- Verification:
+  - Full suite: `TMPDIR=/var/tmp pytest -q` reported 145 passed, 2 warnings (was 144).
+  - Focused W-OPUS-1 + F4 + evidence-invalid regressions: 3 passed.
+  - `python3 -m cbm.cli loop-status --scope pass-claim --work-category runtime-producer --json` returns `status: ok` on the H1 checkpoint.
+- Boundary: final outside-eyes verification iteration before merge; no horizon advance. The 4 S-OPUS suggestions deferred to a post-merge cleanup pass alongside the previously-deferred verify-gates findings.

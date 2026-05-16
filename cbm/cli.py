@@ -4876,11 +4876,18 @@ def command_handoff(args: argparse.Namespace) -> int:
         for error in evidence_errors:
             print(f"evidence-fail {error}", file=sys.stderr)
         return 1
-    # Validation passed; now commit ledger entries and write artifact.
+    # W-OPUS-1 fix: surface validation passed, but the card-side
+    # validation (frontmatter schema, contestation propagation,
+    # confidence, coverage) and the actual card write still lie
+    # ahead. Build the ledger / uncertainty entries here but DO NOT
+    # commit them until card validation also passes. The previous
+    # F4 fix closed only the surface-validation window; the
+    # card-validation window stayed open and could leave durable
+    # provenance pointing at a card that was never written. Entry
+    # ids are assigned at commit time (same F2 pattern).
     now = utc_now()
-    citation_entry = {
+    pending_citation_entry = {
         "schema_version": SCHEMA_VERSION,
-        "entry_id": next_ledger_id(ledger_path),
         "ts": now,
         "entry_kind": "citation_introduced",
         "agent": "cbm-baseline-handoff",
@@ -4892,12 +4899,7 @@ def command_handoff(args: argparse.Namespace) -> int:
         "claim_id": "primary-file-structural",
         "claim_register": "factual",
     }
-    try:
-        append_ledger_entry(repo, ledger_path, citation_entry)
-    except ValueError as exc:
-        print(exc, file=sys.stderr)
-        return 1
-    uncertainty = {
+    pending_uncertainty = {
         "schema_version": SCHEMA_VERSION,
         "entry_id": "unc-00001",
         "ts": now,
@@ -4907,14 +4909,8 @@ def command_handoff(args: argparse.Namespace) -> int:
         "status": "open",
         "registered_by": "cbm-baseline-handoff@0.1",
     }
-    try:
-        append_uncertainty_entry(uncertainty_path, uncertainty)
-    except ValueError as exc:
-        print(exc, file=sys.stderr)
-        return 1
-    uncertainty_entry = {
+    pending_uncertainty_entry = {
         "schema_version": SCHEMA_VERSION,
-        "entry_id": next_ledger_id(ledger_path),
         "ts": now,
         "entry_kind": "uncertainty_logged",
         "agent": "cbm-baseline-handoff",
@@ -4924,11 +4920,8 @@ def command_handoff(args: argparse.Namespace) -> int:
         "artifact_path": str(uncertainty_path.relative_to(repo)),
         "claim_id": "unc-00001",
     }
-    try:
-        append_ledger_entry(repo, ledger_path, uncertainty_entry)
-    except ValueError as exc:
-        print(exc, file=sys.stderr)
-        return 1
+    # Pending entries committed below after card validation; do not
+    # touch the ledger / uncertainty register here.
     write_json(surface_path, surface)
     if skeptic_path.exists():
         review_errors = validate_existing_skeptic_review(repo, skeptic_path)
@@ -5064,6 +5057,28 @@ def command_handoff(args: argparse.Namespace) -> int:
         card_body = f"\n{card_title}\n\nThis generated card carries the selected goal pack into a draft intervention artifact while preserving schema validation and citation resolution gates.\n"
     else:
         card_body = f"\n{card_title}\n\nThis generated card proves the mechanical gates are wired: schema validation and citation resolution operate on an evidence-bound artifact.\n"
+    # W-OPUS-1 fix: commit the previously-buffered ledger and
+    # uncertainty entries now that surface AND card validation have
+    # both passed. entry_ids are assigned at commit time via
+    # next_ledger_id which re-reads disk; the second ledger append
+    # reads the disk after the first append, so ids advance correctly.
+    pending_citation_entry["entry_id"] = next_ledger_id(ledger_path)
+    try:
+        append_ledger_entry(repo, ledger_path, pending_citation_entry)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    try:
+        append_uncertainty_entry(uncertainty_path, pending_uncertainty)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    pending_uncertainty_entry["entry_id"] = next_ledger_id(ledger_path)
+    try:
+        append_ledger_entry(repo, ledger_path, pending_uncertainty_entry)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
     card_path.write_text("---\n" + yaml.safe_dump(card_frontmatter, sort_keys=False) + "---\n" + card_body, encoding="utf-8")
     append_citation_entries(repo, ledger_path, paths.run_id, sha, str(card_path.relative_to(repo)), card_frontmatter, "dev-fixture-planner")
     promoted_runtime_surface = is_runtime_surface_map(surface)
@@ -5456,11 +5471,36 @@ def checkpoint_satisfies_resume(path: Path) -> bool:
 
 
 def load_loop_status_config() -> dict[str, Any]:
+    # W-OPUS-2 fix: distinguish "file absent or package missing" (use
+    # defaults silently) from "file present but malformed JSON" (loud
+    # stderr signal). current_dev_agent_model_families is the
+    # load-bearing input to the ADR-005 cross-model gate; an operator
+    # who extended the families list and made a JSON typo could
+    # otherwise quietly lose the extension when this code reverted to
+    # the hardcoded defaults. AGENTS.md L36: "Logged decisions over
+    # silent ones."
     try:
         config_text = resources.files("cbm").joinpath("loop_status_config.json").read_text(encoding="utf-8")
-        config = json.loads(config_text)
-    except (FileNotFoundError, json.JSONDecodeError, ModuleNotFoundError):
-        config = {}
+    except (FileNotFoundError, ModuleNotFoundError):
+        config_text = None
+    config: dict[str, Any] = {}
+    if config_text is not None:
+        try:
+            parsed = json.loads(config_text)
+            if isinstance(parsed, dict):
+                config = parsed
+            else:
+                print(
+                    "loop_status_config: warning: loop_status_config.json did not parse to a JSON object; "
+                    "falling back to hardcoded defaults.",
+                    file=sys.stderr,
+                )
+        except json.JSONDecodeError as exc:
+            print(
+                f"loop_status_config: warning: loop_status_config.json is malformed JSON ({exc}); "
+                "falling back to hardcoded defaults. Fix the file to restore configured families.",
+                file=sys.stderr,
+            )
     families = config.get("current_dev_agent_model_families") or ["gpt", "openai", "codex"]
     return {
         "current_dev_agent_model_families": [str(item).lower() for item in families],
@@ -5519,7 +5559,19 @@ def checkpoint_disposition_metadata(path: Path | None) -> dict[str, str]:
     if nonempty(disposition_json):
         try:
             parsed = json.loads(disposition_json.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
+            # W-OPUS-3 fix: a malformed DISPOSITION.json must be loud,
+            # not silently equivalent to "missing JSON envelope". The
+            # structured envelope is the authoritative machine-readable
+            # form (d80c652); a malformed file that silently falls
+            # through to DISPOSITION.md leaves the operator believing
+            # they are enforcing structured disposition while the gate
+            # is actually running on legacy free-text.
+            print(
+                f"checkpoint_disposition_metadata: warning: {disposition_json} is malformed JSON ({exc}); "
+                f"falling back to DISPOSITION.md. Fix the file to restore structured disposition enforcement.",
+                file=sys.stderr,
+            )
             parsed = {}
         if isinstance(parsed, dict):
             for key, value in parsed.items():
@@ -5863,13 +5915,20 @@ def horizon_plan_issues(repo: Path) -> list[dict[str, str]]:
                 "message": ".planning/CURRENT-PLAN.md must name `Current stage: <stage-id>` for autonomous /goal work",
             }
         )
-    elif stage_match.group(1) not in horizons_text:
-        issues.append(
-            {
-                "code": "unknown_current_stage",
-                "message": f".planning/CURRENT-PLAN.md names stage {stage_match.group(1)}, but .planning/HORIZONS.md does not contain that stage id",
-            }
-        )
+    else:
+        # W-OPUS-4 fix: horizon validates with a word-boundary regex
+        # (line 5904); stage was previously a naked substring `in`
+        # check that would false-pass `H1.S3` against H1.S30, H1.S3-old,
+        # H1.S3.draft, etc. Use the same word-boundary anchored regex
+        # so the two checks are consistent.
+        stage_id = stage_match.group(1)
+        if not re.search(rf"(?m)^###\s+{re.escape(stage_id)}\b", horizons_text):
+            issues.append(
+                {
+                    "code": "unknown_current_stage",
+                    "message": f".planning/CURRENT-PLAN.md names stage {stage_id}, but .planning/HORIZONS.md does not contain that stage id (expected `### {stage_id}` heading)",
+                }
+            )
     return issues
 
 

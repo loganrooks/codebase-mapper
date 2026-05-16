@@ -1936,6 +1936,52 @@ def test_handoff_does_not_pollute_ledger_when_surface_validation_fails(tmp_path:
     )
 
 
+def test_handoff_does_not_pollute_ledger_when_card_validation_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """W-OPUS-1 regression: the F4 fix moved SURFACE validation ahead of
+    the ledger writes but left CARD validation downstream of them. A card
+    confidence/coverage/contestation failure would still leave durable
+    citation_introduced + uncertainty_logged entries pointing at a card
+    that was never written. Mock a card-side check to fail and assert
+    the ledger remains byte-identical.
+    """
+    import cbm.cli as cli_module
+
+    repo = make_repo(tmp_path)
+    copy_contracts(SOURCE_ROOT, repo)
+    git(repo, "add", "schemas")
+    git(repo, "commit", "-m", "add schemas")
+
+    run_id = "run-handoff-card-validation-fail"
+    assert main(["init", "--repo", str(repo), "--goal", "understand this repo", "--run-id", run_id]) == 0
+    assert main(["map", "--repo", str(repo), "--run-id", run_id]) == 0
+    assert main(["surface", "--repo", str(repo), "--run-id", run_id]) == 0
+
+    ledger_path = repo / ".research" / run_id / "evidence-ledger.jsonl"
+    uncertainty_path = repo / ".research" / run_id / "uncertainty-register.jsonl"
+    ledger_before = ledger_path.read_text(encoding="utf-8") if ledger_path.exists() else ""
+    uncertainty_before = uncertainty_path.read_text(encoding="utf-8") if uncertainty_path.exists() else ""
+
+    # Force card-side validation to fail without touching surface
+    # validation (which still must pass to reach the card path).
+    def fail_card_confidence(_data: dict) -> dict:
+        return {"checked": True, "violations": [{"field": "confidence", "reason": "test-forced failure"}]}
+
+    monkeypatch.setattr(cli_module, "verify_card_confidence", fail_card_confidence)
+
+    assert main(["handoff", "--repo", str(repo), "--run-id", run_id]) == 1
+
+    ledger_after = ledger_path.read_text(encoding="utf-8") if ledger_path.exists() else ""
+    uncertainty_after = uncertainty_path.read_text(encoding="utf-8") if uncertainty_path.exists() else ""
+    assert ledger_before == ledger_after, (
+        "W-OPUS-1 regression: handoff appended ledger entries despite card validation failure"
+    )
+    assert uncertainty_before == uncertainty_after, (
+        "W-OPUS-1 regression: handoff appended uncertainty entry despite card validation failure"
+    )
+
+
 def test_handoff_rejects_schema_invalid_listed_artifact(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     copy_contracts(SOURCE_ROOT, repo)
