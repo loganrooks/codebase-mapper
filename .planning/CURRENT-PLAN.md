@@ -1,7 +1,7 @@
 # Current Plan
 
-Status: active; H1 complete and Phase 01 closed, next focus is H2 planning
-Last updated: 2026-05-08
+Status: active; H1 minimum-useful close merged to main as `76db3bc` on 2026-05-16; next focus is H2 planning
+Last updated: 2026-05-16
 Supersedes: direct use of `docs/roadmap.md` as current execution plan
 Superseded by: none
 Current horizon: H2
@@ -53,8 +53,11 @@ Current boundary: H1 is accepted for one pinned external target only. This is no
 20. Add runtime skill loader and run skill-loaded Skeptic on MCP `src/git`. Status: completed as runtime-producer/Skeptic evidence in `run-mcp-git-codex-skeptic-skill-4`.
 21. Apply all Tier 1 and Tier 5 R-OK interventions from the Opus cross-vendor audit. Status: completed across `f004657` through `65c19f2`.
 22. Run post-H1.S1 Opus review. Status: completed; disposition accepted with blockers at `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md`.
+23. PR #1 merge-vehicle review-discovery remediation: address Codex inline findings (F1-F4), Claude survey findings (W-NEW-1, S-NEW-1), Claude gates findings at Opus/MAX (W1-W4 + S1-S6), Claude opus findings at Opus/MAX (W-OP-1/2, S-OP-1/2/3), verify-gates findings (C1, C2, W3-W10, S11-S15), final-opus findings (W-OPUS-1/2/3/4, S-OPUS-1-4). Status: completed across `f09fcef` through `a571ac9` (14 fix commits + workflow uplift). All P1 (6) and P2 (11) findings fixed; 14 regression tests added; 145 tests passing. 10 P3 deferrals remain for a follow-up cleanup PR.
+24. Land workflow uplift on `main`: `effort_level` dial input (agentic-ops PR #21, branch `feat-effort-level` SHA `f0046cb`), `effort_level: max` caller-stub config, `docs/review-playbook.md`, `.github/PULL_REQUEST_TEMPLATE.md`. Status: PR #10 merged to main as `14ede4c`; agentic-ops PR #21 awaiting user review approval; CBM caller stub temporarily pins to the feat-effort-level SHA until #21 merges and `v1` is fast-forwarded.
+25. Merge PR #1 to main. Status: completed as merge commit `76db3bc` on 2026-05-16.
 
-H1.S1 is completed narrowly. H1.S2a evidence-bundle repair is complete. H1.S2b real isolated Skeptic production is complete. H1.S2c challenge disposition and mapper response are complete. H1.S3 validated handoff and non-current-model checkpoint review are complete. Phase B+ and repeatability claims remain blocked until their specific horizon evidence and checkpoint evidence exist.
+H1.S1 is completed narrowly. H1.S2a evidence-bundle repair is complete. H1.S2b real isolated Skeptic production is complete. H1.S2c challenge disposition and mapper response are complete. H1.S3 validated handoff and non-current-model checkpoint review are complete. H1 minimum-useful close (PR #1) is merged to main. Phase B+ and repeatability claims remain blocked until their specific horizon evidence and checkpoint evidence exist.
 
 ## Next `/goal` Track
 

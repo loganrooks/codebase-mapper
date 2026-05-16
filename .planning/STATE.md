@@ -1,7 +1,7 @@
 # CBM Build State
 
 Status: current operational state
-Last updated: 2026-05-08
+Last updated: 2026-05-16
 Supersedes: none
 Superseded by: none
 
@@ -35,6 +35,8 @@ Current product state:
 - H1 real Surface Mapper, isolated Skeptic, carried challenge disposition, validated handoff, and non-current-model checkpoint evidence exists for one pinned external target;
 - one real isolated `skeptic@1.2` pass has run over the H1.S1 Surface Mapper artifact, and the resulting `auth-001` challenge has been accepted as an alternative reading;
 - a non-current-model checkpoint accepted the H1 minimum-useful pass claim; repeatability and full orchestration are not proven;
+- PR #1 (the H1 minimum-useful close merge-vehicle) is merged to `main` as `76db3bc` on 2026-05-16, after extensive review-discovery iterations across Codex, Claude survey, Claude gates at Opus/MAX, Claude opus at Opus/MAX, verify-gates, and final-opus passes; the merged branch contains 14 fix commits addressing F3/F1/S2/W2/W-NEW-1/S-NEW-1/W-OP-1/W-OP-2/S-OP-1/F2/F4/W3/W4 (gates)/W1/W2 (gates)/S-OP-2/S2/S4/S6 (gates)/S3 (gates)/C1/C2/W4/W8/W7/W10/S12/S15/W-OPUS-1/W-OPUS-2/W-OPUS-3/W-OPUS-4 plus the workflow uplift caller-stub + ADR-010 effort_level dial (agentic-ops PR #21 still open);
+- ADR-005 cross-model gate enforcement is now load-bearing on the `pass-claim`, `main-merge`, and `broad-goal-restart` scopes via `SCOPES_REQUIRING_CROSS_MODEL`, with scope-label match enforced both at the selector and at the gate, and ledger writes deferred until BOTH surface AND card validation pass; verified by 14 new regression tests added across the session;
 - current deterministic artifacts must not be treated as proof of nuanced codebase understanding.
 
 ## Authority
@@ -87,7 +89,22 @@ Important examples:
 - `91f1f95` `feat: render baseline banner on handoff and cards`
 - `021a004` `docs: verify codex isolation through cbm run`
 - `65c19f2` `feat: add formal skill loader compatibility module`
-- pending next work: H2 planning for runtime-producer repeatability; do not start the second target run until the H2 plan is explicit
+- `f09fcef` `fix: align checkpoint scope and DISPOSITION template with gate` (PR #1 F3/F1/S2/W2)
+- `5cdbdbf` `feat(review): pin to effort_level=max + add playbook + PR template` (workflow uplift)
+- `10c6d05` `fix: extend ADR-005 cross-model gate to main-merge + broad-goal-restart` (W-NEW-1/S-NEW-1)
+- `7b06771` `fix: filter checkpoint selector by scope label for cross-model scopes` (W-OP-1/W-OP-2/S-OP-1)
+- `75022a4` `fix: stage ledger writes + align cross-vendor-review skill gates` (F2/F4/W3/W4)
+- `ce03c35` `fix(review-skill): stderr warning when pyyaml is unavailable` (gates W1/W2)
+- `75919cf` `fix(cli): require --reviewer for cross-model checkpoint scopes` (S-OP-2)
+- `4911546` `fix(review-skill): S2 + S4 + S6 cross-vendor-review robustness`
+- `8627fab` `fix(review-skill): S3 narrow recover-review failure-classification regex`
+- `2326555` `fix: verify-gates iteration — C1 + C2 + W4 + W8`
+- `091e21b` `refactor: name disposition + scope-set predicates (verify-gates W7+W10)`
+- `59ef0be` `fix: cbm.skills.load_skill repo passthrough + work-category message wording` (S12/S15)
+- `b66d5d5` `fix: second-order cleanup of verify-gates remediation (W4 floor + W8 deadcode + docs)`
+- `a571ac9` `fix: complete F4 ledger staging + loud config errors + stage anchor` (W-OPUS-1/2/3/4)
+- `76db3bc` `Merge pull request #1 from loganrooks/intervention-goal-recovery` (H1 minimum-useful close, 2026-05-16)
+- pending next work: H2 planning for runtime-producer repeatability; do not start the second target run until the H2 plan is explicit. Also: revert CBM caller stub from agentic-ops `feat-effort-level` SHA pin `f0046cb` back to `@v1` once agentic-ops PR #21 (effort_level + ADR-010) merges and `v1` is fast-forwarded. A separate small follow-up PR drains the remaining 10 P3 deferrals (gates S1/S5, verify-gates W5/W6/S11/S13/S14, opus S-OPUS-2/3/4) per BUILD-LOG dispositions.
 
 ## Active Architecture Decision
 
