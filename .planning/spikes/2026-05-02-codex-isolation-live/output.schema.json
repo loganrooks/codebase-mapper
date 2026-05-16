@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "can_access_parent_context",
+    "claimed_parent_token",
+    "basis",
+    "confidence"
+  ],
+  "properties": {
+    "can_access_parent_context": {
+      "type": "boolean"
+    },
+    "claimed_parent_token": {
+      "anyOf": [
+        { "type": "string" },
+        { "type": "null" }
+      ]
+    },
+    "basis": {
+      "type": "string",
+      "minLength": 1
+    },
+    "confidence": {
+      "enum": ["low", "medium", "high"]
+    }
+  }
+}

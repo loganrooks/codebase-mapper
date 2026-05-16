@@ -1,6 +1,6 @@
 # Contracts
 
-CLI commands, artifact catalog, citation format, hook integration. Schemas live in `schemas/`.
+CLI commands, artifact catalog, citation format, validation chain, and hook adapter points. Schemas live in `schemas/`.
 
 ## Citation format
 
@@ -14,10 +14,14 @@ path/to/file.ext:START-END@SHA
 
 Cross-artifact references use JSON Pointer: `.research/<run_id>/dependency-graph.json#/edges/47`.
 
-## Universal frontmatter (v1.1)
+## Schema source
+
+CBM validates generated artifacts against CBM's own schema source, not against arbitrary files in the target repository. Lookup order is: `CBM_SCHEMA_DIR` when set, the CBM checkout's `schemas/` directory, then a target-local `schemas/` directory only as a legacy fallback. Benchmark targets do not need copied CBM schemas.
+
+## Universal frontmatter (v1.2)
 
 ```yaml
-schema_version: "1.1"
+schema_version: "1.2"
 artifact_type: <type>
 run_id: <run_id>
 produced_at: <ISO 8601 UTC>
@@ -41,6 +45,11 @@ staleness:
   stale_if_input_hash_changes: true
   depends_on_paths: [...]
   scope_signature: <hash>
+refreshed_from:                       # optional; absent means fresh artifact
+  artifact_path: <prior artifact>
+  source_sha: <prior SHA>
+  refresh_mode: structural | interpretive
+  refresh_delta_path: <delta artifact>
 ```
 
 ## CLI command catalog
@@ -69,6 +78,39 @@ JSON Schema validation. Exit 0 on success.
 
 Compare recorded inputs and `staleness.depends_on_paths` to current state. Exit 0 fresh, 2 stale.
 
+### `cbm-validate-fresh <artifact>` (v1.2)
+
+Mode 1 staleness check. Re-hash every cited file at current HEAD; compare to citations' recorded SHAs. Output: per-citation freshness status. Cheaper than `cbm-verify`; does not re-resolve line ranges, only file-level hashes. Used by `compaction-recovery` on session start and as a precondition for `cbm-consult`. Exit 0 if all citations resolve at unchanged bytes; exit 2 with report otherwise.
+
+### `cbm-verify <artifact>` (v1.2)
+
+Mode 2 staleness check. Re-resolve every citation at current HEAD: file present? lines exist? bytes unchanged? Output: per-citation `still_grounded | needs_review | broken`. More expensive than `cbm-validate-fresh`; produces a verify report (artifact_type: `verify_report`) annotating each claim with current freshness state. Does not rewrite the artifact.
+
+### `cbm-corpus-status` (v1.2)
+
+Walks `.research/`, reports per-artifact freshness against current HEAD. Distinguishes "fresh," "stale (codebase moved)," and "pinned (still valid as historical reading)." Output is human-readable summary plus a machine-readable manifest. Use to decide which artifacts to refresh, consult, or leave alone.
+
+### `cbm-refresh <artifact> --mode <structural|interpretive>` (v1.2)
+
+Mode 3 or 4 refresh.
+
+- `--mode structural`: re-runs the deterministic kernel at HEAD; updates the codebase map; emits a refresh delta listing added/removed/changed files; marks downstream interpretive artifacts as needing review.
+- `--mode interpretive`: invokes the Surface Mapper in differential mode with the prior surface map as input; produces a successor surface map plus a refresh delta documenting what carried forward, what changed, what was retracted, what is new, what is newly contested.
+
+Mode 5 (re-run) is just `cbm-init` again.
+
+### `cbm-consult <question>` (v1.2)
+
+Reader skill invocation. Identifies relevant artifacts from `.research/`; runs `cbm-validate-fresh` first; surfaces grounded answers from the corpus or refuses if the answer isn't there or freshness is too poor to trust. Output: a consultation response (markdown) plus optional ledger appends (`citation_reused`).
+
+### `cbm-loop-status` (recovery)
+
+Read-only recovery preflight. Checks that live planning files exist, `.planning/CURRENT-PLAN.md` points to a valid `.planning/HORIZONS.md` horizon/stage, authority/planning docs are not dirty, the requested recovery work category is allowed, review packets are complete, and checkpoint gates are satisfied for the requested scope. `--scope recovery-slice` tolerates missing or inconsistent horizon metadata as warnings; broad unattended scopes (`broad-goal`, `broad-goal-restart`, `pass-claim`, `main-merge`) treat horizon/current-plan mismatches as blocking issues. `--scope recovery-slice` tolerates same-model checkpoint fallback only when labeled with `same_model_fallback: true`; `--scope pass-claim` requires a `reviewer_model_id` from a configured non-current model family and an accepted disposition.
+
+### `cbm-checkpoint` / `cbm checkpoint` (recovery)
+
+Create a checkpoint review packet under `.planning/reviews/<date-slug>/`. Required inputs: `--pass-criterion <text>` and `--scope <recovery-slice|pass-claim|main-merge|broad-goal-restart>`. For cross-model scopes (`pass-claim`, `main-merge`, `broad-goal-restart`) `--reviewer <non-current-model-id>` is required; `--reviewer-fallback-same-model` is rejected and the command exits 1 before creating the packet (ADR-005). For `recovery-slice` `--reviewer` is optional and `--reviewer-fallback-same-model` is permitted with a labeled fallback. Outputs `PROMPT.md`, `CHECKPOINT.md`, and `DISPOSITION.md`; pass-claim acceptance is enforced later by `cbm-loop-status`.
+
 ### `cbm-bind <goal-string>`
 
 Produce `goal-binding.json`. Lists candidate surfaces with map citations and status flags (active/challenged/contested/contradicted). `cbm-bind` does **not** commit to a single intervention.
@@ -79,7 +121,7 @@ Assemble handoff bundle. Pre-checks: schema, citations, ledger consistency, stal
 
 ### `cbm-gate <artifact>`
 
-Composite check: schema + citations + staleness + (cards) verification non-empty + (graphs) unknown partition present + (claims) evidence-kinds matches AGENTS.md §7 table for each claim type.
+Composite check: schema + citations + staleness + (cards) verification non-empty + (graphs) unknown partition present + (claims) evidence-kinds matches RUNTIME-CONSTITUTION.md §7 table for each claim type.
 
 ### `cbm-run-gate <gate-id>` (standard+ mode)
 
@@ -99,7 +141,7 @@ Validate the extractor registry against its schema. Confirm every extractor has 
 
 Programmatic interface for raising a challenge from a human reviewer. Defers to MVP+; for now, challenges come from the Skeptic only.
 
-## Artifact catalog (v1.1)
+## Artifact catalog (v1.2)
 
 | Artifact | Type | Path | Writer | MVP |
 |---|---|---|---|---|
@@ -120,11 +162,14 @@ Programmatic interface for raising a challenge from a human reviewer. Defers to 
 | `findings/<id>.md` | md+yaml | `findings/<id>.md` | Planner (research-only) | yes |
 | `skeptic-review/<a>.md` | md+yaml | `skeptic-review/<a>.md` | Skeptic | yes |
 | `command-outputs/<id>-<ts>.txt` | txt | `command-outputs/...` | `cbm-run-gate` | post-MVP |
+| `refresh-delta.json` | json | `refreshes/<delta-id>.json` | `cbm-refresh` | post-MVP (v1.2 standard) |
+| `verify-report.json` | json | (transient) | `cbm-verify` | post-MVP (v1.2) |
+| `consultations/<id>.md` | md | `consultations/<id>.md` | `cbm-consult` | post-MVP (v1.2) |
 | `handoff.md` | md+yaml | `handoff.md` | `cbm-handoff` | yes |
 
 ## Claim-evidence requirements
 
-The Skeptic enforces these per claim type. Authoritative table is in AGENTS.md §7:
+The Skeptic enforces these per claim type. Authoritative table is in RUNTIME-CONSTITUTION.md §7:
 
 | Claim type | Required evidence_kinds | Forbidden alone | Min corroboration |
 |---|---|---|---|
@@ -150,6 +195,8 @@ Claims have their own lifecycle (active → challenged → contested → contrad
 
 ## Hook integration points
 
+Hooks are optional platform adapters. They may call the commands below, but they are not the source of truth and must not contain policy that is unavailable through explicit CBM commands.
+
 | Trigger | Action | Type |
 |---|---|---|
 | Post-write to artifact | `cbm-validate` + `cbm-verify-citations` + claim-evidence-requirements check | hard gate |
@@ -159,7 +206,10 @@ Claims have their own lifecycle (active → challenged → contested → contrad
 | Post-write to source files (during run) | mark consumer artifacts stale | warning gate |
 | Pre-`cbm-handoff` | full gate sweep + contestation summary populated | hard gate |
 | Pre-`cbm-run-gate` | safety envelope check | hard gate |
-| Session start | run compaction-recovery skill | recovery |
+| Pre-`cbm-consult` | `cbm-validate-fresh` on artifacts to be consulted | hard gate |
+| Pre-`cbm-refresh` (interpretive) | structural refresh has produced an updated codebase map | hard gate |
+| Post-`cbm-refresh` | refresh-delta produced; downstream artifacts marked needs-review | hard gate |
+| Session start | run compaction-recovery skill (which calls `cbm-validate-fresh`) | recovery |
 
 ## Extractor registry
 
@@ -172,6 +222,12 @@ A starter registry shipped at `cbm-init` should include at minimum:
 - A CI parser.
 
 Each must declare its blind spots specifically. Generic disclaimers ("might miss things") fail validation.
+
+## Producer registry and run manifest
+
+`producer-registry.json` records which producer backend is responsible for each artifact type in a run. Deterministic runs use explicit `cbm-baseline-*` or `dev-fixture-*` producer IDs. External-agent producer IDs are declared when `--backend external` is selected, and that backend currently refuses rather than fabricating outputs. `--backend codex-cli` is a guarded smoke backend: deterministic producers still create the baseline artifacts, while a Codex CLI smoke producer may write `skeptic-review/surface-map.md` only when `--allow-live-codex` is explicitly passed. The smoke backend defaults to `--codex-model gpt-5.4-mini` and `--codex-reasoning-effort medium`; both are recorded in the manifest command and can be overridden explicitly.
+
+`run-manifest.json` records the selected backend, mode, goal, producer registry hash, and each run step's command, producer id, backend, status, and exit code. It is lifecycle evidence for `cbm run`; it is not a substitute for validating the artifacts produced by those steps.
 
 ## What the contracts do not commit to
 

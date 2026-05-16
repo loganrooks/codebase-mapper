@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "project_type_report",
+  "run_id": "run-mcp-git-h1s2b-skeptic-1",
+  "produced_at": "2026-05-07T12:33:54Z",
+  "produced_by": "cbm-baseline-project-type@0.1",
+  "source_sha": "4503e2d12b79",
+  "inputs": [],
+  "status": "draft",
+  "detections": [
+    {
+      "project_type": "agent_orchestration",
+      "display_name": "Agent orchestration project",
+      "confidence": "medium",
+      "pack_id": "project-pack-agent-orchestration-v1",
+      "evidence": [
+        {
+          "path": "README.md",
+          "reason": "contains marker agent",
+          "citation": "README.md:1@4503e2d12b79"
+        }
+      ],
+      "extractor_annotations": [
+        "Agent workflows rely on instruction surfaces and skill files that should be treated as authority surfaces."
+      ],
+      "authority_hints": [
+        "AGENTS.md",
+        "RUNTIME-CONSTITUTION.md",
+        "skills/"
+      ],
+      "known_blind_spots": [
+        "prompt-level routing",
+        "external agent launcher semantics",
+        "human approval workflow"
+      ]
+    },
+    {
+      "project_type": "mcp_server",
+      "display_name": "MCP server",
+      "confidence": "medium",
+      "pack_id": "project-pack-mcp-server-v1",
+      "evidence": [
+        {
+          "path": "Dockerfile",
+          "reason": "contains marker mcp",
+          "citation": "Dockerfile:1@4503e2d12b79"
+        }
+      ],
+      "extractor_annotations": [
+        "MCP tool/resource registration is an authority surface; decorators and registry calls may create dynamic edges."
+      ],
+      "authority_hints": [
+        "server.py",
+        "tools.py",
+        "resources.py",
+        "pyproject.toml",
+        "package.json"
+      ],
+      "known_blind_spots": [
+        "decorator registration",
+        "dynamic tool discovery",
+        "transport-specific runtime paths"
+      ]
+    },
+    {
+      "project_type": "python_package",
+      "display_name": "Python package",
+      "confidence": "medium",
+      "pack_id": "project-pack-python-package-v1",
+      "evidence": [
+        {
+          "path": "pyproject.toml",
+          "reason": "matched pack file pattern pyproject.toml",
+          "citation": "pyproject.toml:1@4503e2d12b79"
+        }
+      ],
+      "extractor_annotations": [
+        "Python AST import and direct-call extractors apply; relative imports and dynamic dispatch remain blind spots."
+      ],
+      "authority_hints": [
+        "pyproject.toml",
+        "tests/"
+      ],
+      "known_blind_spots": [
+        "entry points declared by packaging metadata are not yet converted into runtime workflow edges"
+      ]
+    }
+  ]
+}

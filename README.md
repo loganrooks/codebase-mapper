@@ -1,16 +1,29 @@
 # CBM — Codebase Mapping & Intervention Planning Seed Kit
 
-**Schema version: 1.1.** A seed kit for building an agentic system that maps arbitrary codebases and produces evidence-backed intervention plans. Designed Codex-first.
+**Schema version: 1.2.** A seed kit for building an agentic system that maps arbitrary codebases and produces evidence-backed intervention plans. Designed Codex-first.
 
 ## What this kit is
 
 This is **not** the system. It is the seed: the contracts, prompts, and architectural commitments needed to build the system using AI agents. A builder (human or agent) reads these docs and produces an implementation.
+
+For the destination — what the system looks like when it is no longer a beta — see [`VISION.md`](VISION.md). It names the maturity criteria, the user the system serves, the experience of a mature run, and the things the system will explicitly not become.
 
 ## What the system does
 
 Given a repository and a user goal, produce **intervention cards** (or research-only **findings cards**): evidence-backed proposals for changes, refactors, extension points, audits, migrations, or follow-up investigations. Every claim cites real bytes at a real revision. Every recommendation has a verification strategy. Every claim is labeled as factual, inferential, or interpretive — and the system handles each register differently.
 
 The system supports goals from "understand this unfamiliar repo" to "plan a migration" to "produce research-only findings without implementation," across project types from prototypes to mature production systems.
+
+## What's new in v1.2
+
+- **Reuse made operational.** Five forms of reuse with documented workflows: goal-agnostic cache (different goals, same SHA, no re-mapping); incremental update; historical consultation (old artifacts as pinned readings); consultation mode (`cbm-consult` answers questions from the corpus); cross-run synthesis (deferred to v2.0).
+- **Five staleness modes.** Validate, verify, refresh structural, refresh interpretive, re-run — escalating cost, decreasing interpretive continuity preserved. Pick the cheapest that addresses the question.
+- **Refresh delta as first-class artifact.** New schema records carried_forward, updated, retracted, newly_added, newly_contested, plus per-challenge and per-open-question reconciliation status. The corpus accumulates trajectory, not just snapshots.
+- **Optional `refreshed_from`** lineage block on artifacts that can be refreshed.
+- **Reader skill (`consult.md`)** for read-existing-artifacts-without-rerunning.
+- **Surface Mapper differential refresh mode** with migration protocol.
+- **Compaction recovery integrates `cbm-validate-fresh`** so session resume never silently uses stale inputs.
+- **`RUNTIME-CONSTITUTION.md` §25 on reuse and refresh discipline.** (See note below on the AGENTS.md / RUNTIME-CONSTITUTION.md split.)
 
 ## What's new in v1.1
 
@@ -22,15 +35,29 @@ The system supports goals from "understand this unfamiliar repo" to "plan a migr
 - **Three-mode execution.** Source mutation forbidden; declared verification commands runnable via `cbm-run-gate` with safety envelopes; external system access only with per-access approval.
 - **Declarative staleness** with `depends_on_paths` and `scope_signature`.
 
+## Two constitutions, two audiences
+
+This kit has **two** constitution files, for two different audiences:
+
+- **`AGENTS.md`** — for the agent (Codex, Claude, or a human) **developing CBM** from this seed kit. Read first if your job is to build CBM. Short; tells you how to operate against the rest of the kit.
+- **`RUNTIME-CONSTITUTION.md`** — for the runtime CBM agents (Surface Mapper, Skeptic, Synthesizer, Intervention Planner, Reader) operating *inside* a CBM run on someone's codebase. This file is shipped with the implementation, not absorbed by the developer. (Implementations may rename it `AGENTS.md` in the deployed system, where the runtime agents are the ones operating in the directory.)
+
+If you are unpacking this kit and pointing Codex `/goal` at `VISION.md`, the agent reading `AGENTS.md` is the dev agent — and the dev-agent file is the right thing for it to read. The runtime constitution is preserved separately for shipping.
+
 ## Reading order
 
-1. **`AGENTS.md`** — the constitution. Operational rules every agent must follow. Drops into real projects as-is. (24 sections; §3 covers the three-register claim model, §7 the claim-evidence requirements table, §17 the Skeptic's three modes.)
-2. **`docs/architecture.md`** — kernel + synthesis + goal packs, agent suite, phase model, the claim-register model.
-3. **`docs/contracts.md`** — CLI command contracts, artifact catalog, claim-evidence requirements, hook integration points.
-4. **`docs/roadmap.md`** — MVP scope, mode taxonomy, deferred work, v1.1 changelog.
-5. **Skills** (`skills/*.md`) — the agent prompts. Skeptic skill is the largest in v1.1 because of the three-mode protocol.
-6. **Schemas** (`schemas/*.json`) — JSON Schemas for every durable artifact. Validation runs on every write.
-7. **Example** (`examples/intervention-card-example.md`) — worked findings card showing claim_register on leverage, a populated `dependent_challenges` block, and a card propagating an interpretive challenge from the surface map.
+1. **`AGENTS.md`** — if you are the dev agent or directing one. Stop here on first pass.
+2. **`VISION.md`** — the destination. The maturity criteria there are what mature CBM looks like; what you are building toward.
+3. **`.planning/HORIZONS.md`** — autonomous execution ladder. Use this to turn the vision into bounded `/goal` stages.
+4. **`.planning/CURRENT-PLAN.md`** — the current horizon/stage and allowed next work.
+5. **`docs/roadmap.md`** — what to build first. Phases are real gates.
+6. **`RUNTIME-CONSTITUTION.md`** — the rules the runtime agents (the ones your implementation spawns) must follow. 25 sections; §3 covers the three-register claim model, §7 the claim-evidence requirements table, §17 the Skeptic's three modes, §25 reuse and refresh discipline.
+7. **`docs/architecture.md`** — kernel + synthesis + goal packs, agent suite, phase model, the claim-register model, the reuse-and-refresh model.
+8. **`docs/contracts.md`** — CLI command contracts, artifact catalog, claim-evidence requirements, hook integration points.
+9. **`docs/reuse-and-refresh.md`** — five forms of reuse, five staleness modes, migration protocol.
+10. **Skills** (`skills/*.md`) — runtime agent prompts. Loaded at runtime by the implementation, not absorbed by the dev agent.
+11. **Schemas** (`schemas/*.json`) — JSON Schemas for every durable artifact. Authoritative; do not modify without explicit version bump.
+12. **Example** (`examples/intervention-card-example.md`) — validation target. Your implementation produces artifacts shaped like this.
 
 ## Core commitments
 
@@ -60,12 +87,19 @@ Codex-first. Codex hooks and subagents are confirmed to exist (per the user). Sp
 ## File map
 
 ```
-README.md                            this file
-AGENTS.md                            constitution (24 sections); ships with every implementation
+README.md                            this file (orientation)
+AGENTS.md                            for the agent developing CBM (read first if that's you)
+VISION.md                            end-state, maturity criteria, ideal version, anti-vision
+RUNTIME-CONSTITUTION.md              constitution for runtime CBM agents (shipped with implementation)
+.planning/
+  HORIZONS.md                        autonomous ladder from vision to bounded /goal stages
+  CURRENT-PLAN.md                    current horizon/stage and allowed next work
+  STATE.md                           current factual project state
 docs/
-  architecture.md                    the design (incl. three-register claim model)
+  architecture.md                    the design (incl. three-register claim model, reuse-refresh model)
   contracts.md                       CLI + artifact catalog + claim-evidence table
-  roadmap.md                         MVP, modes, deferred work, v1.1 changelog
+  reuse-and-refresh.md               five forms of reuse, five staleness modes, migration protocol
+  roadmap.md                         MVP, modes, deferred work, v1.1 and v1.2 changelogs
 schemas/
   codebase-map.schema.json           deterministic structural baseline
   surface-map.schema.json            authorities + edges + verification (claim registers, challenges)
@@ -73,17 +107,21 @@ schemas/
   evidence-ledger.schema.json        append-only run log (with challenge entry kinds)
   handoff.schema.json                final run output (with contestation summary)
   extractor-registry.schema.json     typed extractor catalogue with declared blind spots
+  producer-registry.schema.json      producer/backend catalogue for a run
+  run-manifest.schema.json           run lifecycle, backend, and step outcomes
+  refresh-delta.schema.json          v1.2: trajectory artifact for refresh runs
 skills/
-  surface-mapping.md                 produces surface-map.json with claim registers
+  surface-mapping.md                 produces surface-map.json; v1.2 differential refresh mode
   synthesizer.md                     cross-references; propagates contestation
   intervention-planner.md            card producer; treats leverage as interpretive
   skeptic.md                         hostile reviewer with three-mode protocol
-  compaction-recovery.md             session resume; surfaces active contestation
+  consult.md                         v1.2 Reader; answers from existing corpus or refuses
+  compaction-recovery.md             session resume; v1.2 calls cbm-validate-fresh
 examples/
   intervention-card-example.md       findings card with leverage challenge + dependent_challenges
 ```
 
-That's seventeen files total: one new schema (`extractor-registry.schema.json`) and the example reworked to demonstrate v1.1 features.
+The split of the original `AGENTS.md` into a dev-agent `AGENTS.md` and a runtime `RUNTIME-CONSTITUTION.md` is the operational change in this v1.2 amendment.
 
 ## What's deferred
 
@@ -91,5 +129,6 @@ That's seventeen files total: one new schema (`extractor-registry.schema.json`) 
 - **Goal packs** (specializations for `feature_add`, `refactor`, `migration`, etc.) are designed for but not seeded.
 - **`cbm-run-gate`** for executing declared verification commands is contract-specified but not in MVP — added in standard mode (Phase B).
 - **Project-type packs** (Django, Rails, MCP-server, monorepo) deferred to Phase E. Each will ship with type-specific extractor registry annotations.
+- **Cross-run synthesis** (stable cross-run claim IDs, project-level claim register, persistent contestation across many independent runs) is v2.0 work. Within-lineage refresh handles same-codebase trajectory; the bigger persistence story is named in `VISION.md` open conjectures.
 
 See `docs/roadmap.md`.

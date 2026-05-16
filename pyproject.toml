@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cbm"
+version = "0.1.0"
+description = "Codebase Mapping and Intervention Planning MVP kernel"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "jsonschema>=4.18",
+  "PyYAML>=6.0",
+]
+
+[project.scripts]
+cbm = "cbm.cli:main"
+cbm-init = "cbm.cli:init_main"
+cbm-map = "cbm.cli:map_main"
+cbm-surface = "cbm.cli:surface_main"
+cbm-authority-map = "cbm.cli:authority_map_main"
+cbm-dependency-graph = "cbm.cli:dependency_graph_main"
+cbm-verify-map = "cbm.cli:verify_map_main"
+cbm-synthesis-index = "cbm.cli:synthesis_index_main"
+cbm-skeptic-review = "cbm.cli:skeptic_review_main"
+cbm-bind = "cbm.cli:bind_main"
+cbm-trace-workflows = "cbm.cli:trace_workflows_main"
+cbm-refine = "cbm.cli:refine_main"
+cbm-approval-plan = "cbm.cli:approval_plan_main"
+cbm-validate = "cbm.cli:validate_main"
+cbm-extractor-registry = "cbm.cli:extractor_registry_main"
+cbm-check-evidence = "cbm.cli:check_evidence_main"
+cbm-verify-citations = "cbm.cli:verify_citations_main"
+cbm-gate-artifact = "cbm.cli:gate_artifact_main"
+cbm-challenge = "cbm.cli:challenge_main"
+cbm-resolve-challenge = "cbm.cli:resolve_challenge_main"
+cbm-stale = "cbm.cli:stale_main"
+cbm-validate-fresh = "cbm.cli:validate_fresh_main"
+cbm-verify = "cbm.cli:verify_main"
+cbm-corpus-status = "cbm.cli:corpus_status_main"
+cbm-refresh = "cbm.cli:refresh_main"
+cbm-consult = "cbm.cli:consult_main"
+cbm-run-gate = "cbm.cli:run_gate_main"
+cbm-handoff = "cbm.cli:handoff_main"
+cbm-run = "cbm.cli:run_main"
+cbm-loop-status = "cbm.cli:loop_status_main"
+cbm-checkpoint = "cbm.cli:checkpoint_main"
+cbm-hook-stop = "cbm.cli:hook_stop_main"
+cbm-hook-start = "cbm.cli:hook_start_main"
+
+[tool.setuptools.package-data]
+cbm = ["goal_packs/*.json", "project_packs/*.json", "schemas/*.schema.json", "runtime_skills/*.md", "loop_status_config.json"]
+
+[tool.setuptools.packages.find]
+include = ["cbm*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+norecursedirs = ["tests/fixtures"]

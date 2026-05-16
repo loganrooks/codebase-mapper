@@ -1,0 +1,13 @@
+{
+  "pack_id": "project-pack-mcp-server-v1",
+  "project_type": "mcp_server",
+  "display_name": "MCP server",
+  "any_files": [],
+  "all_files": [],
+  "content_markers": ["mcp"],
+  "extractor_annotations": [
+    "MCP tool/resource registration is an authority surface; decorators and registry calls may create dynamic edges."
+  ],
+  "authority_hints": ["server.py", "tools.py", "resources.py", "pyproject.toml", "package.json"],
+  "known_blind_spots": ["decorator registration", "dynamic tool discovery", "transport-specific runtime paths"]
+}

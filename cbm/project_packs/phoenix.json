@@ -1,0 +1,13 @@
+{
+  "pack_id": "project-pack-phoenix-v1",
+  "project_type": "phoenix",
+  "display_name": "Phoenix application",
+  "any_files": ["mix.exs"],
+  "all_files": [],
+  "content_markers": ["phoenix"],
+  "extractor_annotations": [
+    "Phoenix router, endpoint, and supervision-tree edges require framework-aware extraction."
+  ],
+  "authority_hints": ["mix.exs", "lib/*_web/router.ex", "lib/*_web/endpoint.ex"],
+  "known_blind_spots": ["macro-expanded routes", "supervision tree runtime wiring", "endpoint configuration"]
+}

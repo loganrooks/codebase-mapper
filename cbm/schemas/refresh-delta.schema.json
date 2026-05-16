@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/refresh-delta.schema.json",
+  "title": "Refresh Delta",
+  "description": "Records the differential between a prior artifact and its refreshed successor. Produced by cbm-refresh in modes structural and interpretive. Carries the trajectory of revision, not just the current state.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "status",
+    "refresh_mode",
+    "prior_artifact",
+    "successor_artifact",
+    "summary",
+    "carried_forward",
+    "updated",
+    "retracted",
+    "newly_added",
+    "newly_contested",
+    "challenges_carried_forward",
+    "open_questions_reconciled"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "refresh_delta" },
+    "run_id": { "type": "string" },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    },
+    "source_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$",
+      "description": "The new HEAD SHA the refresh moved to."
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+
+    "refresh_mode": {
+      "enum": ["structural", "interpretive"],
+      "description": "structural=Mode 3 (deterministic kernel re-run, downstream marked needs-review). interpretive=Mode 4 (Surface Mapper differential refresh, carrying forward prior interpretive claims where evidence unchanged)."
+    },
+
+    "prior_artifact": {
+      "type": "object",
+      "required": ["path", "sha256", "source_sha"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "The source_sha the prior artifact was generated against."
+        }
+      }
+    },
+
+    "successor_artifact": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+
+    "summary": {
+      "type": "string",
+      "minLength": 20,
+      "description": "Prose summary of what changed between prior and successor: what kind of codebase change drove the refresh, how much carried forward, what's notably different."
+    },
+
+    "carried_forward": {
+      "type": "array",
+      "description": "Claims from the prior artifact that survived the refresh verbatim — citations resolve to unchanged bytes; register and status preserved.",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "claim_register", "claim_status"],
+        "properties": {
+          "claim_id": { "type": "string" },
+          "claim_register": { "enum": ["factual", "inferential", "interpretive"] },
+          "claim_status": { "enum": ["active", "challenged", "contested", "contradicted", "superseded", "retired"] },
+          "successor_claim_id": {
+            "type": "string",
+            "description": "If the successor uses a different id (e.g., re-numbering), record the mapping. Often same as claim_id."
+          }
+        }
+      }
+    },
+
+    "updated": {
+      "type": "array",
+      "description": "Claims whose evidence shifted but whose interpretive content survives the change. The producer re-examined and judged that the reading still holds; citations and evidence_kinds may differ in the successor.",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "successor_claim_id", "what_changed"],
+        "properties": {
+          "claim_id": { "type": "string" },
+          "successor_claim_id": { "type": "string" },
+          "what_changed": {
+            "type": "string",
+            "minLength": 10,
+            "description": "What in the evidence shifted, and why the claim still holds. References specific citations or files."
+          },
+          "claim_register": { "enum": ["factual", "inferential", "interpretive"] }
+        }
+      }
+    },
+
+    "retracted": {
+      "type": "array",
+      "description": "Claims that did not survive the refresh. Evidence no longer supports them; interpretive content no longer defensible at HEAD.",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "rationale"],
+        "properties": {
+          "claim_id": { "type": "string" },
+          "rationale": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Why the claim was retracted: what changed in the codebase that broke it."
+          },
+          "superseded_by": {
+            "type": "string",
+            "description": "Optional: id of the successor claim that replaces this one (use when a claim is superseded rather than simply removed)."
+          }
+        }
+      }
+    },
+
+    "newly_added": {
+      "type": "array",
+      "description": "Claims in the successor that did not exist in the prior. New surfaces, new edges, new authorities surfaced by the refresh.",
+      "items": {
+        "type": "object",
+        "required": ["successor_claim_id", "rationale"],
+        "properties": {
+          "successor_claim_id": { "type": "string" },
+          "rationale": {
+            "type": "string",
+            "description": "What in the codebase change introduced this new claim."
+          }
+        }
+      }
+    },
+
+    "newly_contested": {
+      "type": "array",
+      "description": "Claims that survived the refresh but where the codebase change has surfaced an alternative reading not previously visible. Status moves from active to challenged.",
+      "items": {
+        "type": "object",
+        "required": ["successor_claim_id", "challenge_id", "rationale"],
+        "properties": {
+          "successor_claim_id": { "type": "string" },
+          "challenge_id": {
+            "type": "string",
+            "pattern": "^chl-[0-9]{5,}$"
+          },
+          "rationale": { "type": "string" }
+        }
+      }
+    },
+
+    "challenges_carried_forward": {
+      "type": "array",
+      "description": "Challenges from the prior artifact, classified by their status after refresh.",
+      "items": {
+        "type": "object",
+        "required": ["challenge_id", "post_refresh_status"],
+        "properties": {
+          "challenge_id": { "type": "string", "pattern": "^chl-[0-9]{5,}$" },
+          "post_refresh_status": {
+            "enum": [
+              "still_active",
+              "resolved_by_refresh",
+              "obsolete_target_retracted",
+              "now_contradicted"
+            ]
+          },
+          "rationale": { "type": "string" }
+        }
+      }
+    },
+
+    "open_questions_reconciled": {
+      "type": "array",
+      "description": "Open questions from the prior, classified by what the refresh did to them.",
+      "items": {
+        "type": "object",
+        "required": ["register_id", "post_refresh_status"],
+        "properties": {
+          "register_id": { "type": "string" },
+          "post_refresh_status": {
+            "enum": ["still_open", "resolved", "obsolete", "transformed"]
+          },
+          "rationale": { "type": "string" }
+        }
+      }
+    },
+
+    "downstream_invalidation": {
+      "type": "array",
+      "description": "Artifacts downstream of the refreshed one that are now stale and need review (intervention cards built on prior surface map, etc.).",
+      "items": {
+        "type": "object",
+        "required": ["artifact_path", "reason"],
+        "properties": {
+          "artifact_path": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}

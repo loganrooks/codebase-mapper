@@ -1,0 +1,160 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "run_manifest",
+  "run_id": "run-mcp-git-baseline-2",
+  "produced_at": "2026-05-01T20:24:46Z",
+  "backend": "deterministic",
+  "mode": "standard",
+  "goal": "understand MCP git server surfaces",
+  "goal_class": "understand_repo",
+  "status": "succeeded",
+  "producer_registry": {
+    "path": ".research/run-mcp-git-baseline-2/producer-registry.json",
+    "sha256": "10d0c2277da021053e674a58e00db61fa71da21efb428cd815d93ee0d32bfc2f"
+  },
+  "steps": [
+    {
+      "step_id": "init",
+      "command": "init",
+      "artifact_type": "project_type_report",
+      "producer_id": "cbm-baseline-project-type@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:45Z",
+      "completed_at": "2026-05-01T20:24:45Z"
+    },
+    {
+      "step_id": "map",
+      "command": "map",
+      "artifact_type": "codebase_map",
+      "producer_id": "cbm-baseline-map@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:45Z",
+      "completed_at": "2026-05-01T20:24:45Z"
+    },
+    {
+      "step_id": "surface",
+      "command": "surface",
+      "artifact_type": "surface_map",
+      "producer_id": "cbm-baseline-surface@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:45Z",
+      "completed_at": "2026-05-01T20:24:46Z"
+    },
+    {
+      "step_id": "authority-map",
+      "command": "authority-map",
+      "artifact_type": "authority_map",
+      "producer_id": "cbm-baseline-authority@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:46Z",
+      "completed_at": "2026-05-01T20:24:46Z"
+    },
+    {
+      "step_id": "skeptic-review-authority-map",
+      "command": "skeptic-review",
+      "artifact_type": "skeptic_review",
+      "producer_id": "dev-fixture-skeptic@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:46Z",
+      "completed_at": "2026-05-01T20:24:46Z"
+    },
+    {
+      "step_id": "dependency-graph",
+      "command": "dependency-graph",
+      "artifact_type": "dependency_graph",
+      "producer_id": "cbm-baseline-dependency@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:46Z",
+      "completed_at": "2026-05-01T20:24:46Z"
+    },
+    {
+      "step_id": "skeptic-review-dependency-graph",
+      "command": "skeptic-review",
+      "artifact_type": "skeptic_review",
+      "producer_id": "dev-fixture-skeptic@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:46Z",
+      "completed_at": "2026-05-01T20:24:46Z"
+    },
+    {
+      "step_id": "verify-map",
+      "command": "verify-map",
+      "artifact_type": "verification_map",
+      "producer_id": "cbm-baseline-verification@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:46Z",
+      "completed_at": "2026-05-01T20:24:46Z"
+    },
+    {
+      "step_id": "skeptic-review-verification-map",
+      "command": "skeptic-review",
+      "artifact_type": "skeptic_review",
+      "producer_id": "dev-fixture-skeptic@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:46Z",
+      "completed_at": "2026-05-01T20:24:46Z"
+    },
+    {
+      "step_id": "synthesis-index",
+      "command": "synthesis-index",
+      "artifact_type": "synthesis_index",
+      "producer_id": "cbm-baseline-synthesis@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:46Z",
+      "completed_at": "2026-05-01T20:24:46Z"
+    },
+    {
+      "step_id": "skeptic-review-synthesis-index",
+      "command": "skeptic-review",
+      "artifact_type": "skeptic_review",
+      "producer_id": "dev-fixture-skeptic@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:46Z",
+      "completed_at": "2026-05-01T20:24:46Z"
+    },
+    {
+      "step_id": "bind",
+      "command": "bind",
+      "artifact_type": "goal_binding",
+      "producer_id": "cbm-baseline-bind@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:46Z",
+      "completed_at": "2026-05-01T20:24:46Z"
+    },
+    {
+      "step_id": "handoff",
+      "command": "handoff",
+      "artifact_type": "handoff",
+      "producer_id": "cbm-baseline-handoff@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-01T20:24:46Z",
+      "completed_at": "2026-05-01T20:24:46Z"
+    }
+  ]
+}

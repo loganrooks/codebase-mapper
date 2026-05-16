@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/dependency-graph.schema.json",
+  "title": "Dependency Graph",
+  "description": "Standard-mode dependency edges split out from the combined surface map, with explicit unknown partition counts.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "inputs",
+    "status",
+    "coverage",
+    "staleness",
+    "partition_counts",
+    "edges"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "dependency_graph" },
+    "run_id": { "type": "string" },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": { "type": "string", "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+    "coverage": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/coverage" },
+    "staleness": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/staleness" },
+    "partition_counts": {
+      "type": "object",
+      "required": ["certain", "suspected", "advisory", "unknown"],
+      "additionalProperties": false,
+      "properties": {
+        "certain": { "type": "integer", "minimum": 0 },
+        "suspected": { "type": "integer", "minimum": 0 },
+        "advisory": { "type": "integer", "minimum": 0 },
+        "unknown": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "edge": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "from",
+        "to",
+        "claim_register",
+        "claim_status",
+        "evidence_kinds",
+        "corroboration_count",
+        "confidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "kind": {
+          "enum": [
+            "import",
+            "call",
+            "public_api",
+            "config_contract",
+            "schema_contract",
+            "generated_from",
+            "test_exercises",
+            "doc_contract",
+            "runtime_workflow",
+            "implicit_social_contract",
+            "unknown"
+          ]
+        },
+        "from": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string" },
+            "symbol": { "type": "string" }
+          }
+        },
+        "to": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string" },
+            "symbol": { "type": "string" }
+          }
+        },
+        "citations": {
+          "type": "array",
+          "items": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/citation" }
+        },
+        "extractor_id": { "type": "string" },
+        "claim_register": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_register" },
+        "claim_status": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_status" },
+        "evidence_kinds": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/evidence_kinds" },
+        "corroboration_count": { "type": "integer", "minimum": 1 },
+        "confidence": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/confidence" },
+        "rationale": { "type": "string" },
+        "challenges": {
+          "type": "array",
+          "items": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/challenge" }
+        },
+        "contradicted_by": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/contradicted_by" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "enum": ["import", "call", "public_api", "generated_from"] } } },
+          "then": { "required": ["extractor_id"] }
+        },
+        {
+          "if": { "not": { "properties": { "kind": { "const": "unknown" } } } },
+          "then": { "required": ["citations"] }
+        },
+        {
+          "if": { "properties": { "claim_status": { "const": "contradicted" } } },
+          "then": { "required": ["contradicted_by"] }
+        },
+        {
+          "if": { "properties": { "claim_status": { "enum": ["challenged", "contested"] } } },
+          "then": {
+            "required": ["challenges"],
+            "properties": { "challenges": { "minItems": 1 } }
+          }
+        }
+      ]
+    }
+  }
+}

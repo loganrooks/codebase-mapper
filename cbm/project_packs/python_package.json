@@ -1,0 +1,13 @@
+{
+  "pack_id": "project-pack-python-package-v1",
+  "project_type": "python_package",
+  "display_name": "Python package",
+  "any_files": ["pyproject.toml", "setup.py", "requirements.txt"],
+  "all_files": [],
+  "content_markers": [],
+  "extractor_annotations": [
+    "Python AST import and direct-call extractors apply; relative imports and dynamic dispatch remain blind spots."
+  ],
+  "authority_hints": ["pyproject.toml", "tests/"],
+  "known_blind_spots": ["entry points declared by packaging metadata are not yet converted into runtime workflow edges"]
+}

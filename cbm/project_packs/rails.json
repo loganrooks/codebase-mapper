@@ -1,0 +1,13 @@
+{
+  "pack_id": "project-pack-rails-v1",
+  "project_type": "rails",
+  "display_name": "Rails application",
+  "any_files": ["Gemfile"],
+  "all_files": ["config/routes.rb"],
+  "content_markers": ["rails"],
+  "extractor_annotations": [
+    "Rails conventions create routing, model, and callback edges that are not visible as direct imports."
+  ],
+  "authority_hints": ["config/routes.rb", "config/application.rb", "app/models/"],
+  "known_blind_spots": ["autoloading", "ActiveRecord callbacks", "route helper indirection"]
+}

@@ -1,6 +1,22 @@
 # Roadmap
 
-How to phase the build from seed to deep-mode-capable system. Schema version 1.1.
+How to phase the build from seed to deep-mode-capable system. Schema version 1.2.
+
+## Current status note
+
+This roadmap remains the intent and acceptance taxonomy, not current pass/fail status. As of the recovery intervention on 2026-05-01, Phase A is only partially implemented as a deterministic foundation, and Phases B-F are not passed. Later-phase deterministic scaffolding exists, but runtime agent producers and external benchmark evidence do not.
+
+Before any Phase B+ pass claim, CBM must produce at least one real runtime-agent artifact on a pinned external benchmark and pass existing validation with honest producer identity and coverage.
+
+## What changed in v1.2
+
+- **Reuse made operational.** Five forms (goal-agnostic cache, incremental update, historical consultation, consultation mode, deferred cross-run synthesis). Documented workflows; no more implicit-only.
+- **Five staleness modes.** Validate, verify, refresh structural, refresh interpretive, re-run. Each command has its own CLI; each preserves a different amount of interpretive continuity.
+- **Refresh delta as first-class artifact.** New schema (`refresh-delta.schema.json`) records carried_forward, updated, retracted, newly_added, newly_contested, plus per-challenge and per-open-question reconciliation status. The corpus accumulates trajectory.
+- **Optional `refreshed_from` block** on artifacts that can be refreshed (codebase map, surface map, intervention card). Lineage made explicit at the artifact level.
+- **New Reader skill (`consult.md`)** for the read-existing-artifacts-without-rerunning case. Refuses honestly when the corpus doesn't contain the answer or is too stale.
+- **Compaction recovery integrates `cbm-validate-fresh`** so session resume never silently uses stale inputs.
+- **Surface Mapper gains differential refresh mode** with the per-claim migration protocol.
 
 ## What changed in v1.1
 
@@ -61,9 +77,11 @@ Synthesizer collapsed into orchestrator pre-planning. Tracer deferred.
 
 ### Hooks in MVP
 
-- Post-artifact-write: `cbm-validate` + `cbm-verify-citations` + claim-evidence-requirements check.
-- Pre-`cbm-handoff`: full gate sweep + contestation summary populated.
-- Session start: load `compaction-recovery` skill.
+Hooks are adapter glue, not the product guarantee. The MVP implementation may ship Codex hook templates that call the same validators the CLI calls, but the run must remain correct when validation is invoked explicitly by CBM.
+
+- Post-artifact-write adapter: `cbm-validate` + `cbm-verify-citations` + claim-evidence-requirements check.
+- Pre-`cbm-handoff` adapter: full gate sweep + contestation summary populated.
+- Session-start adapter: load `compaction-recovery` skill.
 
 Per-artifact Skeptic spawning deferred.
 
@@ -136,6 +154,8 @@ Same artifact schemas across modes. Modes differ in *which* gates fire, *how man
 
 Acceptance: end-to-end run, citations resolve, ≥1 actionable card, claim registers correctly assigned.
 
+Recovery amendment: deterministic end-to-end runs satisfy only the baseline portion of this acceptance. Agentic acceptance requires a real Surface Mapper and Skeptic artifact on the pinned external benchmark.
+
 ### Phase B — Standard mode (week 3–4)
 
 1. Three Surface Mapper subagents.
@@ -145,8 +165,9 @@ Acceptance: end-to-end run, citations resolve, ≥1 actionable card, claim regis
 5. `cbm-bind` and `goal-binding.json`.
 6. `cbm-stale` and warning gate.
 7. `cbm-run-gate` with safety envelope discipline.
+8. v1.2 reuse and refresh: `cbm-validate-fresh`, `cbm-verify`, `cbm-corpus-status`, `cbm-refresh --mode <structural|interpretive>`, `cbm-consult`. Reader skill. Differential refresh mode for Surface Mapper. Refresh-delta artifact.
 
-Acceptance: 50k-LOC repo, coherent maps with non-trivial unknown partitions, Skeptic catches ≥1 weak claim per gate, ≥1 interpretive challenge per run on real codebases.
+Acceptance: 50k-LOC repo, coherent maps with non-trivial unknown partitions, Skeptic catches ≥1 weak claim per gate, ≥1 interpretive challenge per run on real codebases. Reuse: a second goal against the same SHA produces cards without re-mapping; a substantive codebase change refreshed via Mode 4 carries forward ≥80% of prior surface-map claims; consultation answers well-scoped questions in <30 seconds with grounded citations.
 
 ### Phase C — Goal packs (week 5–6)
 

@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "run_manifest",
+  "run_id": "run-mcp-git-surface-mapper-h1s1-6",
+  "produced_at": "2026-05-02T20:53:42Z",
+  "backend": "codex-cli",
+  "mode": "lightweight",
+  "goal": "produce real Surface Mapper map for MCP git server surfaces",
+  "goal_class": "understand_repo",
+  "status": "succeeded",
+  "producer_registry": {
+    "path": ".research/run-mcp-git-surface-mapper-h1s1-6/producer-registry.json",
+    "sha256": "c8b65c33f6345116d32e9baa539016b94a2ec9a855fb7b55ff7903c42976a918"
+  },
+  "steps": [
+    {
+      "step_id": "init",
+      "command": "init",
+      "artifact_type": "project_type_report",
+      "producer_id": "cbm-baseline-project-type@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-02T20:49:51Z",
+      "completed_at": "2026-05-02T20:49:51Z"
+    },
+    {
+      "step_id": "map",
+      "command": "map",
+      "artifact_type": "codebase_map",
+      "producer_id": "cbm-baseline-map@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-02T20:49:51Z",
+      "completed_at": "2026-05-02T20:49:51Z"
+    },
+    {
+      "step_id": "codex-cli-skill-surface-map",
+      "command": "codex exec -m gpt-5.4-mini -c model_reasoning_effort=\"medium\" -c approval_policy=\"never\" --ephemeral --ignore-user-config --ignore-rules -C /private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git -s read-only --json -o /private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git/.research/run-mcp-git-surface-mapper-h1s1-6/codex-cli-surface-output.json --output-schema /private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git/.research/run-mcp-git-surface-mapper-h1s1-6/codex-cli-surface-output.schema.json -",
+      "artifact_type": "surface_map",
+      "producer_id": "surface-mapper@1.2",
+      "backend": "codex-cli",
+      "status": "succeeded",
+      "exit_code": 0,
+      "skill": {
+        "name": "surface-mapping",
+        "path": "/Users/rookslog/Development/cbm/skills/surface-mapping.md",
+        "sha256": "356cda1f18628fa9c8821478577df0bfa4feaeb349792d347ed9bc4ade5b1740"
+      },
+      "started_at": "2026-05-02T20:49:51Z",
+      "completed_at": "2026-05-02T20:53:41Z",
+      "stdout_sha256": "31b98d3e204c98641d7ef73d0f0b1e277447975443e3c93f3fea009037e93a4b",
+      "stderr_sha256": "",
+      "output_path_sha256": "669f4fb7b3c3a8ed2db30a19148cda9539971cf2486d4e9e2ab9c4ce3ef122ac"
+    },
+    {
+      "step_id": "bind",
+      "command": "bind",
+      "artifact_type": "goal_binding",
+      "producer_id": "cbm-baseline-bind@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-02T20:53:41Z",
+      "completed_at": "2026-05-02T20:53:41Z"
+    },
+    {
+      "step_id": "handoff",
+      "command": "handoff",
+      "artifact_type": "handoff",
+      "producer_id": "cbm-baseline-handoff@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-02T20:53:41Z",
+      "completed_at": "2026-05-02T20:53:42Z"
+    }
+  ]
+}

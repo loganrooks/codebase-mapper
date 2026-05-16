@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "ledger_integrity_manifest",
+  "ledger_path": "uncertainty-register.jsonl",
+  "line_count": 1,
+  "line_hashes": [
+    "42e35debeb017234d6afe970e330e22e817d4cdb364a1c7f73a93d05aeda6341"
+  ],
+  "updated_at": "2026-05-02T20:53:41Z"
+}

@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "run_id": "xvr-20260508T023055Z-10836",
+  "review_dir": "/Users/rookslog/Development/cbm/.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint",
+  "review_id": "2026-05-07-h1-minimum-useful-checkpoint",
+  "review_type": "pass_claim_checkpoint",
+  "runner": "claude-code-cli",
+  "reviewer_requirement": "non_current",
+  "model": "opus",
+  "permission_mode": "auto",
+  "tools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Bash"
+  ],
+  "max_turns": null,
+  "max_budget_usd": null,
+  "soft_budget_guidance": "This is a pass-claim checkpoint, not an open-ended audit. If review breadth grows, prioritize the nine questions in PROMPT.md and write explicit limitations.",
+  "writes_allowed": true,
+  "allowed_write_roots": [
+    "/Users/rookslog/Development/cbm/.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint"
+  ],
+  "additional_read_roots": [
+    "/Users/rookslog/Development/cbm"
+  ],
+  "required_outputs": [
+    "CHECKPOINT.md",
+    "DISPOSITION.md"
+  ],
+  "decision_required": true,
+  "allowed_dispositions": [
+    "accept",
+    "accept_with_blockers",
+    "revise",
+    "reject"
+  ],
+  "disallowed_reviewer_model_families": [
+    "gpt-5",
+    "codex"
+  ],
+  "raw_logs": {
+    "retain_on_success": false,
+    "retain_on_failure": true
+  },
+  "paths": {
+    "prompt": "/Users/rookslog/Development/cbm/.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/PROMPT.md",
+    "review_spec": "/Users/rookslog/Development/cbm/.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/REVIEW-SPEC.md",
+    "run_dir": "/Users/rookslog/Development/cbm/.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/.xvr-runs/xvr-20260508T023055Z-10836",
+    "raw_dir": "/Users/rookslog/Development/cbm/.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/.xvr-runs/xvr-20260508T023055Z-10836/raw",
+    "logs_dir": "/Users/rookslog/Development/cbm/.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/.xvr-runs/xvr-20260508T023055Z-10836/logs"
+  },
+  "hashes": {
+    "prompt_sha256": "2a9ae0d607799eb87ef288d41196add6a4e4c65e01bcadf5ce16567a9d730cca",
+    "review_spec_sha256": "f1025ee45e6326987a3dd9d4d0c62b81f235388a94b8d11fbf715bfdbe345a3c"
+  },
+  "git": {
+    "repo_root": "/Users/rookslog/Development/cbm",
+    "branch_before": "intervention-goal-recovery",
+    "sha_before": "f272735ec9be5a6a3f55c0854665fe45abd4975b",
+    "status_before": "## intervention-goal-recovery...origin/intervention-goal-recovery [ahead 1]\n?? .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/.xvr-runs/\n",
+    "dirty_before": false,
+    "status_after": "## intervention-goal-recovery...origin/intervention-goal-recovery [ahead 1]\n M .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/CHECKPOINT.md\n M .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/DISPOSITION.md\n?? .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/.xvr-runs/\n"
+  },
+  "claude": {
+    "path": "/Applications/cmux.app/Contents/Resources/bin/claude",
+    "session_name": "xvr-xvr-20260508T023055Z-10836",
+    "exit_code": 0,
+    "session_id": "b6cbc7cf-fde2-43ca-881c-5166caea7a38",
+    "observed_model": "claude-opus-4-7",
+    "result_subtype": "success",
+    "terminal_reason": "completed",
+    "stop_reason": "end_turn",
+    "total_cost_usd": 1.7191644999999998,
+    "num_turns": 33,
+    "permission_denials": [],
+    "stream_json_valid": true,
+    "stream_json_line_count": 2952,
+    "stream_json_errors": []
+  },
+  "status": "failed",
+  "verification_exit_code": 1
+}

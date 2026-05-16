@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "run_manifest",
+  "run_id": "run-mcp-git-h1s2b-skeptic-1",
+  "produced_at": "2026-05-07T12:37:28Z",
+  "backend": "codex-cli",
+  "mode": "lightweight",
+  "goal": "review H1.S1 Surface Mapper map for MCP git server surfaces",
+  "goal_class": "understand_repo",
+  "status": "succeeded",
+  "producer_registry": {
+    "path": ".research/run-mcp-git-h1s2b-skeptic-1/producer-registry.json",
+    "sha256": "4cc1f89e0c5b16523d90c980cd5a73b0e23b6433b70f96c73f338dfaaa138079"
+  },
+  "steps": [
+    {
+      "step_id": "init",
+      "command": "init",
+      "artifact_type": "project_type_report",
+      "producer_id": "cbm-baseline-project-type@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-07T12:33:54Z",
+      "completed_at": "2026-05-07T12:33:54Z"
+    },
+    {
+      "step_id": "map",
+      "command": "map",
+      "artifact_type": "codebase_map",
+      "producer_id": "cbm-baseline-map@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-07T12:33:54Z",
+      "completed_at": "2026-05-07T12:33:54Z"
+    },
+    {
+      "step_id": "import-surface-artifact",
+      "command": "import-surface-artifact /Users/rookslog/Development/cbm/.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/surface-map.json",
+      "artifact_type": "surface_map",
+      "producer_id": "surface-mapper@1.2",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "input_path": "/Users/rookslog/Development/cbm/.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/surface-map.json",
+      "input_sha256": "ff48b3d6efdcd49e62ef6b9b3590a07da5fd7e9a65872d3480e465e7a5fb36ae",
+      "output_path": ".research/run-mcp-git-h1s2b-skeptic-1/surface-map.json",
+      "started_at": "2026-05-07T12:33:54Z",
+      "completed_at": "2026-05-07T12:33:54Z"
+    },
+    {
+      "step_id": "codex-cli-skill-skeptic-review",
+      "command": "codex exec -m gpt-5.4-mini -c model_reasoning_effort=\"high\" -c approval_policy=\"never\" --ephemeral --ignore-user-config --ignore-rules -C /private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git -s read-only --json -o /private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git/.research/run-mcp-git-h1s2b-skeptic-1/codex-cli-smoke-output.json --output-schema /private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git/.research/run-mcp-git-h1s2b-skeptic-1/codex-cli-smoke-output.schema.json -",
+      "artifact_type": "skeptic_review",
+      "producer_id": "skeptic@1.2",
+      "backend": "codex-cli",
+      "status": "succeeded",
+      "exit_code": 0,
+      "skill": {
+        "name": "skeptic",
+        "path": "/Users/rookslog/Development/cbm/skills/skeptic.md",
+        "sha256": "1d676f7d1a23660b00b150dcf4cb9441e4a00e6d02c46fe126999f1bc570de39"
+      },
+      "started_at": "2026-05-07T12:33:54Z",
+      "completed_at": "2026-05-07T12:37:28Z",
+      "stdout_sha256": "63db173b6179cc0f824fc437b5ffc62c8ae35f8ab36bb12197296b984acbccbc",
+      "stderr_sha256": "",
+      "output_path": ".research/run-mcp-git-h1s2b-skeptic-1/codex-cli-smoke-output.json",
+      "output_path_sha256": "70b2cc62e7c3f97eaad66c59242c8831f89a1fb2b6413292f08c46b3176bdd87"
+    },
+    {
+      "step_id": "bind",
+      "command": "bind",
+      "artifact_type": "goal_binding",
+      "producer_id": "cbm-baseline-bind@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-07T12:37:28Z",
+      "completed_at": "2026-05-07T12:37:28Z"
+    },
+    {
+      "step_id": "handoff",
+      "command": "handoff",
+      "artifact_type": "handoff",
+      "producer_id": "cbm-baseline-handoff@0.1",
+      "backend": "deterministic",
+      "status": "succeeded",
+      "exit_code": 0,
+      "started_at": "2026-05-07T12:37:28Z",
+      "completed_at": "2026-05-07T12:37:28Z"
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "synthesis_index",
+  "run_id": "run-mcp-git-baseline-2",
+  "produced_at": "2026-05-01T20:24:46Z",
+  "produced_by": "cbm-baseline-synthesis@0.1",
+  "source_sha": "4503e2d12b79",
+  "inputs": [
+    {
+      "path": ".research/run-mcp-git-baseline-2/surface-map.json",
+      "sha256": "24f662f3b17b65a6b37398f495b0ce21a6dba40697f08e63f83d4910f888032d"
+    },
+    {
+      "path": ".research/run-mcp-git-baseline-2/authority-map.json",
+      "sha256": "f86d6b5ef3bf8154b98dd40c3d7ee4dbd7ba63feec5935f61e7e345c1150d019"
+    },
+    {
+      "path": ".research/run-mcp-git-baseline-2/dependency-graph.json",
+      "sha256": "a60f6d318e69c3b54bd06a38d87489e49a6e9f6685456a27cb03a533fb17847f"
+    },
+    {
+      "path": ".research/run-mcp-git-baseline-2/verification-map.json",
+      "sha256": "fcf0667cdd39f1347c775652c048d5bc4a404b4fc4a364ee6b2ab5d1ffd0446e"
+    }
+  ],
+  "status": "draft",
+  "coverage": {
+    "scope": {
+      "included_globs": [
+        "**/*"
+      ],
+      "excluded_globs": [
+        ".git/**",
+        ".research/**",
+        ".venv/**",
+        "node_modules/**",
+        "**/__pycache__/**",
+        ".pytest_cache/**",
+        ".DS_Store"
+      ]
+    },
+    "result": {
+      "files_in_scope": 31,
+      "files_examined_directly": 0,
+      "files_inspected_via_extractor": 31,
+      "files_unread_in_scope": 31
+    },
+    "limitations": [
+      "Phase A kernel records structure only; interpretive review remains a runtime-agent task."
+    ]
+  },
+  "staleness": {
+    "stale_if_input_hash_changes": true,
+    "depends_on_paths": [
+      ".gitignore",
+      "pyproject.toml",
+      "src/mcp_server_git/__init__.py",
+      "src/mcp_server_git/server.py",
+      "tests/test_server.py"
+    ],
+    "scope_signature": "286ec4ed090333a7e1e5865b0bd28fc337e2784bbdc7ff943196fc17607b3150"
+  },
+  "summary": "Synthesis index connects 2 authorities, 17 dependency edges, and 1 verification gates.",
+  "claim_counts": {
+    "authorities": 2,
+    "dependencies": 17,
+    "verification_gates": 1
+  },
+  "contestation": {
+    "open_challenges": 0,
+    "challenged_claims": []
+  },
+  "artifacts": [
+    {
+      "path": ".research/run-mcp-git-baseline-2/surface-map.json",
+      "artifact_type": "surface_map"
+    },
+    {
+      "path": ".research/run-mcp-git-baseline-2/authority-map.json",
+      "artifact_type": "authority_map"
+    },
+    {
+      "path": ".research/run-mcp-git-baseline-2/dependency-graph.json",
+      "artifact_type": "dependency_graph"
+    },
+    {
+      "path": ".research/run-mcp-git-baseline-2/verification-map.json",
+      "artifact_type": "verification_map"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/authority-map.schema.json",
+  "title": "Authority Map",
+  "description": "Standard-mode authority surfaces split out from the combined surface map.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "inputs",
+    "status",
+    "coverage",
+    "staleness",
+    "authorities"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "authority_map" },
+    "run_id": { "type": "string" },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": { "type": "string", "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+    "coverage": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/coverage" },
+    "staleness": { "$ref": "https://cbm.local/schemas/codebase-map.schema.json#/$defs/staleness" },
+    "authorities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/authority" }
+    }
+  },
+  "$defs": {
+    "authority": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "path",
+        "citations",
+        "authority_source",
+        "claim_register",
+        "claim_status",
+        "evidence_kinds",
+        "corroboration_count",
+        "rationale"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "kind": {
+          "enum": ["routing", "config", "schema", "policy", "registry", "build", "ci_gate", "test_suite", "doc_contract", "other"]
+        },
+        "path": { "type": "string" },
+        "citations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/citation" }
+        },
+        "authority_source": {
+          "enum": ["code", "config", "schema", "test", "doc"]
+        },
+        "claim_register": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_register" },
+        "claim_status": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/claim_status" },
+        "evidence_kinds": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/evidence_kinds" },
+        "corroboration_count": { "type": "integer", "minimum": 1 },
+        "rationale": { "type": "string", "minLength": 10 },
+        "confidence": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/confidence" },
+        "challenges": {
+          "type": "array",
+          "items": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/challenge" }
+        },
+        "contradicted_by": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/contradicted_by" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "claim_status": { "const": "contradicted" } } },
+          "then": { "required": ["contradicted_by"] }
+        },
+        {
+          "if": { "properties": { "claim_status": { "enum": ["challenged", "contested"] } } },
+          "then": {
+            "required": ["challenges"],
+            "properties": { "challenges": { "minItems": 1 } }
+          }
+        }
+      ]
+    }
+  }
+}

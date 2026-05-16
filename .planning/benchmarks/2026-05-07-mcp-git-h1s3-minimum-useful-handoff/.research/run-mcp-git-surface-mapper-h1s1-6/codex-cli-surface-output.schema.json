@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "surface_map_json",
+    "notes"
+  ],
+  "properties": {
+    "surface_map_json": {
+      "type": "string",
+      "minLength": 2
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "intake",
+  "run_id": "run-mcp-git-surface-mapper-h1s1-6",
+  "produced_at": "2026-05-02T20:49:51Z",
+  "source_sha": "4503e2d12b79",
+  "repo_root": "/private/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git",
+  "goal": "produce real Surface Mapper map for MCP git server surfaces",
+  "goal_class": "understand_repo",
+  "mode": "lightweight",
+  "backend": "codex-cli",
+  "research_only": true
+}

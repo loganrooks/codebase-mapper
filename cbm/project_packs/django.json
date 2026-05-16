@@ -1,0 +1,13 @@
+{
+  "pack_id": "project-pack-django-v1",
+  "project_type": "django",
+  "display_name": "Django application",
+  "any_files": ["manage.py"],
+  "all_files": [],
+  "content_markers": ["django"],
+  "extractor_annotations": [
+    "Django URL routing and settings modules create framework-mediated edges that static imports may miss."
+  ],
+  "authority_hints": ["manage.py", "settings.py", "urls.py"],
+  "known_blind_spots": ["URL resolver behavior", "settings-dependent app loading", "model signal registration"]
+}

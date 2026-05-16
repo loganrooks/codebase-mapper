@@ -1,0 +1,23 @@
+{
+  "run_id": "xvr-20260508T023055Z-10836",
+  "status": "failed",
+  "review_id": "2026-05-07-h1-minimum-useful-checkpoint",
+  "review_dir": "/Users/rookslog/Development/cbm/.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint",
+  "session_name": "xvr-xvr-20260508T023055Z-10836",
+  "session_id": "b6cbc7cf-fde2-43ca-881c-5166caea7a38",
+  "requested_model": "opus",
+  "observed_model": "claude-opus-4-7",
+  "permission_mode": "auto",
+  "tools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Bash"
+  ],
+  "exit_code": 0,
+  "result_subtype": "success",
+  "terminal_reason": "completed",
+  "total_cost_usd": 1.7191644999999998,
+  "stream_json_valid": true,
+  "verification_exit_code": 1
+}

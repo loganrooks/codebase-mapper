@@ -1,0 +1,156 @@
+{
+  "schema_version": "1.2",
+  "artifact_type": "handoff",
+  "run_id": "run-mcp-git-h1s2c-disposition-1",
+  "produced_at": "2026-05-07T13:25:58Z",
+  "produced_by": "cbm-baseline-handoff@0.1",
+  "source_sha": "4503e2d12b79",
+  "inputs": [
+    {
+      "path": ".research/run-mcp-git-h1s2c-disposition-1/surface-map.json",
+      "sha256": "db936e0bf054eb3545490c5edab052264b795f3586c569281f539406a728f3aa"
+    },
+    {
+      "path": ".research/run-mcp-git-h1s2c-disposition-1/project-type.json",
+      "sha256": "7415360369036c12ee72c6c679714456565379acf04e56d2b3011360d55f91d5"
+    },
+    {
+      "path": ".research/run-mcp-git-h1s2c-disposition-1/goal-binding.json",
+      "sha256": "fd390dda86120d7e4da9219fb7577f4dbe8f5d1411a3a6ad90722fcd49ee493f"
+    },
+    {
+      "path": ".research/run-mcp-git-h1s2c-disposition-1/findings/int-0001.md",
+      "sha256": "8f78efefb0123f08dbe5f4527696ca3f873e3e3ee3dfa37788e55363bdff1c55"
+    },
+    {
+      "path": ".research/run-mcp-git-h1s2c-disposition-1/skeptic-review/surface-map.md",
+      "sha256": "0ec18b269a1cfb8cc8c1609995c78164d1b8318d9b3535da64fa2a66a7c7736d"
+    }
+  ],
+  "status": "draft",
+  "coverage": {
+    "scope": {
+      "included_globs": [
+        "**/*"
+      ],
+      "excluded_globs": [
+        ".git/**",
+        ".research/**",
+        ".venv/**",
+        "node_modules/**",
+        "**/__pycache__/**",
+        ".pytest_cache/**",
+        ".DS_Store"
+      ]
+    },
+    "result": {
+      "files_in_scope": 12,
+      "files_examined_directly": 7,
+      "files_inspected_via_extractor": 12,
+      "files_unread_in_scope": 0
+    },
+    "limitations": [
+      "Baseline extractor coverage saw every in-scope file; I directly examined only the files needed for interpretive claims.",
+      "No CI workflow files were present in scope, so CI gating could not be mapped."
+    ]
+  },
+  "mode": "lightweight",
+  "user_goal": "review H1.S1 Surface Mapper map for MCP git server surfaces",
+  "goal_class": "understand_repo",
+  "research_only": true,
+  "gate_summary": {
+    "schema_validation": {
+      "passed": 6,
+      "failed_artifacts": []
+    },
+    "citation_resolution": {
+      "resolved": 28,
+      "unresolved_count": 0,
+      "unresolved_examples": []
+    },
+    "ledger_consistency": {
+      "append_only_verified": true,
+      "entry_count": 37,
+      "missing_citation_count": 0,
+      "missing_citation_examples": []
+    },
+    "staleness_check": {
+      "fresh": 5,
+      "stale_artifacts": []
+    },
+    "skeptic_review": {
+      "artifacts_reviewed": 1,
+      "challenges_logged": 1,
+      "challenges_resolved": 1
+    }
+  },
+  "contestation_summary": {
+    "claims_by_register": {
+      "factual": 11,
+      "inferential": 2,
+      "interpretive": 2
+    },
+    "claims_by_status": {
+      "active": 14,
+      "challenged": 0,
+      "contested": 1,
+      "contradicted": 0,
+      "superseded": 0,
+      "retired": 0
+    },
+    "open_challenges": 0,
+    "contested_claims": [
+      {
+        "claim_artifact": ".research/run-mcp-git-h1s2c-disposition-1/surface-map.json",
+        "claim_id": "auth-001",
+        "challenge_count": 1,
+        "summary": "auth-001 has accepted alternative reading chl-10001."
+      }
+    ],
+    "contradicted_claims": []
+  },
+  "artifacts": [
+    {
+      "path": ".research/run-mcp-git-h1s2c-disposition-1/codebase-map.json",
+      "artifact_type": "codebase_map",
+      "status": "draft",
+      "summary": "Deterministic structural file inventory."
+    },
+    {
+      "path": ".research/run-mcp-git-h1s2c-disposition-1/project-type.json",
+      "artifact_type": "project_type_report",
+      "status": "draft",
+      "summary": "Phase 0 project-type detection report."
+    },
+    {
+      "path": ".research/run-mcp-git-h1s2c-disposition-1/surface-map.json",
+      "artifact_type": "surface_map",
+      "status": "draft",
+      "summary": "Runtime Surface Mapper output from surface-mapper@1.2 with 8 authorities, 7 edges, and 1 unknown edge."
+    },
+    {
+      "path": ".research/run-mcp-git-h1s2c-disposition-1/goal-binding.json",
+      "artifact_type": "goal_binding",
+      "status": "draft",
+      "summary": "Goal-specific candidate binding over the surface map."
+    },
+    {
+      "path": ".research/run-mcp-git-h1s2c-disposition-1/findings/int-0001.md",
+      "artifact_type": "findings_card",
+      "status": "draft",
+      "summary": "Goal-bound structural findings card."
+    },
+    {
+      "path": ".research/run-mcp-git-h1s2c-disposition-1/skeptic-review/surface-map.md",
+      "artifact_type": "skeptic_review",
+      "status": "draft",
+      "summary": "Runtime Skeptic review output."
+    }
+  ],
+  "open_questions_count": 1,
+  "coverage_caveats": [
+    "Baseline extractor coverage saw every in-scope file; I directly examined only the files needed for interpretive claims.",
+    "No CI workflow files were present in scope, so CI gating could not be mapped."
+  ],
+  "recommended_next_action": "Prepare H1.S3 validated minimum-useful handoff and non-current-model checkpoint packet."
+}

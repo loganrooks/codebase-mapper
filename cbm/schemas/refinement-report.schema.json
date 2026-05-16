@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cbm.local/schemas/refinement-report.schema.json",
+  "title": "Refinement Report",
+  "description": "Deep-mode multi-round refinement ledger over unresolved challenges and trace unknowns.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "produced_at",
+    "produced_by",
+    "source_sha",
+    "inputs",
+    "status",
+    "round_id",
+    "round_number",
+    "refinements",
+    "next_round_required",
+    "summary"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.2" },
+    "artifact_type": { "const": "refinement_report" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "produced_at": { "type": "string", "format": "date-time" },
+    "produced_by": { "type": "string", "pattern": "^[a-z0-9-]+@[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "status": { "enum": ["draft", "validated", "reviewed", "retired"] },
+    "round_id": { "type": "string", "pattern": "^ref-[0-9]{4}$" },
+    "round_number": { "type": "integer", "minimum": 1 },
+    "refinements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "source_artifact",
+          "source_kind",
+          "claim_id",
+          "disposition",
+          "reentry_targets",
+          "rationale",
+          "citations"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "item_id": { "type": "string", "pattern": "^rfi-[0-9]{4}$" },
+          "source_artifact": { "type": "string" },
+          "source_kind": { "enum": ["skeptic_challenge", "trace_unknown"] },
+          "claim_id": { "type": "string" },
+          "challenge_id": { "type": "string", "pattern": "^chl-[0-9]{5,}$" },
+          "disposition": {
+            "enum": [
+              "accepted_live_unknown",
+              "needs_runtime_trace",
+              "needs_mapper_rerun",
+              "resolved_by_existing_evidence",
+              "parked"
+            ]
+          },
+          "reentry_targets": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "enum": ["surface_mapper", "dependency_mapper", "tracer", "skeptic", "manual_review"] }
+          },
+          "rationale": { "type": "string", "minLength": 20 },
+          "citations": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "https://cbm.local/schemas/surface-map.schema.json#/$defs/citation" }
+          }
+        }
+      }
+    },
+    "next_round_required": { "type": "boolean" },
+    "summary": { "type": "string", "minLength": 20 }
+  }
+}
