@@ -5424,23 +5424,35 @@ def checkpoint_for_loop_scope(repo: Path, scope: str) -> Path | None:
             checkpoint_scope = (metadata.get("scope") or disposition.get("scope") or "").strip().lower()
             if checkpoint_scope == scope:
                 return checkpoint
-    if scope in {"broad-goal", "broad-goal-restart"}:
+    if scope in SCOPES_REQUIRING_RESUME_GATE:
         for checkpoint in checkpoints:
             if checkpoint_satisfies_resume(checkpoint):
                 return checkpoint
     return checkpoints[0]
 
 
+ACCEPTED_DISPOSITION_VALUES = {"accept", "accepted", "waived-by-user"}
+
+
 def checkpoint_satisfies_resume(path: Path) -> bool:
+    # Verify-gates Warning 7 fix: previously this used substring `in`
+    # matching against `Disposition: accept` and friends, which (a)
+    # disagreed with checkpoint_pass_claim_issues (which lowercases and
+    # exact-matches against {accept, accepted, waived-by-user}), and
+    # (b) was case-fragile (`Disposition: Accept` failed satisfies but
+    # passed pass_claim, while `Disposition: accepted` passed satisfies
+    # only because "accept" is a prefix of "accepted"). Now both
+    # functions read disposition via markdown_metadata + .lower() against
+    # the same ACCEPTED_DISPOSITION_VALUES set. The explicit
+    # "Satisfies resume gate: yes" marker remains as a legacy override
+    # for older checkpoints that predate the disposition field.
     text = path.read_text(encoding="utf-8")
-    accepted_markers = [
-        "Satisfies resume gate: yes",
-        "Disposition: accept",
-        "Disposition: waived-by-user",
-        "disposition: accept",
-        "disposition: waived-by-user",
-    ]
-    return any(marker in text for marker in accepted_markers)
+    if "Satisfies resume gate: yes" in text:
+        return True
+    metadata = checkpoint_metadata(path)
+    disposition_md = checkpoint_disposition_metadata(path)
+    disposition_value = (metadata.get("disposition") or disposition_md.get("disposition") or "").strip().lower()
+    return disposition_value in ACCEPTED_DISPOSITION_VALUES
 
 
 def load_loop_status_config() -> dict[str, Any]:
@@ -5694,6 +5706,11 @@ Disposition:
 
 
 SCOPES_REQUIRING_CROSS_MODEL = {"pass-claim", "main-merge", "broad-goal-restart"}
+# Verify-gates Warning 10 fix: name the scope sets used by command_loop_status
+# so the three close-together inline literals at the call sites cannot drift.
+SCOPES_TREATING_HORIZON_AS_HARD = {"broad-goal", "broad-goal-restart", "pass-claim", "main-merge"}
+SCOPES_TREATING_MISSING_CHECKPOINT_AS_HARD = SCOPES_TREATING_HORIZON_AS_HARD
+SCOPES_REQUIRING_RESUME_GATE = {"broad-goal", "broad-goal-restart"}
 
 
 def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scope: str) -> list[dict[str, str]]:
@@ -5735,7 +5752,7 @@ def checkpoint_pass_claim_issues(path: Path | None, config: dict[str, Any], scop
                 }
             ]
     disposition_value = (metadata.get("disposition") or disposition.get("disposition") or "").lower()
-    if scope in SCOPES_REQUIRING_CROSS_MODEL and disposition_value not in {"accept", "accepted", "waived-by-user"}:
+    if scope in SCOPES_REQUIRING_CROSS_MODEL and disposition_value not in ACCEPTED_DISPOSITION_VALUES:
         return [
             {
                 "code": "checkpoint_disposition_not_accepted",
@@ -5883,7 +5900,7 @@ def command_loop_status(args: argparse.Namespace) -> int:
         )
 
     horizon_issues = horizon_plan_issues(repo)
-    if args.scope in {"broad-goal", "broad-goal-restart", "pass-claim", "main-merge"}:
+    if args.scope in SCOPES_TREATING_HORIZON_AS_HARD:
         issues.extend(horizon_issues)
     else:
         warnings.extend(horizon_issues)
@@ -5892,7 +5909,7 @@ def command_loop_status(args: argparse.Namespace) -> int:
     checkpoint_ok = checkpoint_satisfies_resume(checkpoint_path) if checkpoint_path else False
     if not checkpoint_path:
         issue = {"code": "missing_checkpoint", "message": "no checkpoint review artifact found under .planning/reviews"}
-        if args.scope in {"broad-goal", "pass-claim", "main-merge", "broad-goal-restart"}:
+        if args.scope in SCOPES_TREATING_MISSING_CHECKPOINT_AS_HARD:
             issues.append(issue)
         else:
             warnings.append(issue)
@@ -5901,7 +5918,7 @@ def command_loop_status(args: argparse.Namespace) -> int:
             "code": "checkpoint_pending",
             "message": f"checkpoint does not satisfy resume gate: {checkpoint_path.relative_to(repo).as_posix()}",
         }
-        if args.scope in {"broad-goal", "broad-goal-restart"}:
+        if args.scope in SCOPES_REQUIRING_RESUME_GATE:
             issues.append(issue)
         else:
             warnings.append(issue)
