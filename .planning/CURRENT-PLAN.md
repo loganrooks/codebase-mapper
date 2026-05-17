@@ -1,7 +1,7 @@
 # Current Plan
 
 Status: active; H1 minimum-useful close merged to main as `76db3bc` on 2026-05-16; next focus is H2 planning
-Last updated: 2026-05-16
+Last updated: 2026-05-17
 Supersedes: direct use of `docs/roadmap.md` as current execution plan
 Superseded by: none
 Current horizon: H2
@@ -13,7 +13,7 @@ Advance from the accepted H1 minimum-useful demonstration into H2 repeatability 
 
 The current work is an intervention, not a product feature sprint. Its purpose is to install enough architecture clarity, planning discipline, and immediate code correction that the next autonomous loop has a narrow, falsifiable path.
 
-Implementation phase bundle: `.planning/phases/01-first-runtime-producer-evidence/`.
+Implementation phase bundle: `.planning/phases/02-runtime-producer-repeatability/` (active). The H1 bundle at `.planning/phases/01-first-runtime-producer-evidence/` is closed and remains preserved as accepted-evidence history; do not edit it for H2 work.
 
 Current boundary: H1 is accepted for one pinned external target only. This is not Phase B+, repeatability, beta readiness, or broad runtime orchestration. H2 must plan the second target before running it.
 
@@ -54,14 +54,19 @@ Current boundary: H1 is accepted for one pinned external target only. This is no
 21. Apply all Tier 1 and Tier 5 R-OK interventions from the Opus cross-vendor audit. Status: completed across `f004657` through `65c19f2`.
 22. Run post-H1.S1 Opus review. Status: completed; disposition accepted with blockers at `.planning/reviews/2026-05-02-h1s1-opus-review/DISPOSITION.md`.
 23. PR #1 merge-vehicle review-discovery remediation: address Codex inline findings (F1-F4), Claude survey findings (W-NEW-1, S-NEW-1), Claude gates findings at Opus/MAX (W1-W4 + S1-S6), Claude opus findings at Opus/MAX (W-OP-1/2, S-OP-1/2/3), verify-gates findings (C1, C2, W3-W10, S11-S15), final-opus findings (W-OPUS-1/2/3/4, S-OPUS-1-4). Status: completed across `f09fcef` through `a571ac9` (14 fix commits + workflow uplift). All P1 (6) and P2 (11) findings fixed; 14 regression tests added; 145 tests passing. 10 P3 deferrals remain for a follow-up cleanup PR.
-24. Land workflow uplift on `main`: `effort_level` dial input (agentic-ops PR #21, branch `feat-effort-level` SHA `f0046cb`), `effort_level: max` caller-stub config, `docs/review-playbook.md`, `.github/PULL_REQUEST_TEMPLATE.md`. Status: PR #10 merged to main as `14ede4c`; agentic-ops PR #21 awaiting user review approval; CBM caller stub temporarily pins to the feat-effort-level SHA until #21 merges and `v1` is fast-forwarded.
+24. Land workflow uplift on `main`: `effort_level` dial input (agentic-ops PR #21, branch `feat-effort-level` SHA `f0046cb`), `effort_level: max` caller-stub config, `docs/review-playbook.md`, `.github/PULL_REQUEST_TEMPLATE.md`. Status: completed. PR #10 merged to main as `14ede4c`; agentic-ops PR #21 merged and `v1` fast-forwarded; CBM caller stub reverted to `agentic-ops@v1` in PR #12 as `bf277dc`.
 25. Merge PR #1 to main. Status: completed as merge commit `76db3bc` on 2026-05-16.
+26. Draft the H2.S1 `/goal` brief that translates `.planning/HORIZONS.md` H2.S1 into an executable plan-production task. Status: drafted at `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` on 2026-05-16; phase 02 PLAN/SUMMARY/VERIFICATION stubs created in the same PR per the `.planning/phases/<NN-slug>/` contract; awaiting `/goal` execution to produce H2-TARGET-SELECTION.md (with stop-and-surface for user target pick), H2-PLAN.md, H2-BENCHMARK-PACKET-SKELETON.md, H2-PREFLIGHT.md, and to expand the phase 02 PLAN/SUMMARY/VERIFICATION stubs with concrete H2.S1 content.
 
 H1.S1 is completed narrowly. H1.S2a evidence-bundle repair is complete. H1.S2b real isolated Skeptic production is complete. H1.S2c challenge disposition and mapper response are complete. H1.S3 validated handoff and non-current-model checkpoint review are complete. H1 minimum-useful close (PR #1) is merged to main. Phase B+ and repeatability claims remain blocked until their specific horizon evidence and checkpoint evidence exist.
 
 ## Next `/goal` Track
 
 The current `/goal` track is H2.S1 from `.planning/HORIZONS.md`: plan the runtime-producer repeatability run.
+
+Execute H2.S1 via the brief at `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md`. Per-slice `/goal` invocation is deliberate: H2.S1 (planning), H2.S2 (live Surface Mapper + Skeptic run on the chosen target), and H2.S3 (validated handoff + cross-vendor pass-claim checkpoint) each get their own `/goal`, their own `token_budget`, and their own stop-and-surface boundaries. Of these, only H2.S3 makes an H2 pass claim, so only H2.S3 carries the ADR-005 cross-model checkpoint at scope `pass-claim` (`SCOPES_REQUIRING_CROSS_MODEL` in `cbm/cli.py`). H2.S1 and H2.S2 follow the standing per-slice cross-vendor review practice that produced H1.S1/H1.S2/H1.S2C reviews, but those slice-level reviews are not pass-claim checkpoints in the ADR-005 sense — they do not gate `loop-status --scope pass-claim`. Bundling all of H2 into one mega-`/goal` would burn the H2.S2 budget envelope on H2.S1 prose and would defer the only ADR-005-required checkpoint to the end of the mega-goal; the per-slice pattern mirrors the H1 execution shape (H1.S1 → H1.S2a → H1.S2b → H1.S2c → H1.S3) that produced the accepted H1 packet.
+
+H2.S1 must finish first: target picked by the user, H2-PLAN.md filled with concrete acceptance/verification, packet skeleton enumerated, preflight concerns documented. Only then is the H2.S2 `/goal` authored against the locked target.
 
 Current status: the guarded `codex-cli` backend produced one live smoke review artifact on the pinned MCP `src/git` benchmark, the live isolation probe reported no access to parent-only session context, a skill-loaded `skeptic@1.2` subprocess produced an ingested interpretive challenge on the same pinned benchmark, H1.S1 produced a real non-baseline `surface-mapper@1.2` surface map on MCP `src/git`, H1.S2b produced a real isolated `skeptic@1.2` review over that H1.S1 map, H1.S2c accepted the `auth-001` / `chl-10001` challenge as an alternative reading carried into handoff contestation, and H1.S3 prepared a handoff/checkpoint packet at `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/` plus `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`.
 
