@@ -2,7 +2,7 @@
 
 Status: proposed
 Date: 2026-05-16
-Last updated: 2026-05-16
+Last updated: 2026-05-17
 Supersedes: none
 Superseded by: none
 Audience: AI agent executing the work, and human reviewer auditing the result
@@ -350,14 +350,23 @@ Add a slice entry for H2.S1 plan production. Use the same shape as the H1 slice 
 
 ## Required Verification
 
-Run these before claiming H2.S1 complete:
+Run the pre-commit checks first, commit the H2.S1 work (planning-doc edits plus new H2.S1 deliverables), then run the post-commit loop-status checks. The split matters: `loop-status` treats uncommitted edits to `AUTHORITY_DOC_PATHS` (`AGENTS.md`, `VISION.md`, `RUNTIME-CONSTITUTION.md`, `.planning/STATE.md`, `.planning/HORIZONS.md`, `.planning/CURRENT-PLAN.md`) as a hard `dirty_authority_docs` issue (see `cbm/cli.py`). Because the brief mandates editing three of those files, running `loop-status` before the H2.S1 commit will deterministically fail; that is not an H2 regression, it is the gate firing correctly.
+
+Pre-commit:
 
 ```bash
 TMPDIR=/var/tmp pytest -q
 git diff --check -- .planning BUILD-LOG.md
+```
+
+Post-commit (after the H2.S1 commit lands, with no further dirty authority docs):
+
+```bash
 python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category runtime-producer --json
 python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category runtime-producer --json
 ```
+
+Record both loop-status outputs in the `.planning/STATE.md` verification footer and in `BUILD-LOG.md` for the H2.S1 slice entry.
 
 Expected loop-status behavior:
 

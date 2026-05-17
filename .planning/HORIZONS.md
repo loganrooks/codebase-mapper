@@ -1,7 +1,7 @@
 # CBM Horizons
 
 Status: active
-Last updated: 2026-05-16
+Last updated: 2026-05-17
 Supersedes: direct execution from `VISION.md`
 Superseded by: none
 
@@ -245,7 +245,7 @@ Acceptance:
 
 ### H2.S1 - Repeatability Plan
 
-Status: current; `/goal` brief drafted at `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` on 2026-05-16. Awaiting `/goal` execution to produce H2-TARGET-SELECTION.md (with user-confirmed target pick), H2-PLAN.md, H2-BENCHMARK-PACKET-SKELETON.md, H2-PREFLIGHT.md, and phase 02 PLAN/SUMMARY/VERIFICATION skeletons.
+Status: current; `/goal` brief drafted at `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` on 2026-05-16, and phase 02 PLAN.md/SUMMARY.md/VERIFICATION.md stubs created in PR #14 per the `.planning/phases/<NN-slug>/` contract. Awaiting `/goal` execution to produce H2-TARGET-SELECTION.md (with user-confirmed target pick), H2-PLAN.md, H2-BENCHMARK-PACKET-SKELETON.md, H2-PREFLIGHT.md, and to expand the existing PLAN/SUMMARY/VERIFICATION stubs with concrete H2.S1 content. Do not overwrite the stubs without preserving their metadata.
 
 Objective:
 

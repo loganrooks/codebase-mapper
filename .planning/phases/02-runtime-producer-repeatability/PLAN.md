@@ -1,15 +1,15 @@
 # Phase 02: Runtime Producer Repeatability
 
 Status: active; H2.S1 brief drafted, awaiting `/goal` execution
-Last updated: 2026-05-16
+Last updated: 2026-05-17
 Supersedes: none
 Superseded by: none
 
 ## Objective
 
-Prove the H1 minimum-useful demonstration was not an MCP `src/git`-specific artifact by repeating real Surface Mapper + Skeptic + carried challenge + validated handoff + cross-model checkpoint on a second pinned external target.
+Prove the H1 minimum-useful demonstration was not an MCP `src/git`-specific artifact by repeating real Surface Mapper + isolated Skeptic + validated handoff + non-current-model cross-vendor pass-claim checkpoint on a second pinned external target. The Skeptic pass must run and produce a structurally ingested result, but per the H2.A2 contract in `GOAL-H2S1-REPEATABILITY-PLAN.md` and the "non-trivial claim/challenge" wording in `.planning/HORIZONS.md` H2 acceptance, a valid run may produce either a carried challenge or a "no-challenge" disposition; the surviving artifact may be a non-trivial cited claim, a Skeptic challenge, or both — H2 does not require a manufactured challenge.
 
-Acceptance criterion: H2.A1–A5 are defined as templates in `GOAL-H2S1-REPEATABILITY-PLAN.md`. Concrete values are filled into `H2-PLAN.md` by the H2.S1 `/goal` once the user confirms the target.
+Acceptance criterion: H2.A1–A5 are defined as templates in `GOAL-H2S1-REPEATABILITY-PLAN.md` and concretized into `H2-PLAN.md` by the H2.S1 `/goal` once the user confirms the target.
 
 ## Track
 
