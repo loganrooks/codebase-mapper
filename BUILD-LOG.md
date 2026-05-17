@@ -2089,9 +2089,9 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - `grep -n 'Add Active Recovery Sequence item' .planning/...` pre-edit returned 1 hit (GOAL:310); post-edit returns 0.
   - `grep -nE 'cbm\.cli (validate|verify-citations|check-evidence) <[A-Z]' .planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` pre-edit returned 5 relative-path-template hits (203-207); post-edit returns 0.
   - `grep -nE 'pass-claim.*(fail|block|still)' .planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` pre-edit returned 1 stale-prediction hit (375); post-edit returns 0.
-  - Direct CLI invocation: `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` returned `status: ok` with `checkpoint: .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/CHECKPOINT.md` (verifies the CX-R3-5 premise).
-  - Direct code read of `cbm/cli.py:2391-2404` confirmed `command_validate` resolves relative artifacts under `--repo` (verifies the CX-R3-4 premise).
-  - No pytest run (no source change); no loop-status run for the iteration (planning-doc-only).
+  - Premise verification (one-shot, not the iteration's standard verification suite): `python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json` returned `status: ok` with `checkpoint: .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/CHECKPOINT.md` — this was a single CLI call to test the CX-R3-5 claim about CLI behavior, not a verification of the iteration's commit.
+  - Premise verification (code read): direct read of `cbm/cli.py:2391-2404` confirmed `command_validate` resolves relative artifacts under `--repo` via `path = repo / path` when `path.is_absolute()` is false — verifies the CX-R3-4 claim.
+  - Iteration verification suite: not run. No `pytest`, no full `cbm-loop-status` verification across `--scope broad-goal` / `recovery-slice` / `pass-claim`. Justification: planning-doc-only iteration (no source mutation), and the iteration verifies a brief reword, not a code change. Test-suite status preserved from PR #13's verification footer (146 passed, 2 warnings) and from STATE.md's prior verification footers.
 - Boundary:
   - PR-#14 third-review-response only; no horizon advance, no code change.
   - H1 GOAL doc retroactive fix and PR-template/CodeRabbit-label conflict still flagged for separate decisions (unchanged from prior rounds).
