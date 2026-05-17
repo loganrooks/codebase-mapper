@@ -172,6 +172,32 @@ The default is proceed. Genuinely stop and surface only for:
 
 For everything else — kit-vs-reality conflicts, design questions, additions, deviations, schema changes — log conspicuously in `BUILD-LOG.md` and proceed. The user catches substantive problems on review and intervenes if needed.
 
+When a stop-and-surface case does fire, open an **escalation** per the protocol in the next section rather than exiting the session silently.
+
+## Escalation protocol
+
+When Codex hits a planned stop-and-surface case from the list above (a planned *gate*) or an unplanned blocker mid-`/goal` (a *block*), it must open an escalation rather than exit. Claude (supervisor) responds asynchronously; Codex blocks on a pure shell wait that consumes no LLM tokens. Full spec and CLI reference: **`.coord/README.md`**. This is dev-workflow infrastructure, *not* part of the CBM product — `cbm` does not read `.coord/`.
+
+- CLI: `.coord/coord` (subcommands: `open`, `answer`, `resolve`, `wait`, `list`, `show`).
+- Kinds: `gate` (planned, decision-shaped, often enumerated `--options`) and `block` (unplanned, free-form).
+- Status lifecycle: `open → answered → resolved` (or `abandoned`, set manually).
+- Codex sets `COORD_AGENT=codex`; Claude inherits the default.
+
+**Codex (executor)** when a stop-and-surface case fires:
+
+1. `COORD_AGENT=codex .coord/coord open --kind {gate|block} --slice <slug> --title <text> [--answer-shape ... --options ...] --body-file <path>` — capture the printed id.
+2. `.coord/coord wait <id>` — blocking shell call; returns when Claude flips `status` to `answered`. (Zero LLM tokens consumed while blocked.)
+3. Read the response from `.coord/escalations/<id>/escalation.md`, act, then `.coord/coord resolve <id> --body-file <ack>`.
+4. Log the escalation id in `BUILD-LOG.md` alongside the slice entry so the audit trail links the decision to the surfaced gate.
+
+**Claude (supervisor)** at session start and during the session:
+
+1. Scan `.coord/escalations/INDEX.md` for `| open |` rows; surface them.
+2. Arm a `Monitor` on `.coord/escalations/` so new `status: open` files during the session arrive as live notifications.
+3. Respond with `.coord/coord answer <id> --body-file <response>` (or `--body "<text>"` for a one-liner).
+
+Do not route escalations through `cbm`. Do not invent ad-hoc "STOP-NOTE.md" files for cases the escalation protocol covers — the older `STOP-NOTE.md` convention in `.planning/` is for static, non-blocking surface, not for active Codex↔Claude exchange.
+
 ## Output discipline
 
 Your work product is **a runnable, tested implementation of CBM**. Documentation lives in *its own* `README.md` (separate from this kit's README). The implementation's `BUILD-LOG.md` is the user's review surface; write it like a working journal for someone who is not in the room.

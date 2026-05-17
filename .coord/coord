@@ -1,0 +1,317 @@
+#!/usr/bin/env bash
+# coord — escalation coordination CLI for Codex↔Claude dev workflow.
+# Spec: .coord/README.md
+set -euo pipefail
+
+ROOT="${COORD_ROOT:-.coord}"
+ESC_DIR="$ROOT/escalations"
+INDEX="$ESC_DIR/INDEX.md"
+AGENT="${COORD_AGENT:-claude}"
+
+die() { printf 'coord: %s\n' "$*" >&2; exit 1; }
+now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+now_id_ts() { date -u +%Y%m%d-%H%M%S; }
+
+slugify() {
+  printf '%s' "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | tr -c 'a-z0-9' '-' \
+    | sed -e 's/--*/-/g' -e 's/^-//' -e 's/-$//'
+}
+
+esc_file() { printf '%s/%s/escalation.md' "$ESC_DIR" "$1"; }
+
+ensure_index() {
+  mkdir -p "$ESC_DIR"
+  if [ ! -f "$INDEX" ]; then
+    {
+      printf '# Escalation Index\n\n'
+      printf '| Status | ID | Kind | Slice | Title | Opened |\n'
+      printf '| --- | --- | --- | --- | --- | --- |\n'
+    } > "$INDEX"
+  fi
+}
+
+read_body() {
+  local file_src="$1" literal="$2"
+  if [ -n "$literal" ]; then
+    printf '%s' "$literal"
+  elif [ "$file_src" = "-" ]; then
+    cat
+  elif [ -n "$file_src" ]; then
+    [ -f "$file_src" ] || die "body file not found: $file_src"
+    cat "$file_src"
+  else
+    printf '(no body provided)'
+  fi
+}
+
+current_status() {
+  awk '/^status: / { sub(/^status: /, ""); print; exit }' "$1"
+}
+
+flip_status_in_file() {
+  local file="$1" from="$2" to="$3"
+  local tmp
+  tmp=$(mktemp)
+  sed "s@^status: $from\$@status: $to@" "$file" > "$tmp" && mv "$tmp" "$file"
+}
+
+flip_index_row() {
+  local id="$1" to="$2"
+  local tmp
+  tmp=$(mktemp)
+  sed "s@^| [a-z][a-z]* | $id @| $to | $id @" "$INDEX" > "$tmp" && mv "$tmp" "$INDEX"
+}
+
+append_index_row() {
+  local status="$1" id="$2" kind="$3" slice="$4" title="$5" opened="$6"
+  printf '| %s | %s | %s | %s | %s | %s |\n' \
+    "$status" "$id" "$kind" "$slice" "$title" "$opened" >> "$INDEX"
+}
+
+append_turn() {
+  local file="$1" status_label="$2" body="$3" ts
+  ts=$(now_iso)
+  {
+    printf '\n## %s %s (%s)\n\n' "$AGENT" "$ts" "$status_label"
+    printf '%s\n' "$body"
+  } >> "$file"
+}
+
+cmd_open() {
+  local kind="" slice="" title="" answer_shape="" options="" plan_ref="" body_src="" body_text=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --kind) kind="$2"; shift 2 ;;
+      --slice) slice="$2"; shift 2 ;;
+      --title) title="$2"; shift 2 ;;
+      --answer-shape) answer_shape="$2"; shift 2 ;;
+      --options) options="$2"; shift 2 ;;
+      --plan-ref) plan_ref="$2"; shift 2 ;;
+      --body) body_text="$2"; shift 2 ;;
+      --body-file) body_src="$2"; shift 2 ;;
+      *) die "unknown flag: $1" ;;
+    esac
+  done
+
+  [ -n "$kind" ]  || die "--kind is required (gate|block)"
+  [ -n "$slice" ] || die "--slice is required"
+  [ -n "$title" ] || die "--title is required"
+  case "$kind" in
+    gate|block) ;;
+    *) die "--kind must be gate|block (got: $kind)" ;;
+  esac
+  if [ "$kind" = "gate" ]; then
+    [ -n "$answer_shape" ] || die "--answer-shape required for kind=gate (pick-one|free-form|approve-reject)"
+    case "$answer_shape" in
+      pick-one|free-form|approve-reject) ;;
+      *) die "invalid --answer-shape: $answer_shape" ;;
+    esac
+    if [ "$answer_shape" = "pick-one" ] && [ -z "$options" ]; then
+      die "--options required for answer-shape=pick-one (comma-separated)"
+    fi
+  fi
+
+  local id dir file ts body
+  ts=$(now_iso)
+  id="$(now_id_ts)-$(slugify "$title")"
+  dir="$ESC_DIR/$id"
+  file="$dir/escalation.md"
+
+  ensure_index
+  mkdir -p "$dir"
+  [ ! -f "$file" ] || die "escalation already exists: $id"
+
+  body=$(read_body "$body_src" "$body_text")
+
+  {
+    printf -- '---\n'
+    printf 'id: %s\n' "$id"
+    printf 'kind: %s\n' "$kind"
+    printf 'status: open\n'
+    printf 'opened_by: %s\n' "$AGENT"
+    printf 'opened_at: %s\n' "$ts"
+    printf 'slice: %s\n' "$slice"
+    [ -n "$plan_ref" ] && printf 'plan_ref: %s\n' "$plan_ref"
+    if [ "$kind" = "gate" ]; then
+      printf 'answer_shape: %s\n' "$answer_shape"
+      if [ -n "$options" ]; then
+        local opts_fmt
+        opts_fmt=$(printf '%s' "$options" | sed 's/, */, /g')
+        printf 'options: [%s]\n' "$opts_fmt"
+      fi
+    fi
+    printf -- '---\n'
+    printf '\n## %s %s (open)\n\n' "$AGENT" "$ts"
+    printf '%s\n' "$body"
+  } > "$file"
+
+  append_index_row open "$id" "$kind" "$slice" "$title" "$ts"
+  printf '%s\n' "$id"
+}
+
+cmd_answer() {
+  [ $# -ge 1 ] || die "usage: coord answer <id> [--body <text> | --body-file <path>]"
+  local id="$1"; shift
+  local body_src="" body_text=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --body) body_text="$2"; shift 2 ;;
+      --body-file) body_src="$2"; shift 2 ;;
+      *) die "unknown flag: $1" ;;
+    esac
+  done
+  local file
+  file=$(esc_file "$id")
+  [ -f "$file" ] || die "no such escalation: $id"
+  local cur
+  cur=$(current_status "$file")
+  [ "$cur" = "open" ] || die "expected status=open to answer, got: $cur"
+  local body
+  body=$(read_body "$body_src" "$body_text")
+  append_turn "$file" answered "$body"
+  flip_status_in_file "$file" open answered
+  flip_index_row "$id" answered
+}
+
+cmd_resolve() {
+  [ $# -ge 1 ] || die "usage: coord resolve <id> [--body <text> | --body-file <path>]"
+  local id="$1"; shift
+  local body_src="" body_text=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --body) body_text="$2"; shift 2 ;;
+      --body-file) body_src="$2"; shift 2 ;;
+      *) die "unknown flag: $1" ;;
+    esac
+  done
+  local file
+  file=$(esc_file "$id")
+  [ -f "$file" ] || die "no such escalation: $id"
+  local cur
+  cur=$(current_status "$file")
+  case "$cur" in
+    open|answered) ;;
+    *) die "cannot resolve from status=$cur" ;;
+  esac
+  local body
+  body=$(read_body "$body_src" "$body_text")
+  append_turn "$file" resolved "$body"
+  flip_status_in_file "$file" "$cur" resolved
+  flip_index_row "$id" resolved
+}
+
+cmd_wait() {
+  [ $# -ge 1 ] || die "usage: coord wait <id> [--timeout <s>] [--poll <s>]"
+  local id="$1"; shift
+  local timeout=0 poll=10
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --timeout) timeout="$2"; shift 2 ;;
+      --poll) poll="$2"; shift 2 ;;
+      *) die "unknown flag: $1" ;;
+    esac
+  done
+  local file
+  file=$(esc_file "$id")
+  [ -f "$file" ] || die "no such escalation: $id"
+  local started
+  started=$(date +%s)
+  while :; do
+    if grep -Eq '^status: (answered|resolved)$' "$file"; then
+      grep '^status: ' "$file"
+      return 0
+    fi
+    if [ "$timeout" -gt 0 ]; then
+      local elapsed
+      elapsed=$(( $(date +%s) - started ))
+      if [ "$elapsed" -ge "$timeout" ]; then
+        printf 'coord: wait timed out after %ss\n' "$timeout" >&2
+        return 2
+      fi
+    fi
+    sleep "$poll"
+  done
+}
+
+cmd_list() {
+  local filter="all"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --open) filter="open"; shift ;;
+      --all)  filter="all";  shift ;;
+      *) die "unknown flag: $1" ;;
+    esac
+  done
+  ensure_index
+  if [ "$filter" = "open" ]; then
+    if ! grep '^| open ' "$INDEX"; then
+      printf '(no open escalations)\n'
+    fi
+  else
+    cat "$INDEX"
+  fi
+}
+
+cmd_show() {
+  [ $# -ge 1 ] || die "usage: coord show <id>"
+  local file
+  file=$(esc_file "$1")
+  [ -f "$file" ] || die "no such escalation: $1"
+  cat "$file"
+}
+
+cmd_help() {
+  cat <<'EOF'
+coord — escalation coordination for Codex↔Claude dev workflow
+
+Usage: coord <command> [options]
+
+Commands:
+  open   --kind {gate|block} --slice <slug> --title <text>
+         [--answer-shape {pick-one|free-form|approve-reject}]
+         [--options a,b,c] [--plan-ref <path>]
+         [--body <text> | --body-file <path | - for stdin>]
+         Open a new escalation; prints the generated id.
+
+  answer  <id> [--body <text> | --body-file <path | - for stdin>]
+         Append a response and flip status: open → answered.
+
+  resolve <id> [--body <text> | --body-file <path | - for stdin>]
+         Append a closing note and flip status → resolved.
+
+  wait    <id> [--timeout <secs>] [--poll <secs>]
+         Block until status is answered or resolved. Zero LLM tokens consumed.
+
+  list    [--open|--all]
+         Show the escalation index.
+
+  show    <id>
+         Print the escalation file.
+
+Environment:
+  COORD_AGENT  Identity to record (default: claude). Codex sessions should set codex.
+  COORD_ROOT   Root directory (default: .coord).
+
+Kinds:
+  gate   Planned stop-and-surface; --answer-shape required (--options for pick-one).
+  block  Unplanned blocker; free-form.
+
+Lifecycle: open → answered → resolved (abandoned is set manually).
+Spec: .coord/README.md
+EOF
+}
+
+[ $# -gt 0 ] || { cmd_help; exit 1; }
+sub="$1"; shift
+case "$sub" in
+  open)    cmd_open    "$@" ;;
+  answer)  cmd_answer  "$@" ;;
+  resolve) cmd_resolve "$@" ;;
+  wait)    cmd_wait    "$@" ;;
+  list)    cmd_list    "$@" ;;
+  show)    cmd_show    "$@" ;;
+  help|--help|-h) cmd_help ;;
+  *) die "unknown command: $sub (try: coord help)" ;;
+esac
