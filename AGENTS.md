@@ -105,6 +105,14 @@ For cross-vendor or non-current-model reviews, use:
 
 If Codex does not auto-discover repo-local skills, read that file directly. Do not improvise review execution from chat context. Do not fill reviewer identity or disposition without actual reviewer output. Use the skill's recovery workflow if Claude Code fails, writes partial files, or writes outside the review directory.
 
+## Responding to review findings
+
+When CodeRabbit, Codex, or any other reviewer posts findings on an open PR, follow `docs/review-response-playbook.md`. The discipline:
+
+- Classify each finding (`accept`, `accept-with-revisions`, `pushback`, `defer`, `clarify`) and reply with the disposition + justification + the commit it landed in. Never silently accept by pushing a fix without replying.
+- Before committing the fix, run the three audit axes: (1) generalization sweep — is the flagged site one of a wider class elsewhere in the codebase? (2) second-order effects — what static and semantic references could the fix break? (3) wider horizon — does the fix conflict with VISION.md, an ADR, RUNTIME-CONSTITUTION.md, or the active horizon's allowed work?
+- When the generalization sweep finds out-of-scope siblings, flag them in the reply and in `BUILD-LOG.md` rather than secretly expanding the PR; open a tracked follow-up.
+
 ## Execution architecture discipline
 
 - Distinguish the deterministic kernel from the runtime agent layer. Current deterministic commands can produce baseline artifacts and gates; they do not by themselves provide the nuanced hermeneutic understanding described in `VISION.md`.
