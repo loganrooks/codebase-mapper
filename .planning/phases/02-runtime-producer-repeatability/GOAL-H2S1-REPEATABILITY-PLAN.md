@@ -197,19 +197,29 @@ H2.A5: A non-current-model cross-vendor checkpoint accepts the H2 pass claim usi
        disallowed by ADR-005.
 ```
 
-H2 verification commands template (fill `<target-repo>`, `<surface-map.json>`, `<handoff.md>` for the chosen target):
+H2 verification commands template (fill `<target-repo>`, `<H2-surface-map-absolute-path>`, `<H2-handoff-absolute-path>` for the chosen target):
 
 ```bash
-python3 -m cbm.cli validate <H2 surface-map.json> --repo <target-repo>
-python3 -m cbm.cli verify-citations <H2 surface-map.json> --repo <target-repo>
-python3 -m cbm.cli check-evidence <H2 surface-map.json> --repo <target-repo>
-python3 -m cbm.cli validate <H2 handoff.md> --repo <target-repo>
-python3 -m cbm.cli verify-citations <H2 handoff.md> --repo <target-repo>
+# Artifact arguments MUST be ABSOLUTE paths to the CBM-repo packet
+# (e.g. /Users/.../cbm/.planning/benchmarks/<date>-<target-slug>-h2s3-handoff/surface-map.json).
+# `command_validate` resolves a relative artifact under `--repo` (`path = repo / path`),
+# so a relative path combined with `--repo <target-repo>` would look for the artifact
+# inside the target checkout and raise FileNotFoundError. This is the exact failure
+# mode H1.S3 hit; the resolution is recorded at
+# `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/VERIFY.md:15`.
+
+python3 -m cbm.cli validate <H2-surface-map-absolute-path> --repo <target-repo>
+python3 -m cbm.cli verify-citations <H2-surface-map-absolute-path> --repo <target-repo>
+python3 -m cbm.cli check-evidence <H2-surface-map-absolute-path> --repo <target-repo>
+python3 -m cbm.cli validate <H2-handoff-absolute-path> --repo <target-repo>
+python3 -m cbm.cli verify-citations <H2-handoff-absolute-path> --repo <target-repo>
 TMPDIR=/var/tmp pytest -q
 git diff --check -- .planning BUILD-LOG.md cbm tests schemas
 python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category runtime-producer --json
 python3 -m cbm.cli loop-status --repo . --scope pass-claim --work-category runtime-producer --json
 ```
+
+Note on the H2 `pass-claim` scope: `loop-status --scope pass-claim` currently passes on the H1 minimum-useful checkpoint at `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/`, because `checkpoint_for_loop_scope` selects the most-recent accepted checkpoint with the matching `scope` label and the H1 checkpoint carries `scope: pass-claim`. That passing result is correct for the H1 claim; it does **not** imply H2 progress. H2.A5 requires the H2.S3 checkpoint to be the most-recent accepted pass-claim checkpoint (with a non-current-model reviewer disposition) before the H2 pass claim is supported.
 
 H2 sub-slice structure (proposed; finalize in `H2-PLAN.md` after target pick):
 
@@ -307,7 +317,7 @@ After the H2 target is locked and `H2-PLAN.md` is filled:
 
 ### `.planning/CURRENT-PLAN.md`
 
-- Add Active Recovery Sequence item 26: H2.S1 plan production. Status: completed when this goal completes.
+- Active Recovery Sequence item 26 already exists in `CURRENT-PLAN.md` for "Draft the H2.S1 `/goal` brief ... ; awaiting `/goal` execution to produce ..." Update its Status text to "completed: H2.S1 deliverables produced at `<commit-hash>`; H2 target locked as `<target-slug>` at `<sha>`" — do not add a duplicate item 26. If a separate Active Recovery Sequence entry is needed for the H2.S2 dispatch transition, append item 27 (the next unused number).
 - Update `Next /goal Track` to reference H2.S2 (live producer run) as the next slice with the chosen target slug.
 - Keep Current horizon: H2 and Current stage: H2.S1 until completion; then advance Current stage to H2.S2 only after this goal completes successfully.
 
@@ -352,27 +362,42 @@ Add a slice entry for H2.S1 plan production. Use the same shape as the H1 slice 
 
 Run the pre-commit checks first, commit the H2.S1 work (planning-doc edits plus new H2.S1 deliverables), then run the post-commit loop-status checks. The split matters: `loop-status` treats uncommitted edits to `AUTHORITY_DOC_PATHS` (`AGENTS.md`, `VISION.md`, `RUNTIME-CONSTITUTION.md`, `.planning/STATE.md`, `.planning/HORIZONS.md`, `.planning/CURRENT-PLAN.md`) as a hard `dirty_authority_docs` issue (see `cbm/cli.py`). Because the brief mandates editing three of those files, running `loop-status` before the H2.S1 commit will deterministically fail; that is not an H2 regression, it is the gate firing correctly.
 
-Pre-commit:
+Two-commit sequence:
+
+**Commit 1 — H2.S1 work** (the substantive slice):
 
 ```bash
 TMPDIR=/var/tmp pytest -q
 git diff --check -- .planning BUILD-LOG.md
+git add <deliverables and authority-doc edits>
+git commit -m "<scoped subject>"
 ```
 
-Post-commit (after the H2.S1 commit lands, with no further dirty authority docs):
+In Commit 1, the `BUILD-LOG.md` slice entry and `.planning/STATE.md` verification footer should be present **with templated placeholders** for the loop-status output (e.g., `status: ok` / `issues: []` / `warnings: []` if that is the expected shape — fill in the actual JSON shape after Commit 2). This makes Commit 1 self-consistent on the prose side.
+
+**Post-Commit-1 verification** (with no further dirty authority docs):
 
 ```bash
 python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category runtime-producer --json
 python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category runtime-producer --json
 ```
 
-Record both loop-status outputs in the `.planning/STATE.md` verification footer and in `BUILD-LOG.md` for the H2.S1 slice entry.
+**Commit 2 — audit-only verification record**:
 
-Expected loop-status behavior:
+If the loop-status outputs diverge from the templated placeholders in Commit 1, edit `.planning/STATE.md` and `BUILD-LOG.md` to replace the placeholders with the actual JSON outputs (including the actual exit codes and any issue/warning entries). Stage and commit as a small audit-only follow-up:
+
+```bash
+git add .planning/STATE.md BUILD-LOG.md
+git commit -m "docs: record H2.S1 post-commit loop-status output"
+```
+
+Commit 2 is **audit-only**: it is deliberately a follow-up that records the post-Commit-1 loop-status output and nothing else. Re-running `loop-status` after Commit 2 lands would produce a different commit hash in any future recording cycle (recursive — Commit 3 to record the Commit-2-post-state output, then Commit 4 to record Commit 3, etc.). Break the recursion at Commit 2: do not run `loop-status` after Commit 2 unless verifying an external claim about repo state. If Commit 1's templated placeholders matched the actual output exactly, Commit 2 is unnecessary and Commit 1 stands alone.
+
+Expected loop-status behavior at Commit 1 post-state:
 
 - `broad-goal` must pass with `status: ok`, no issues, no warnings.
 - `recovery-slice` must pass.
-- `pass-claim` is expected to still fail or block until the H2.S3 checkpoint disposition lands. That is correct and should be recorded.
+- `pass-claim` is **not** in the H2.S1 verification command list above. It is currently passing on the accepted H1 minimum-useful checkpoint and should be expected to keep passing on H1 until the H2.S3 packet produces its own pass-claim checkpoint. Do not run `--scope pass-claim` as part of H2.S1 verification; it carries no information about H2 progress.
 
 If the chosen target requires a probe (clone + size check + license check), the probe is allowed but must be read-only and recorded in `H2-TARGET-SELECTION.md` with the exact commands and outcomes. The probe must not invoke Surface Mapper or Skeptic.
 
@@ -449,4 +474,4 @@ the H2.S2 benchmark packet. H2.S3 then runs the validated-handoff + cross-vendor
 checkpoint slice in a separate /goal.
 ```
 
-Per-slice /goal invocations are deliberate: each slice gets its own `token_budget`, its own stop-and-surface boundary, its own cross-model checkpoint review, and its own recovery boundary if something goes wrong. See the rationale at the bottom of `.planning/CURRENT-PLAN.md` "Next /goal Track" section once it is updated.
+Per-slice /goal invocations are deliberate: each slice gets its own `token_budget`, its own stop-and-surface boundary, and its own recovery boundary if something goes wrong. Of the three slices, only H2.S3 makes an H2 pass claim, so only H2.S3 carries an ADR-005 cross-model pass-claim checkpoint (at scope `pass-claim`, with a non-current-model reviewer disposition). H2.S1 and H2.S2 use the standing per-slice cross-vendor review practice (see `docs/review-playbook.md`), which is not a pass-claim checkpoint in the ADR-005 sense and does not gate `loop-status --scope pass-claim`. See the rationale at the bottom of `.planning/CURRENT-PLAN.md` "Next /goal Track" section.
