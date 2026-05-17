@@ -2096,3 +2096,33 @@ Phase A disposition: pass as MVP foundation. Limitations remain explicit: determ
   - PR-#14 third-review-response only; no horizon advance, no code change.
   - H1 GOAL doc retroactive fix and PR-template/CodeRabbit-label conflict still flagged for separate decisions (unchanged from prior rounds).
   - The two-commit verification pattern is a brief-level guidance pattern for the H2.S1 `/goal`; it does not change AGENTS.md's commit protocol (the protocol still says "scoped message with Why / Verification / Boundary"). If the user wants the two-commit pattern lifted into AGENTS.md as a general rule, that is a separate decision.
+
+## 2026-05-17 — PR #14 round-5 Codex: phase 02 VERIFICATION.md pass-claim sibling missed by round-3 sweep
+
+- Context: Codex caught a sibling instance of CX-R3-5 (stale "pass-claim expected to fail" prediction) in `.planning/phases/02-runtime-producer-repeatability/VERIFICATION.md:18`. My round-3 sweep grep'd over `GOAL-H2S1-REPEATABILITY-PLAN.md`, `.planning/CURRENT-PLAN.md`, `.planning/STATE.md`, and `.planning/HORIZONS.md` — but NOT over the phase 02 stubs (PLAN.md / SUMMARY.md / VERIFICATION.md) that I authored in 70fc56a. That sweep-coverage gap let the sibling survive. The lesson: when a class-of-bug sweep is for prose patterns and I have recently authored related files in the same PR, those authored files MUST be in the sweep set even if they're not the file Codex flagged.
+- Finding (CX-R5-1, P2): `VERIFICATION.md:18` said "`pass-claim` loop-status is expected to remain `fail` until H2.S3 cross-vendor pass-claim checkpoint disposition lands". Same stale prediction as the round-3 GOAL-doc:375 finding. Direct CLI invocation showed pass-claim returns `status: ok` on the H1 checkpoint; `checkpoint_for_loop_scope` selects the most-recent accepted scope-matching checkpoint regardless of horizon, so an H2.S1 agent following this VERIFICATION.md bullet would have either treated the healthy gate as an error or recorded a stale verification claim.
+- Disposition: accept. Rewrote the bullet to mirror the round-3 fix at GOAL-doc:400, with explicit cite to `checkpoint_for_loop_scope` at `cbm/cli.py:5430-5452` and to the H1 checkpoint that currently satisfies the gate. Bumped VERIFICATION.md `Last updated:` to 2026-05-17.
+- Class-of-bug sweep (axis 1, broadened): re-ran the round-3 grep with an expanded file set including all phase 02 stubs (PLAN.md / SUMMARY.md / VERIFICATION.md). Findings:
+  - `PLAN.md`: clean — Objective wording was already corrected in 418ca41 (no "challenge required" overclaim, no pass-claim prediction, no ADR-005 conflation).
+  - `SUMMARY.md`: clean — body has "No H2 acceptance, repeatability, or pass-claim acceptance" which is a true non-claim, not a prediction. "H1 acceptance preserved exactly as merged in 76db3bc" is backed by a commit hash.
+  - `VERIFICATION.md`: 1 sibling instance (the one Codex flagged); fixed.
+- Second-order audit (axis 2): cross-checked that the fixed wording is consistent across the three places pass-claim is now explained:
+  - `GOAL-doc:213-216` (H2 verification commands template) — pass-claim note + H2.A5 contract note.
+  - `GOAL-doc:400` (H2.S1 expected loop-status behavior) — "not in H2.S1 verification; currently green on H1".
+  - `VERIFICATION.md:18` (this round's fix) — same wording shape; cites `checkpoint_for_loop_scope` line range + H1 checkpoint path.
+  All three say the same thing in compatible language. No drift.
+- Wider context (axis 3): no conflict with ADR-005. ADR-005's pass-claim gate continues to work mechanically; the doc fix clarifies the per-horizon vs per-checkpoint distinction (the gate is per-checkpoint; the horizon-level pass claim is a separate concept that lives in the brief and acceptance criteria).
+- Sweep-coverage lesson (recorded for future review-response rounds): when a class-of-bug sweep is for prose patterns, include ALL .md files I authored or edited in the current PR as part of the sweep set, not just the file the reviewer flagged. This is now noted in `docs/review-response-playbook.md`'s axis-1 section as part of the "doc findings" methodology (already present: "Read sibling docs ... for the same fact-claim"; this round's miss confirms that guidance, sibling = same-PR-authored files).
+- Implemented:
+  - `.planning/phases/02-runtime-producer-repeatability/VERIFICATION.md`: bumped `Last updated:` to 2026-05-17; reworded line 18 with `checkpoint_for_loop_scope` cite and H1-checkpoint pointer.
+  - This BUILD-LOG slice entry.
+  - STATE.md verification footer for this round (next).
+- Tests: none. Doc-only iteration; no source change.
+- Verification:
+  - Premise verification (already-recorded in round-3 BUILD-LOG entry): `loop-status --scope pass-claim` returns `status: ok` on H1 checkpoint; not re-run.
+  - Class-of-bug sweep, post-edit: `grep -nE 'pass-claim.*(fail|block|expected to remain)' .planning/phases/02-runtime-producer-repeatability/*.md .planning/CURRENT-PLAN.md .planning/HORIZONS.md` (deliberately not including STATE.md or HORIZONS.md historical entries) returns 0 operational hits. HORIZONS.md:45 and STATE.md:285/207 remain as deliberate historical records.
+  - Iteration verification suite: not run. Planning-doc-only iteration. Test-suite status preserved from PR #13 footer (146 passed, 2 warnings).
+- Boundary:
+  - PR #14 round-5 only; no horizon advance, no code change.
+  - H1 GOAL doc retroactive fix and PR-template/CodeRabbit-label conflict still flagged for separate decisions (unchanged).
+  - The sweep-coverage lesson is recorded here in BUILD-LOG; whether it gets folded into `docs/review-response-playbook.md` text (PR #15) as a tightening is a separate decision — the playbook already contains the "Read sibling docs" guidance that, applied broadly, would cover same-PR-authored files. If the user wants a tighter explicit rule, it can be added in a follow-up to PR #15.
