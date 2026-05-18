@@ -12,7 +12,7 @@ When Codex runs `/goal` in its own session, it has no live channel back to a Cla
 
 ## Layout
 
-```
+```text
 .coord/
   coord                                        # the CLI (chmod +x)
   README.md                                    # this file
@@ -25,7 +25,7 @@ When Codex runs `/goal` in its own session, it has no live channel back to a Cla
 
 ## Lifecycle
 
-```
+```text
               coord open                coord answer                coord resolve
    (codex) --------------> open ----- (claude) -----> answered --- (codex) ---> resolved
                               \                                     /
@@ -104,11 +104,11 @@ Codex sessions should set `COORD_AGENT=codex` (so the CLI stamps `opened_by: cod
 | `list`     | Print the INDEX (or just open rows with `--open`).                   |
 | `show`     | Print one escalation file.                                           |
 
-All write operations are atomic: write to a tempfile, then `mv`. `INDEX.md` and the per-escalation file are updated together.
+Per-file writes are atomic (tempfile + `mv`). `INDEX.md` and the per-escalation file are updated *sequentially*, not transactionally — an interruption between the two writes can leave them briefly out of sync. For dev-workflow use between two trusted agents this is acceptable; if it ever happens, the per-escalation file is the source of truth, and INDEX.md can be hand-edited to match.
 
 ## Cross-platform
 
-Targets **POSIX shell + standard Unix tools** (bash 3.2+, grep, sed, awk, date, mktemp). Verified on macOS (BSD coreutils) and Linux (GNU coreutils); WSL inherits Linux behavior. Native Windows is out of scope.
+Designed for **POSIX shell + standard Unix tools** (bash 3.2+, grep, sed, awk, date, mktemp). Smoke-tested on macOS (BSD coreutils); should work on Linux (GNU coreutils) and WSL but not independently verified. Native Windows is out of scope.
 
 The `Monitor` tool on Claude's side branches on `fswatch` (macOS) vs `inotifywait` (Linux); both are fine to install.
 

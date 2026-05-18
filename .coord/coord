@@ -13,10 +13,18 @@ now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 now_id_ts() { date -u +%Y%m%d-%H%M%S; }
 
 slugify() {
-  printf '%s' "$1" \
+  local result
+  result=$(printf '%s' "$1" \
     | tr '[:upper:]' '[:lower:]' \
     | tr -c 'a-z0-9' '-' \
-    | sed -e 's/--*/-/g' -e 's/^-//' -e 's/-$//'
+    | sed -e 's/--*/-/g' -e 's/^-//' -e 's/-$//')
+  [ -n "$result" ] && printf '%s' "$result" || printf 'unnamed'
+}
+
+validate_id() {
+  case "$1" in
+    ''|*/*|*..*) die "invalid escalation id: $1" ;;
+  esac
 }
 
 esc_file() { printf '%s/%s/escalation.md' "$ESC_DIR" "$1"; }
@@ -54,7 +62,11 @@ flip_status_in_file() {
   local file="$1" from="$2" to="$3"
   local tmp
   tmp=$(mktemp)
-  sed "s@^status: $from\$@status: $to@" "$file" > "$tmp" && mv "$tmp" "$file"
+  awk -v from="status: $from" -v to="status: $to" '
+    /^---$/ { fm_count++; print; next }
+    fm_count == 1 && $0 == from { print to; next }
+    { print }
+  ' "$file" > "$tmp" && mv "$tmp" "$file"
 }
 
 flip_index_row() {
@@ -154,6 +166,7 @@ cmd_open() {
 cmd_answer() {
   [ $# -ge 1 ] || die "usage: coord answer <id> [--body <text> | --body-file <path>]"
   local id="$1"; shift
+  validate_id "$id"
   local body_src="" body_text=""
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -178,6 +191,7 @@ cmd_answer() {
 cmd_resolve() {
   [ $# -ge 1 ] || die "usage: coord resolve <id> [--body <text> | --body-file <path>]"
   local id="$1"; shift
+  validate_id "$id"
   local body_src="" body_text=""
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -205,11 +219,17 @@ cmd_resolve() {
 cmd_wait() {
   [ $# -ge 1 ] || die "usage: coord wait <id> [--timeout <s>] [--poll <s>]"
   local id="$1"; shift
+  validate_id "$id"
   local timeout=0 poll=10
   while [ $# -gt 0 ]; do
     case "$1" in
-      --timeout) timeout="$2"; shift 2 ;;
-      --poll) poll="$2"; shift 2 ;;
+      --timeout)
+        case "$2" in ''|*[!0-9]*) die "--timeout must be a non-negative integer (got: $2)" ;; esac
+        timeout="$2"; shift 2 ;;
+      --poll)
+        case "$2" in ''|*[!0-9]*) die "--poll must be a non-negative integer (got: $2)" ;; esac
+        [ "$2" -gt 0 ] || die "--poll must be > 0 (got: $2)"
+        poll="$2"; shift 2 ;;
       *) die "unknown flag: $1" ;;
     esac
   done
@@ -256,6 +276,7 @@ cmd_list() {
 
 cmd_show() {
   [ $# -ge 1 ] || die "usage: coord show <id>"
+  validate_id "$1"
   local file
   file=$(esc_file "$1")
   [ -f "$file" ] || die "no such escalation: $1"
