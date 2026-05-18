@@ -35,7 +35,7 @@ When Codex runs `/goal` in its own session, it has no live channel back to a Cla
 ```
 
 1. **Open.** Codex runs `COORD_AGENT=codex .coord/coord open --kind {gate|block} --slice <slug> --title <text> [--body <text> | --body-file <path|->] ...`. The CLI generates an id (`YYYYMMDD-HHMMSS-<slug>`), writes the frontmatter and first turn, appends a row to `INDEX.md`, and prints the id.
-2. **Wait.** Codex runs `.coord/coord wait <id>`. This is a blocking shell loop: `until grep -q '^status: answered\|^status: resolved' …; do sleep 10; done`. The LLM is suspended during the sleep; no tokens are consumed while blocked.
+2. **Wait.** Codex runs `.coord/coord wait <id>`. This is a blocking shell loop that polls the escalation file's **frontmatter** `status:` field every 10 s (scoped to the region between the first two `---` markers; body lines are not considered). The LLM is suspended during the sleep; no tokens are consumed while blocked.
 3. **Surface to Claude.** Either (a) Claude's `Monitor` (armed at session start, watching `.coord/escalations/`) fires on the new file, (b) Claude's session-start scan of `INDEX.md` picks up the open row, or (c) the user pastes the path.
 4. **Answer.** Claude runs `.coord/coord answer <id> --body-file response.md` (or `--body "<text>"` for a one-liner, or `--body-file -` to read from stdin). The CLI appends a `## claude <ts> (answered)` section to the file and flips `status: open → answered` in both the file and `INDEX.md`.
 5. **Resume + resolve.** Codex's wait loop exits; Codex reads the response, acts, and runs `.coord/coord resolve <id> --body-file ack.md` to close. Status → `resolved`.

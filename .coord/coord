@@ -55,7 +55,10 @@ read_body() {
 }
 
 current_status() {
-  awk '/^status: / { sub(/^status: /, ""); print; exit }' "$1"
+  awk '
+    /^---$/ { fm_count++; next }
+    fm_count == 1 && /^status: / { sub(/^status: /, ""); print; exit }
+  ' "$1"
 }
 
 flip_status_in_file() {
@@ -239,10 +242,14 @@ cmd_wait() {
   local started
   started=$(date +%s)
   while :; do
-    if grep -Eq '^status: (answered|resolved)$' "$file"; then
-      grep '^status: ' "$file"
-      return 0
-    fi
+    local cur
+    cur=$(current_status "$file")
+    case "$cur" in
+      answered|resolved)
+        printf 'status: %s\n' "$cur"
+        return 0
+        ;;
+    esac
     if [ "$timeout" -gt 0 ]; then
       local elapsed
       elapsed=$(( $(date +%s) - started ))
