@@ -67,6 +67,8 @@ options: [h11, mcp-filesystem, conc]   # pick-one gates only
 
 `status` is the single coordination primitive both agents read. The `coord` CLI is the only thing that should flip `status` — direct edits risk leaving `INDEX.md` and the file out of sync.
 
+**No `schema_version` field.** The escalation frontmatter is consumed only by `.coord/coord`, which is also the sole producer; there is no out-of-tree consumer, no CI validation chain, and no historical-artifact migration story to coordinate. If a non-`coord` consumer ever appears (e.g., an external dashboard), `schema_version` should be added then. The `schema_version` rule in `AGENTS.md` ("What you do not do") is scoped to CBM artifact schemas (`cbm/schemas/*.json`), not to this dev-workflow file.
+
 ## Body convention
 
 Append-only. Each turn is a new section:
