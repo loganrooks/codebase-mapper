@@ -123,9 +123,14 @@ cmd_open() {
       pick-one|free-form|approve-reject) ;;
       *) die "invalid --answer-shape: $answer_shape" ;;
     esac
-    if [ "$answer_shape" = "pick-one" ] && [ -z "$options" ]; then
-      die "--options required for answer-shape=pick-one (comma-separated)"
+    if [ "$answer_shape" = "pick-one" ]; then
+      [ -n "$options" ] || die "--options required for answer-shape=pick-one (comma-separated)"
+    elif [ -n "$options" ]; then
+      die "--options is only valid with --answer-shape=pick-one"
     fi
+  else
+    [ -z "$answer_shape" ] || die "--answer-shape is only valid with --kind=gate"
+    [ -z "$options" ] || die "--options is only valid with --kind=gate"
   fi
 
   local id dir file ts body

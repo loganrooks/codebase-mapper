@@ -104,7 +104,7 @@ Codex sessions should set `COORD_AGENT=codex` (so the CLI stamps `opened_by: cod
 | `list`     | Print the INDEX (or just open rows with `--open`).                   |
 | `show`     | Print one escalation file.                                           |
 
-Per-file writes are atomic (tempfile + `mv`). `INDEX.md` and the per-escalation file are updated *sequentially*, not transactionally — an interruption between the two writes can leave them briefly out of sync. For dev-workflow use between two trusted agents this is acceptable; if it ever happens, the per-escalation file is the source of truth, and INDEX.md can be hand-edited to match.
+Per-file *rewrites* (status-flip on the escalation file via `flip_status_in_file`, status-flip on `INDEX.md` via `flip_index_row`) are atomic via tempfile + `mv`. *Append* operations (new turn sections written with `>>`, new INDEX rows written with `>>`) are not atomic — a mid-write interruption could leave a partial line. `INDEX.md` and the per-escalation file are also updated *sequentially*, not transactionally across both files. For dev-workflow use between two trusted agents this is acceptable; if a write does get interrupted, the per-escalation file is the source of truth, and INDEX.md can be hand-edited to match.
 
 ## Cross-platform
 
