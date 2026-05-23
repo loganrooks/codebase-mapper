@@ -1,14 +1,16 @@
 # H2 Target Selection
 
-Status: stop-and-surface; user target pick required
-Last updated: 2026-05-16
+Status: locked; user confirmed candidate 2 (`python-hyper/h11`) on 2026-05-22
+Last updated: 2026-05-22
+Supersedes: none
+Superseded by: none
 Scope: H2.S1 planning only
 
 ## Boundary
 
-This artifact proposes candidate targets for H2 runtime-producer repeatability. It does not lock the H2 target, does not dispatch Surface Mapper or Skeptic, does not claim H2 complete, and does not claim repeatability or Phase B+ readiness.
+This artifact proposes candidate targets for H2 runtime-producer repeatability and now records the user-confirmed pick. It does not dispatch Surface Mapper or Skeptic, does not claim H2 complete, and does not claim repeatability or Phase B+ readiness.
 
-User: please confirm the H2 target.
+The original candidate proposal landed in commit `0819bcd` on 2026-05-22; the user target pick was made via the H2.S1 `/goal` stop-and-surface gate on 2026-05-22 and is recorded at the bottom of this file under "Locked Pick". The candidate ledger below is preserved as the input to that decision.
 
 ## Selection Summary
 
@@ -139,17 +141,55 @@ Pick Candidate 2, `python-hyper/h11`, unless the user wants H2 to explicitly tes
 
 Candidate 2 best matches the H2.S1 objective: it is materially different from MCP `src/git`, has a small and bounded scope, has a permissive license, offers obvious non-trivial interpretive claims, and avoids making H2 simultaneously answer "can the pipeline repeat?" and "can the mapper handle a new language family?" Candidate 1 is acceptable if the priority is staying in a known benchmark repo while varying language/domain. Candidate 3 is acceptable if the priority is stronger generalization evidence and the user is willing to carry the Go-language preflight risk into H2.S2.
 
-## Pending User Decision
+## Locked Pick
 
-User: please confirm the H2 target.
+User confirmed Candidate 2 (`python-hyper/h11`, scope `h11/` package excluding `h11/tests/`) via the H2.S1 `/goal` stop-and-surface gate on 2026-05-22.
 
-After the target is confirmed, H2.S1 can proceed to fill:
+Pinned identification:
 
-- `H2-PLAN.md`
-- `H2-BENCHMARK-PACKET-SKELETON.md`
-- `H2-PREFLIGHT.md`
-- `PLAN.md`
-- `SUMMARY.md`
-- `VERIFICATION.md`
+- Repo: `https://github.com/python-hyper/h11`
+- SHA: `62c5068c971579d61fa1b55373390e12f25fd856`
+- Subtree: `h11/` package (excluding `h11/tests/`)
+- LOC: 2,568 across 11 tracked `.py` files
+- License: MIT (`LICENSE.txt`)
+- Target slug for packet/run-id use: `h11`
 
-Until then, H2 target remains unlocked and H2.S2 live producer dispatch remains blocked.
+### Re-verification probe on 2026-05-22
+
+Probe workspace: `/var/tmp/cbm-h2-target-probes-20260522/h11`. Read-only; no `cbm run`, Surface Mapper, or Skeptic was invoked.
+
+```bash
+git ls-remote https://github.com/python-hyper/h11.git | grep 62c5068c971579d61fa1b55373390e12f25fd856
+# 62c5068c971579d61fa1b55373390e12f25fd856	HEAD
+# 62c5068c971579d61fa1b55373390e12f25fd856	refs/heads/master
+
+git clone --filter=blob:none --no-checkout https://github.com/python-hyper/h11.git /var/tmp/cbm-h2-target-probes-20260522/h11
+git -C /var/tmp/cbm-h2-target-probes-20260522/h11 checkout 62c5068c971579d61fa1b55373390e12f25fd856
+git -C /var/tmp/cbm-h2-target-probes-20260522/h11 rev-parse HEAD
+# 62c5068c971579d61fa1b55373390e12f25fd856
+
+git -C /var/tmp/cbm-h2-target-probes-20260522/h11 ls-files h11 | grep -E '\.(py|pyi)$' | grep -v '^h11/tests/' | xargs wc -l | tail -1
+# 2568 total
+
+git -C /var/tmp/cbm-h2-target-probes-20260522/h11 ls-files h11 | grep -E '\.(py|pyi)$' | grep -v '^h11/tests/'
+# h11/__init__.py
+# h11/_abnf.py
+# h11/_connection.py
+# h11/_events.py
+# h11/_headers.py
+# h11/_readers.py
+# h11/_receivebuffer.py
+# h11/_state.py
+# h11/_util.py
+# h11/_version.py
+# h11/_writers.py
+
+head -4 /var/tmp/cbm-h2-target-probes-20260522/h11/LICENSE.txt
+# The MIT License (MIT)
+# (blank)
+# Copyright (c) 2016 Nathaniel J. Smith <njs@pobox.com> and other contributors
+```
+
+Re-verification outcome: SHA `62c5068c...` is current `HEAD` and `refs/heads/master` of `https://github.com/python-hyper/h11.git`; LOC and file inventory match the pre-built candidate probe (2,568 LOC across 11 source files in `h11/` excluding `h11/tests/`); license is MIT.
+
+H2 target is locked. H2.S2 live producer dispatch remains blocked until `H2-PLAN.md` is the binding plan on `main` (this commit) and `cbm-loop-status --scope broad-goal --work-category runtime-producer` passes.
