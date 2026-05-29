@@ -101,6 +101,8 @@ Run after the H2.S2 / H2.S3 packets land. The slug `<run-date>` is the actual da
 
 Artifact arguments MUST be ABSOLUTE paths to the CBM-repo packet path (e.g. `/Users/rookslog/Development/cbm/.planning/benchmarks/<run-date>-h11-h2s2/surface-map.json`). `command_validate` (`cbm/cli.py:2391-2404`) resolves a relative artifact under `--repo` via `path = repo / path` when `path.is_absolute()` is false; a relative artifact combined with `--repo /var/tmp/...h11/` would look for the artifact inside the h11 target checkout and raise `FileNotFoundError`. This is the exact failure mode H1.S3 hit; the resolution is recorded at `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/VERIFY.md:15`.
 
+**Workspace path note for H2.S2 dispatch.** The `--repo` argument below names `/var/tmp/cbm-h2-h11-62c5068/h11` — this is the dispatch workspace, which H2.S2 must create fresh (`mkdir -p` + `git clone` + `git checkout`). Do **not** reuse the H2.S1 re-verification probe workspace at `/var/tmp/cbm-h2-target-probes-20260522/h11`; that path was used only for read-only re-verification on 2026-05-22 and reusing it risks mixing read-only probe state with live producer dispatch state. The H2.S2 brief (`GOAL-H2S2-LIVE-RUN.md` Phase 1) carries the canonical clone-and-checkout commands.
+
 ```bash
 # H2.S2 packet validation:
 python3 -m cbm.cli validate \

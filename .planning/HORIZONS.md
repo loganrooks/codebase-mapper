@@ -245,7 +245,7 @@ Acceptance:
 
 ### H2.S1 - Repeatability Plan
 
-Status: current; plan prepared. `/goal` brief at `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` executed on 2026-05-22. Deliverables produced:
+Status: complete (horizon-stage). `/goal` brief at `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` executed on 2026-05-22. Deliverables produced and verified:
 
 - `H2-TARGET-SELECTION.md` — user-confirmed pick locked: `python-hyper/h11` at SHA `62c5068c971579d61fa1b55373390e12f25fd856`, scope `h11/` package excluding `h11/tests/` (2,568 LOC across 11 source files; MIT). Re-verification probe recorded.
 - `H2-PLAN.md` — binding H2 plan with concrete A1–A5 and absolute-path verification commands.
@@ -253,7 +253,7 @@ Status: current; plan prepared. `/goal` brief at `.planning/phases/02-runtime-pr
 - `H2-PREFLIGHT.md` — preflight concerns 1–9 (language fit, budget envelope, cross-vendor review skill repeatability, schema/validator drift, H1-caveat carryover, h11-specific protocol-state-machine and re-export concerns, H2.A4 diff-record discipline, `.research/` tree preservation).
 - Phase 02 `PLAN.md` / `SUMMARY.md` / `VERIFICATION.md` stubs expanded with concrete H2.S1 content; metadata preserved.
 
-H2.S1 is not advanced to "complete" in this file until post-commit `cbm-loop-status --scope broad-goal` passes; that verification record lives in `.planning/STATE.md` and in `.planning/phases/02-runtime-producer-repeatability/VERIFICATION.md`. The H2.S2 `/goal` is the next slice.
+The self-imposed advance condition ("post-commit `cbm-loop-status --scope broad-goal` passes") was met at the H2.S1 commit; the verification record is preserved in `.planning/STATE.md` and `.planning/phases/02-runtime-producer-repeatability/VERIFICATION.md`. H2.S1's horizon-stage is advanced here; `CURRENT-PLAN.md`'s `Current stage` field continues to track the active-/goal container and advances to H2.S2 when the H2.S2 `/goal` dispatches per `GOAL-H2S2-LIVE-RUN.md`. The H2 horizon itself remains not-complete until H2.S3 lands the cross-vendor pass-claim checkpoint per H2.A5 / ADR-005.
 
 Objective:
 
