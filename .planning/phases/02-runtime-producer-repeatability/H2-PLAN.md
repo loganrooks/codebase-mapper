@@ -85,14 +85,41 @@ H2.A4: Differences between the H1 run and the H2 run are recorded in
 
 H2.A5: A non-current-model cross-vendor checkpoint accepts the H2 pass claim
        using the cross-vendor-review skill at scope pass-claim. Same-model
-       fallback is disallowed by ADR-005. The H2.S3 checkpoint must become
-       the most-recent accepted pass-claim checkpoint (selected by
-       checkpoint_for_loop_scope at cbm/cli.py:5430-5452) before
-       loop-status --scope pass-claim is interpretable as H2-supporting
-       evidence; until then, the gate continues to pass on the accepted H1
-       minimum-useful checkpoint at
-       .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/, which is
-       correct for H1 and is not H2 evidence.
+       fallback is disallowed by ADR-005.
+
+       Pre-acceptance failure window (load-bearing for H2.S3):
+       checkpoint_for_loop_scope at cbm/cli.py:5430-5452 is the SELECTOR
+       and returns the most-recent checkpoint whose scope label equals
+       pass-claim, REGARDLESS of disposition. checkpoint_pass_claim_issues
+       at cbm/cli.py:5795-5832 is the separate GATE that then evaluates
+       reviewer_model_id and disposition.
+
+       Consequence for H2.S3 dispatch: today the only pass-claim-scoped
+       checkpoint is the accepted H1 minimum-useful checkpoint at
+       .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/, so
+       the selector returns it and the gate is green. The moment H2.S3
+       writes its own CHECKPOINT.md with scope: pass-claim (which
+       `cbm checkpoint --scope pass-claim` does as part of packet
+       creation), the selector immediately switches to the H2.S3 file
+       because it has a newer mtime — the H1 fallback is no longer
+       reachable via the selector. The gate then fails with
+       missing_reviewer_model_id (cli.py:5795-5801) and
+       checkpoint_disposition_not_accepted (cli.py:5828-5848) UNTIL
+       the non-current-model reviewer writes reviewer_model_id +
+       disposition: accept (via the cross-vendor-review runner).
+
+       The H2.S3 author MUST expect `loop-status --scope pass-claim`
+       to be RED between H2.S3 packet commit and reviewer acceptance.
+       That red is the gate working as designed, NOT an H2 regression
+       and NOT a signal to delete the H2.S3 CHECKPOINT.md or write a
+       disposition prematurely; doing either would break ADR-005's
+       cross-model invariant. The H1 checkpoint's green status is
+       recoverable only by reverting the H2.S3 packet commit.
+
+       H2.A5 is satisfied when the reviewer's accept-disposition lands
+       and `loop-status --scope pass-claim --work-category
+       runtime-producer` returns to green ON the H2.S3 checkpoint
+       (not on the H1 fallback).
 ```
 
 ## H2 Verification Commands
@@ -101,7 +128,18 @@ Run after the H2.S2 / H2.S3 packets land. The slug `<run-date>` is the actual da
 
 Artifact arguments MUST be ABSOLUTE paths to the CBM-repo packet path (e.g. `/Users/rookslog/Development/cbm/.planning/benchmarks/<run-date>-h11-h2s2/surface-map.json`). `command_validate` (`cbm/cli.py:2391-2404`) resolves a relative artifact under `--repo` via `path = repo / path` when `path.is_absolute()` is false; a relative artifact combined with `--repo /var/tmp/...h11/` would look for the artifact inside the h11 target checkout and raise `FileNotFoundError`. This is the exact failure mode H1.S3 hit; the resolution is recorded at `.planning/benchmarks/2026-05-07-mcp-git-h1s3-minimum-useful-handoff/VERIFY.md:15`.
 
-**Workspace path note for H2.S2 dispatch.** The `--repo` argument below names `/var/tmp/cbm-h2-h11-62c5068/h11` — this is the dispatch workspace, which H2.S2 must create fresh (`mkdir -p` + `git clone` + `git checkout`). Do **not** reuse the H2.S1 re-verification probe workspace at `/var/tmp/cbm-h2-target-probes-20260522/h11`; that path was used only for read-only re-verification on 2026-05-22 and reusing it risks mixing read-only probe state with live producer dispatch state. The H2.S2 brief (`GOAL-H2S2-LIVE-RUN.md` Phase 1) carries the canonical clone-and-checkout commands.
+**Workspace path note for H2.S2 dispatch.** The `--repo` argument below names `/var/tmp/cbm-h2-h11-62c5068/h11` — this is the dispatch workspace, which H2.S2 must create fresh. Do **not** reuse the H2.S1 re-verification probe workspace at `/var/tmp/cbm-h2-target-probes-20260522/h11`; that path was used only for read-only re-verification on 2026-05-22 and reusing it risks mixing read-only probe state with live producer dispatch state. The H2.S2 brief (`GOAL-H2S2-LIVE-RUN.md`, **to be authored as the H2.S2 `/goal`'s deliverable** — not yet present at this PR head) will carry the canonical dispatch invocation. Until that brief exists, the canonical clone-and-checkout sequence for the H2.S2 dispatch workspace is:
+
+```bash
+PROBE_DIR=/var/tmp/cbm-h2-h11-62c5068
+mkdir -p "$PROBE_DIR"
+git clone --filter=blob:none --no-checkout https://github.com/python-hyper/h11.git "$PROBE_DIR/h11"
+git -C "$PROBE_DIR/h11" checkout 62c5068c971579d61fa1b55373390e12f25fd856
+git -C "$PROBE_DIR/h11" rev-parse HEAD
+# expect: 62c5068c971579d61fa1b55373390e12f25fd856
+```
+
+The probe sequence at `H2-PLAN.md:33-49` above is structurally identical but writes to the probe path; for H2.S2 dispatch substitute the dispatch path above.
 
 ```bash
 # H2.S2 packet validation:
