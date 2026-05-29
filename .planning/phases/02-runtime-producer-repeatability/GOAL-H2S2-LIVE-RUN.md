@@ -198,7 +198,7 @@ cd "$CBM_REPO"
 python3 -m cbm.cli run \
   --repo "$TARGET" \
   --goal "H2.S2 live producer: surface-mapper@1.2 against python-hyper/h11@62c5068c, scope h11/ excl tests" \
-  --mode standard \
+  --mode lightweight \
   --backend codex-cli \
   --allow-live-codex \
   --codex-model gpt-5.4-mini \
@@ -212,10 +212,23 @@ python3 -m cbm.cli run \
 Confirm Run 1 produced a non-baseline `surface-map.json` (`produced_by` field starts with `surface-mapper@1.2`, not `cbm-baseline-*` or `dev-fixture-*`) **before** launching Run 2 — Run 2's `--codex-surface-mode existing` would otherwise import a baseline-shaped artifact and `existing_surface_producer` (`cli.py:5235`) would propagate the baseline label into the packet's producer-registry. Concrete check:
 
 ```bash
-jq -r '.produced_by' "$TARGET/.research/run-h11-h2s2-1/surface-map.json"
-# expect: surface-mapper@1.2 (or matching pinned skill version). If this prints
-# `cbm-baseline-*` or `dev-fixture-*`, STOP and root-cause per the standing
-# stop-and-surface trigger; do NOT launch Run 2 against a baseline surface.
+# Positive assertion (fails closed): the produced_by field must START WITH
+# "surface-mapper@". Any other producer-id — including future bug channels like
+# cbm-fallback-surface@*, *-stub@*, etc. that don't match the listed baseline
+# prefixes — also stops the dispatch. This is stricter than negating
+# cbm-baseline-* / dev-fixture- prefixes alone, which would let an unknown
+# producer-id channel slip through.
+PRODUCED_BY=$(jq -er '.produced_by' "$TARGET/.research/run-h11-h2s2-1/surface-map.json")
+case "$PRODUCED_BY" in
+  surface-mapper@*)
+    echo "Run 1 produced_by=$PRODUCED_BY — OK, real skill output"
+    ;;
+  *)
+    echo "Run 1 produced_by=$PRODUCED_BY — STOP. Not a real surface-mapper output."
+    echo "Do NOT launch Run 2 against a non-skill surface."
+    exit 1
+    ;;
+esac
 ```
 
 Run 2 — Skeptic at reasoning-effort=`high` against the Run 1 surface:
@@ -230,7 +243,7 @@ cd "$CBM_REPO"
 python3 -m cbm.cli run \
   --repo "$TARGET" \
   --goal "H2.S2 live producer: skeptic@1.2 over imported surface from run-h11-h2s2-1, target python-hyper/h11@62c5068c" \
-  --mode standard \
+  --mode lightweight \
   --backend codex-cli \
   --allow-live-codex \
   --codex-model gpt-5.4-mini \
@@ -268,7 +281,9 @@ cp -R "$TARGET/.research/run-h11-h2s2-1" "$PACKET/.research/run-h11-h2s2-1"
 cp -R "$TARGET/.research/run-h11-h2s2-2" "$PACKET/.research/run-h11-h2s2-2"
 ```
 
-3. **Promote Run 2's evidence-ledger as the packet's canonical ledger** (do **not** concatenate Run 1's ledger). `command_import_surface_artifact` (`cli.py:4492-4500`) already re-introduces every Run 1 surface citation into Run 2's ledger with `run_id = run-h11-h2s2-2`. Concatenating the two ledgers would produce duplicate `citation_introduced` entries under different run-ids for the same surface lines and break the dedup that `ledger_citations` (`cli.py:857-863`) enforces inside `append_citation_entries` (`cli.py:884+`). Run 1's ledger is preserved under `.research/run-h11-h2s2-1/` as source-stage audit evidence:
+3. **Promote Run 2's evidence-ledger as the packet's canonical ledger** (do **not** concatenate Run 1's ledger). `command_import_surface_artifact` (`cli.py:4492-4500`) already re-introduces every Run 1 surface citation into Run 2's ledger with `run_id = run-h11-h2s2-2`. Concatenating the two ledgers would produce duplicate `citation_introduced` entries under different run-ids for the same surface lines and break the dedup that `ledger_citations` (`cli.py:857-863`) enforces inside `append_citation_entries` (`cli.py:884+`). Run 1's ledger is preserved under `.research/run-h11-h2s2-1/` as source-stage audit evidence.
+
+**Timestamp caveat (mixed-run-id pattern, by construction):** the promoted canonical ledger's `ts` field for every imported Run 1 citation is the Run 2 wall-clock (the moment `command_import_surface_artifact` re-introduced it), not the original first-emission moment from Run 1. RUNTIME-CONSTITUTION §2's append-only-with-chronological-ordering invariant continues to hold within the canonical ledger (Run 2's writes are chronological), but a reviewer auditing "when was this citation first proposed?" must consult `.research/run-h11-h2s2-1/evidence-ledger.jsonl` (the source-stage ledger preserved above) for the actual first-emission timestamps. The H2.S2 RESULT.md "Mixed-run-id documentation" block (Phase 5 below) MUST name this caveat explicitly so the H2.S3 reviewer does not misattribute first-emission chronology to Run 2.
 
 ```bash
 cp "$TARGET/.research/run-h11-h2s2-2/evidence-ledger.jsonl" "$PACKET/evidence-ledger.jsonl"
@@ -284,7 +299,7 @@ print(f'{len(lines)} ledger entries')
 
 Under the future single-`cbm run` shape (post-ADR-006), Run 1 and Run 2 collapse into one run with one ledger; the promote step becomes a direct copy from `$TARGET/.research/run-h11-h2s2-1/` and no `.research/run-h11-h2s2-2/` subtree exists.
 
-**Note on `--mode standard`.** Both runs above set `--mode standard`. The argparse default for `--mode` is `lightweight`; `standard` activates the `cbm/cli.py:5330` code branch (`if args.mode in {"standard", "deep"}:`) and is exercised by `tests/test_cli.py:1585`. The combination `mode=standard + backend=codex-cli + --allow-live-codex` is the canonical H2 dispatch shape; `lightweight` would skip Skeptic and surface-mode dispatch entirely and is not appropriate for H2.
+**Note on `--mode lightweight` (matches H1 exactly).** Both runs above set `--mode lightweight`. This matches H1 acceptance exactly: `.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/RESULT.md` records `--mode lightweight` for H1.S1, and `.planning/benchmarks/2026-05-07-mcp-git-h1s2b-skeptic/.research/run-mcp-git-h1s2b-skeptic-1/run-manifest.json` records `mode: lightweight` for H1.S2b. The codex-cli Surface Mapper step (`cli.py:5260-5282`) and codex-cli Skeptic step (`cli.py:5305-5328`) are wired **outside** the mode-conditional block at `cli.py:5330` (`if args.mode in {"standard", "deep"}:`); `--mode lightweight` does **not** skip them. The standard-mode block only adds deterministic-baseline `authority-map`, `dependency-graph`, `verification-map`, `synthesis-index` and four `dev-fixture-skeptic@0.1` reviews — none of which are listed in the H2.S2 packet skeleton (`H2-BENCHMARK-PACKET-SKELETON.md` H2.S2 Packet block). Choosing `--mode standard` would (a) produce dev-fixture-skeptic artifacts that conflict with the brief's "Do not promote a dev-fixture, baseline, or smoke-anchor artifact" non-negotiable scope (line 31) via `.research/` preservation by construction, (b) deviate from H1 precedent, and (c) introduce artifacts the skeleton does not contract. Use `lightweight`.
 
 When ADR-006 lands (issue #23), H2.S2 should re-converge to a single `cbm run` with per-producer reasoning-effort flags — the split documented here is interim, not the desired steady state.
 
@@ -295,7 +310,7 @@ When ADR-006 lands (issue #23), H2.S2 should re-converge to a single `cbm run` w
 python3 -m cbm.cli run \
   --repo "$TARGET" \
   --goal "H2.S2 live producer ..." \
-  --mode standard \
+  --mode lightweight \
   --backend codex-cli \
   --allow-live-codex \
   --codex-model gpt-5.4-mini \
