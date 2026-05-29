@@ -101,11 +101,23 @@ jobs:
           /tmp/smoke-venv/bin/pip install --upgrade pip
           /tmp/smoke-venv/bin/pip install dist/*.whl
 
-      - name: Smoke-test installed CLI + package-data globs
-        # Verifies the wheel ships every declared package-data root (not just
-        # loop_status_config.json). A typo in pyproject.toml's [tool.setuptools.package-data]
-        # would otherwise produce a wheel that goes green here but fails in
-        # production at the first `cbm validate` / `cbm consult` / skill-load call.
+      - name: Smoke-test installed CLI + package-data exact filenames
+        # Verifies the wheel ships every EXACT FILENAME the runtime resolves by
+        # name, not just "≥1 file per declared glob". Two callsites resolve by
+        # exact filename:
+        #   - cbm/cli.py schema_for_artifact() (cli.py:497-516) maps 20 artifact
+        #     kinds → 19 distinct schema filenames (intervention_card and
+        #     findings_card both resolve to intervention-card.schema.json).
+        #   - cbm/skill_loader.py load_skill() (skill_loader.py:37) joinpaths
+        #     runtime_skills/<name>.md from caller-supplied skill name.
+        # A future rename that misses one of these names AND leaves other files
+        # matching the glob would otherwise produce a wheel that goes green at
+        # `any(...)` but fails in production with FileNotFoundError at the
+        # joinpath. Inline enumeration is brittle to additions (new schema-kind →
+        # update this list) but is the lowest-cost way to deliver the
+        # "main is always releasable" contract until the schema_for_artifact()
+        # mapping table is hoisted to a module-level constant the smoke can
+        # import directly.
         # Deliberately does NOT run `cbm loop-status --scope broad-goal` — that
         # is a planning-state discipline gate, not an installability proof, and
         # would couple build-job pass/fail to in-flight review session state.
@@ -115,12 +127,53 @@ jobs:
           /tmp/smoke-venv/bin/python -c "
           from importlib.resources import files
           root = files('cbm')
-          assert (root / 'loop_status_config.json').is_file(), 'loop_status_config.json missing from wheel'
-          assert any(p.suffix == '.md' for p in (root / 'runtime_skills').iterdir()), 'runtime_skills/*.md missing from wheel'
-          assert any(p.name.endswith('.schema.json') for p in (root / 'schemas').iterdir()), 'schemas/*.schema.json missing from wheel'
-          assert any(p.suffix == '.json' for p in (root / 'goal_packs').iterdir()), 'goal_packs/*.json missing from wheel'
-          assert any(p.suffix == '.json' for p in (root / 'project_packs').iterdir()), 'project_packs/*.json missing from wheel'
-          print('package-data globs all resolve in installed wheel')
+          # Single-file resource resolved by exact name.
+          assert (root / 'loop_status_config.json').is_file(), 'wheel missing loop_status_config.json'
+          # Schemas resolved by exact filename in cbm/cli.py schema_for_artifact().
+          # Keep this list in sync with the mapping in that function.
+          schema_filenames = [
+              'codebase-map.schema.json',
+              'surface-map.schema.json',
+              'extractor-registry.schema.json',
+              'authority-map.schema.json',
+              'dependency-graph.schema.json',
+              'synthesis-index.schema.json',
+              'goal-binding.schema.json',
+              'handoff.schema.json',
+              'skeptic-review.schema.json',
+              'intervention-card.schema.json',
+              'evidence-ledger.schema.json',
+              'refresh-delta.schema.json',
+              'verification-map.schema.json',
+              'workflow-trace.schema.json',
+              'refinement-report.schema.json',
+              'approval-plan.schema.json',
+              'project-type.schema.json',
+              'producer-registry.schema.json',
+              'run-manifest.schema.json',
+          ]
+          for name in schema_filenames:
+              assert (root / 'schemas' / name).is_file(), f'wheel missing schemas/{name}'
+          # Runtime skills resolved by exact name in cbm/skill_loader.py load_skill().
+          # Keep this list in sync with cbm/runtime_skills/*.md.
+          skill_names = [
+              'compaction-recovery',
+              'consult',
+              'intervention-planner',
+              'skeptic',
+              'surface-mapping',
+              'synthesizer',
+              'tracer',
+          ]
+          for name in skill_names:
+              assert (root / 'runtime_skills' / f'{name}.md').is_file(), f'wheel missing runtime_skills/{name}.md'
+          # goal_packs and project_packs are currently discovered by directory
+          # scan at runtime (no exact-name resolution surfaced in cli.py:497-516),
+          # so we keep the at-least-one-file check for these globs.
+          assert any(p.suffix == '.json' for p in (root / 'goal_packs').iterdir()), 'wheel missing goal_packs/*.json'
+          assert any(p.suffix == '.json' for p in (root / 'project_packs').iterdir()), 'wheel missing project_packs/*.json'
+          total = len(schema_filenames) + len(skill_names) + 1
+          print(f'package-data: {total} exact-name files verified, goal_packs + project_packs globs verified')
           "
 
       - name: Install sdist into a separate clean venv
