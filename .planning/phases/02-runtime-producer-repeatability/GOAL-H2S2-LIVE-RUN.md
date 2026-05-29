@@ -227,7 +227,57 @@ python3 -m cbm.cli run \
   --run-id run-h11-h2s2-2
 ```
 
-After Run 2 completes, copy or move both runs' artifacts (`surface-map.json` from Run 1, `skeptic-review-surface-map.md` from Run 2, both `run-manifest.json`s, both ledger appends merged into a single `evidence-ledger.jsonl` per RUNTIME-CONSTITUTION §2 append-only discipline) into the H2.S2 packet directory. Preserve both `.research/run-h11-h2s2-1/` and `.research/run-h11-h2s2-2/` subtrees inside the packet per H2-PREFLIGHT Concern 9.
+After Run 2 completes, assemble the H2.S2 packet in three steps:
+
+1. **Copy the promoted artifacts into the packet root:**
+
+```bash
+cp "$CBM_REPO/.research/run-h11-h2s2-1/surface-map.json"               "$PACKET/surface-map.json"
+cp "$CBM_REPO/.research/run-h11-h2s2-2/skeptic-review/surface-map.md"  "$PACKET/skeptic-review-surface-map.md"
+cp "$CBM_REPO/.research/run-h11-h2s2-2/handoff.md"                     "$PACKET/handoff.md"
+cp "$CBM_REPO/.research/run-h11-h2s2-2/handoff.json"                   "$PACKET/handoff.json"
+cp "$CBM_REPO/.research/run-h11-h2s2-2/producer-registry.json"         "$PACKET/producer-registry.json"
+# Promote Run 2's run-manifest as the packet's primary (it carries the Skeptic step
+# whose effort=high satisfies Concern 2 and whose handoff is the promoted one);
+# Run 1's manifest is preserved under .research/run-h11-h2s2-1/.
+cp "$CBM_REPO/.research/run-h11-h2s2-2/run-manifest.json"              "$PACKET/run-manifest.json"
+```
+
+2. **Preserve both `.research/` subtrees** under `$PACKET/.research/` per H2-PREFLIGHT Concern 9:
+
+```bash
+mkdir -p "$PACKET/.research"
+cp -R "$CBM_REPO/.research/run-h11-h2s2-1" "$PACKET/.research/run-h11-h2s2-1"
+cp -R "$CBM_REPO/.research/run-h11-h2s2-2" "$PACKET/.research/run-h11-h2s2-2"
+```
+
+3. **Merge the two per-run evidence-ledgers into the packet's promoted ledger.** Per RUNTIME-CONSTITUTION §2 the ledger is append-only with **chronological** ordering. Concatenate Run 1's ledger first (it carries the Surface step that produced the citations Run 2's Skeptic reads against), then Run 2's:
+
+```bash
+# Merge order is load-bearing: Run 1 (earlier wall-clock) before Run 2.
+# Do NOT shuffle or sort by entry kind — the chronological invariant is
+# load-bearing for `cbm check-evidence` and for any future replay logic.
+cat "$CBM_REPO/.research/run-h11-h2s2-1/evidence-ledger.jsonl" \
+    "$CBM_REPO/.research/run-h11-h2s2-2/evidence-ledger.jsonl" \
+    > "$PACKET/evidence-ledger.jsonl"
+
+# Sanity-check: every line should be valid JSONL and the starting timestamps of
+# Run 2's first entry should be >= Run 1's last entry. The exact timestamp field
+# name in the ledger is whatever schemas/evidence-ledger.schema.json declares
+# (check the schema at dispatch time — H2-PREFLIGHT Concern 4 confirms schemas
+# are unchanged since 76db3bc, so the field name from H1's ledger entries holds).
+python3 -c "
+import json, sys
+with open('$PACKET/evidence-ledger.jsonl') as f:
+    lines = [json.loads(l) for l in f if l.strip()]
+print(f'{len(lines)} ledger entries')
+# The chronological invariant is what matters; do not enforce a specific field name here.
+"
+```
+
+Under the future single-`cbm run` shape (post-ADR-006), only Run 1's ledger exists and no merge step is needed — `evidence-ledger.jsonl` is copied directly from `.research/run-h11-h2s2-1/`.
+
+**Note on `--mode standard`.** Both runs above set `--mode standard`. The argparse default for `--mode` is `lightweight`; `standard` activates the `cbm/cli.py:5330` code branch (`if args.mode in {"standard", "deep"}:`) and is exercised by `tests/test_cli.py:1585`. The combination `mode=standard + backend=codex-cli + --allow-live-codex` is the canonical H2 dispatch shape; `lightweight` would skip Skeptic and surface-mode dispatch entirely and is not appropriate for H2.
 
 When ADR-006 lands (issue #23), H2.S2 should re-converge to a single `cbm run` with per-producer reasoning-effort flags — the split documented here is interim, not the desired steady state.
 
