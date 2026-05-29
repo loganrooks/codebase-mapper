@@ -268,7 +268,7 @@ cp -R "$TARGET/.research/run-h11-h2s2-1" "$PACKET/.research/run-h11-h2s2-1"
 cp -R "$TARGET/.research/run-h11-h2s2-2" "$PACKET/.research/run-h11-h2s2-2"
 ```
 
-3. **Promote Run 2's evidence-ledger as the packet's canonical ledger** (do **not** concatenate Run 1's ledger). `command_import_surface_artifact` (`cli.py:4492-4500`) already re-introduces every Run 1 surface citation into Run 2's ledger with `run_id = run-h11-h2s2-2`. Concatenating the two ledgers would produce duplicate `citation_introduced` entries under different run-ids for the same surface lines and break `cbm check-evidence`'s dedup-via-`ledger_citations` expectation (`cli.py:884-891`). Run 1's ledger is preserved under `.research/run-h11-h2s2-1/` as source-stage audit evidence:
+3. **Promote Run 2's evidence-ledger as the packet's canonical ledger** (do **not** concatenate Run 1's ledger). `command_import_surface_artifact` (`cli.py:4492-4500`) already re-introduces every Run 1 surface citation into Run 2's ledger with `run_id = run-h11-h2s2-2`. Concatenating the two ledgers would produce duplicate `citation_introduced` entries under different run-ids for the same surface lines and break the dedup that `ledger_citations` (`cli.py:857-863`) enforces inside `append_citation_entries` (`cli.py:884+`). Run 1's ledger is preserved under `.research/run-h11-h2s2-1/` as source-stage audit evidence:
 
 ```bash
 cp "$TARGET/.research/run-h11-h2s2-2/evidence-ledger.jsonl" "$PACKET/evidence-ledger.jsonl"
