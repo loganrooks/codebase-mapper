@@ -1,0 +1,194 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel in-progress PR runs when a newer commit lands; preserve main-push runs
+# so the green check on a real merge SHA survives (matters once required status
+# checks are wired into branch protection).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install package + dev deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Pytest
+        run: pytest -q
+
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install ruff
+        run: pip install "ruff>=0.5"
+
+      - name: Ruff check
+        run: ruff check .
+        # `ruff format --check` is intentionally NOT enforced in this workflow:
+        # adopting it would require a one-time whole-codebase reformat that does
+        # not belong in the same PR that introduces CI. Track via follow-up.
+
+  build:
+    name: build + import smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install build + twine
+        run: pip install "build>=1.0" "twine>=4"
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - name: Twine metadata check
+        run: twine check dist/*
+
+      - name: Install wheel into a clean venv
+        run: |
+          python -m venv /tmp/smoke-venv
+          /tmp/smoke-venv/bin/pip install --upgrade pip
+          /tmp/smoke-venv/bin/pip install dist/*.whl
+
+      - name: Smoke-test installed CLI + package-data exact filenames
+        # Verifies the wheel ships every EXACT FILENAME the runtime resolves by
+        # name, not just "≥1 file per declared glob". Two callsites resolve by
+        # exact filename:
+        #   - cbm/cli.py schema_for_artifact() (cli.py:497-516) maps 20 artifact
+        #     kinds → 19 distinct schema filenames (intervention_card and
+        #     findings_card both resolve to intervention-card.schema.json).
+        #   - cbm/skill_loader.py load_skill() (skill_loader.py:37) joinpaths
+        #     runtime_skills/<name>.md from caller-supplied skill name.
+        # A future rename that misses one of these names AND leaves other files
+        # matching the glob would otherwise produce a wheel that goes green at
+        # `any(...)` but fails in production with FileNotFoundError at the
+        # joinpath. Inline enumeration is brittle to additions (new schema-kind →
+        # update this list) but is the lowest-cost way to deliver the
+        # "main is always releasable" contract until the schema_for_artifact()
+        # mapping table is hoisted to a module-level constant the smoke can
+        # import directly.
+        # Deliberately does NOT run `cbm loop-status --scope broad-goal` — that
+        # is a planning-state discipline gate, not an installability proof, and
+        # would couple build-job pass/fail to in-flight review session state.
+        run: |
+          /tmp/smoke-venv/bin/python -m cbm --help
+          /tmp/smoke-venv/bin/cbm --help
+          /tmp/smoke-venv/bin/python -c "
+          from importlib.resources import files
+          root = files('cbm')
+          # Single-file resource resolved by exact name.
+          assert (root / 'loop_status_config.json').is_file(), 'wheel missing loop_status_config.json'
+          # Schemas resolved by exact filename in cbm/cli.py schema_for_artifact().
+          # Keep this list in sync with the mapping in that function.
+          schema_filenames = [
+              'codebase-map.schema.json',
+              'surface-map.schema.json',
+              'extractor-registry.schema.json',
+              'authority-map.schema.json',
+              'dependency-graph.schema.json',
+              'synthesis-index.schema.json',
+              'goal-binding.schema.json',
+              'handoff.schema.json',
+              'skeptic-review.schema.json',
+              'intervention-card.schema.json',
+              'evidence-ledger.schema.json',
+              'refresh-delta.schema.json',
+              'verification-map.schema.json',
+              'workflow-trace.schema.json',
+              'refinement-report.schema.json',
+              'approval-plan.schema.json',
+              'project-type.schema.json',
+              'producer-registry.schema.json',
+              'run-manifest.schema.json',
+          ]
+          for name in schema_filenames:
+              assert (root / 'schemas' / name).is_file(), f'wheel missing schemas/{name}'
+          # Runtime skills resolved by exact name in cbm/skill_loader.py load_skill().
+          # Keep this list in sync with cbm/runtime_skills/*.md.
+          skill_names = [
+              'compaction-recovery',
+              'consult',
+              'intervention-planner',
+              'skeptic',
+              'surface-mapping',
+              'synthesizer',
+              'tracer',
+          ]
+          for name in skill_names:
+              assert (root / 'runtime_skills' / f'{name}.md').is_file(), f'wheel missing runtime_skills/{name}.md'
+          # goal_packs and project_packs are currently discovered by directory
+          # scan at runtime (no exact-name resolution surfaced in cli.py:497-516),
+          # so we keep the at-least-one-file check for these globs.
+          assert any(p.suffix == '.json' for p in (root / 'goal_packs').iterdir()), 'wheel missing goal_packs/*.json'
+          assert any(p.suffix == '.json' for p in (root / 'project_packs').iterdir()), 'wheel missing project_packs/*.json'
+          total = len(schema_filenames) + len(skill_names) + 1
+          print(f'package-data: {total} exact-name files verified, goal_packs + project_packs globs verified')
+          "
+
+      - name: Install sdist into a separate clean venv
+        # Sdist install path is independent of the wheel path and can break on
+        # MANIFEST.in / package-data issues that the wheel path masks.
+        run: |
+          python -m venv /tmp/sdist-venv
+          /tmp/sdist-venv/bin/pip install --upgrade pip
+          /tmp/sdist-venv/bin/pip install dist/*.tar.gz
+          /tmp/sdist-venv/bin/cbm --help
+
+      - name: Upload built artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14

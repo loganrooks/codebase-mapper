@@ -1,17 +1,47 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cbm"
+name = "cbm-kit"
 version = "0.1.0"
 description = "Codebase Mapping and Intervention Planning MVP kernel"
 readme = "README.md"
+# PEP 639 SPDX form. setuptools 77.0.3+ resolves this; the `License :: OSI Approved :: ...`
+# classifier is intentionally omitted to avoid the SPDX-vs-classifier conflict twine warns about.
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
-dependencies = [
-  "jsonschema>=4.18",
-  "PyYAML>=6.0",
+authors = [
+  { name = "Logan Rooks" },
 ]
+keywords = ["codebase-mapping", "agentic", "code-analysis", "hermeneutics", "codex"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Code Generators",
+  "Topic :: Software Development :: Documentation",
+]
+dependencies = [
+  "jsonschema>=4.18,<5",
+  "PyYAML>=6.0,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7",
+  "ruff>=0.5",
+  "build>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/loganrooks/codebase-mapper"
+Repository = "https://github.com/loganrooks/codebase-mapper"
+Issues = "https://github.com/loganrooks/codebase-mapper/issues"
 
 [project.scripts]
 cbm = "cbm.cli:main"
@@ -58,3 +88,21 @@ include = ["cbm*"]
 testpaths = ["tests"]
 pythonpath = ["."]
 norecursedirs = ["tests/fixtures"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+  "tests/fixtures",
+  ".research",
+  ".coord",
+  ".planning",
+  ".tmp",
+  ".codex",
+  ".claude",
+]
+
+[tool.ruff.lint]
+# Conservative initial ruleset: pyflakes (real bug-finding) + syntax errors only.
+# Ratchet to E/W/I/UP/B in a follow-up PR once cli.py is decomposed.
+select = ["F", "E9"]
