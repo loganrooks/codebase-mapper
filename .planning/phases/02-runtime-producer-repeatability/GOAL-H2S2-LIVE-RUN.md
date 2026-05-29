@@ -162,7 +162,11 @@ git -C "$PROBE_DIR/h11" rev-parse HEAD
 
 ### Phase 2 — Live producer dispatch
 
-**Dispatch shape note (interim, pending issue #23 / ADR-006).** The current `cbm run` CLI (`cbm/cli.py:6387-6401`) exposes a single global `--codex-reasoning-effort` flag that is applied to **both** the Surface Mapper step (`cbm/cli.py:5264-5279`) and the Skeptic step (`cbm/cli.py:5309-5324`). The H2-PREFLIGHT Concern 2 envelope (Surface=`medium`, Skeptic=`high`) therefore **cannot** be satisfied in a single `cbm run` against the CLI as it stands. Issue #23 tracks the architectural work (ADR-006: per-producer reasoning-effort + a backend-agnostic effort-mapping abstraction) that lifts this constraint; until ADR-006 lands, H2.S2 dispatches as **two sequential `cbm run` invocations** under the same packet directory and same target checkout. This re-introduces the H1 LINEAGE caveat 3 pattern (mixed run-id provenance between surface and skeptic ledger entries) which `H2-PLAN.md:172-173` already anticipates ("If H2.S2 dispatch needs to be re-split ..., this caveat re-emerges and H2's `LINEAGE.md` must document the same way H1.S3 did"); the documentation obligation transfers to H2.S2 RESULT.md and to H2.S3 LINEAGE.md.
+**Dispatch shape — two `cbm run` invocations (matches H1 precedent).** H1 acceptance was produced by **two** separate `cbm run` invocations: H1.S1 (`run-mcp-git-surface-mapper-h1s1-6`, Surface at `medium`, no Skeptic) and H1.S2b (`run-mcp-git-h1s2b-skeptic-1`, Skeptic at `high` against an imported surface). H2.S2 mirrors that shape under a single `/goal` because the H2-PREFLIGHT Concern 2 envelope (Surface=`medium`, Skeptic=`high`) cannot be satisfied in a single `cbm run` against the current CLI (`cbm/cli.py:6395`'s single global `--codex-reasoning-effort` is applied to both the Surface step at `cli.py:5264-5279` and the Skeptic step at `cli.py:5309-5324`). The two-run shape is therefore the **precedent-matching** shape, not a deviation. Issue #23 tracks ADR-006 (per-producer reasoning-effort + backend-agnostic effort-mapping abstraction) as a steady-state improvement that would unlock a future single-`cbm run` form. That single-run form is documented at the bottom of this Phase 2 as the post-ADR-006 target, not as a constraint H2.S2 must match today.
+
+**Planning-doc tension to surface.** `H2-PLAN.md:144-145` reads "Single `cbm run` invocation producing both `surface-map.json` and `skeptic-review-surface-map.md` in one packet." That language was authored assuming a CLI that could carry the medium/high envelope in one run; given the current CLI, it is internally inconsistent with the H2-PREFLIGHT Concern 2 envelope at `H2-PREFLIGHT.md:43-44`. H1 never had that single-run shape either. The H2.S2 dispatcher should flag this `H2-PLAN.md ⇄ H2-PREFLIGHT.md` tension to the user as a one-line correction on `H2-PLAN.md` before or during dispatch (e.g., revise L144-145 to "Two-run dispatch matching H1.S1 + H1.S2b until ADR-006 lands; see `GOAL-H2S2-LIVE-RUN.md` Phase 2 for the canonical invocation").
+
+**Ledger and run-id provenance under the two-run shape.** Run 2's `--codex-surface-mode existing` invokes `command_import_surface_artifact` (`cli.py:4492-4500`), which calls `append_citation_entries` with `run_id = run-h11-h2s2-2`. Run 2's `evidence-ledger.jsonl` therefore already carries every Run 1 surface citation **re-attributed** to Run 2's run-id (alongside the new `claim_challenged` entries from Skeptic). This is the H1 LINEAGE caveat 3 pattern by construction. The H2.S2 packet's promoted `evidence-ledger.jsonl` is Run 2's ledger directly (not a concatenation — concatenating Run 1's ledger with Run 2's would duplicate the same surface citations under two run-ids and break `cbm check-evidence`'s dedup expectations). Run 1's ledger is preserved under `.research/run-h11-h2s2-1/` as source-stage audit evidence so the original-attribution-history is recoverable. The mixed-run-id-by-import-construction story replaces the prior "merged into a single ledger" instruction and is documented in H2.S2 RESULT.md and inherited by H2.S3 LINEAGE.md per the H2-PLAN.md:172-173 expectation.
 
 Codex envelope (from H2-PREFLIGHT Concern 2):
 
@@ -180,6 +184,8 @@ Codex envelope (from H2-PREFLIGHT Concern 2):
 
 Run IDs: `run-h11-h2s2-1` (Surface), `run-h11-h2s2-2` (Skeptic). Both runs write into the same packet directory `.planning/benchmarks/<run-date>-h11-h2s2/` so the H2.A4 diff record and `.research/` preservation operate on the combined packet. The packet's `.research/` subtree therefore preserves both `run-h11-h2s2-1/` and `run-h11-h2s2-2/`.
 
+**Spatial model.** `cbm run` resolves the run directory via `run_paths(repo, run_id)` (`cli.py:909-919`), which is literally `Path(args.repo).resolve() / ".research" / run_id`. Because both runs pass `--repo "$TARGET"`, the per-run `.research/` subtrees land **inside the h11 target checkout** (`$TARGET/.research/run-h11-h2s2-1/` and `$TARGET/.research/run-h11-h2s2-2/`), **not** inside `$CBM_REPO`. The H2.S2 packet directory (`$PACKET = $CBM_REPO/.planning/benchmarks/<run-date>-h11-h2s2/`) is the packet's eventual home, but `cbm run` writes nothing there directly — the packet is assembled by copying from `$TARGET/.research/` to `$PACKET/` in the post-Run-2 assembly step below. H1's accepted precedent is the same shape: H1.S1's surface map landed at `/var/tmp/cbm-h1-mcp-servers-4503e2d/src/git/.research/run-mcp-git-surface-mapper-h1s1-6/surface-map.json` (target checkout, not CBM repo).
+
 Run 1 — Surface Mapper at reasoning-effort=`medium`:
 
 ```bash
@@ -187,7 +193,6 @@ Run 1 — Surface Mapper at reasoning-effort=`medium`:
 CBM_REPO=/Users/rookslog/Development/cbm
 PACKET=$CBM_REPO/.planning/benchmarks/<run-date>-h11-h2s2
 TARGET=/var/tmp/cbm-h2-h11-62c5068/h11
-mkdir -p "$PACKET"
 
 cd "$CBM_REPO"
 python3 -m cbm.cli run \
@@ -204,12 +209,22 @@ python3 -m cbm.cli run \
   --run-id run-h11-h2s2-1
 ```
 
-Confirm Run 1 produced a non-baseline `surface-map.json` (the `produced_by` field starts with `surface-mapper@1.2`, not `cbm-baseline-*` or `dev-fixture-*`) before launching Run 2. Locate the Run 1 surface artifact path inside `.research/run-h11-h2s2-1/` and pass it explicitly to Run 2 via `--surface-artifact`.
+Confirm Run 1 produced a non-baseline `surface-map.json` (`produced_by` field starts with `surface-mapper@1.2`, not `cbm-baseline-*` or `dev-fixture-*`) **before** launching Run 2 — Run 2's `--codex-surface-mode existing` would otherwise import a baseline-shaped artifact and `existing_surface_producer` (`cli.py:5235`) would propagate the baseline label into the packet's producer-registry. Concrete check:
+
+```bash
+jq -r '.produced_by' "$TARGET/.research/run-h11-h2s2-1/surface-map.json"
+# expect: surface-mapper@1.2 (or matching pinned skill version). If this prints
+# `cbm-baseline-*` or `dev-fixture-*`, STOP and root-cause per the standing
+# stop-and-surface trigger; do NOT launch Run 2 against a baseline surface.
+```
 
 Run 2 — Skeptic at reasoning-effort=`high` against the Run 1 surface:
 
 ```bash
-RUN1_SURFACE=$CBM_REPO/.research/run-h11-h2s2-1/surface-map.json   # path varies; confirm from Run 1 output
+# Surface artifact lives in the TARGET checkout's .research/, not in CBM_REPO/.research/.
+# cbm run's run_paths() resolves to Path(args.repo) / ".research" / run_id (cli.py:909-919),
+# and Run 1 was --repo "$TARGET", so Run 1's surface is at $TARGET/.research/...
+RUN1_SURFACE="$TARGET/.research/run-h11-h2s2-1/surface-map.json"
 
 cd "$CBM_REPO"
 python3 -m cbm.cli run \
@@ -227,55 +242,47 @@ python3 -m cbm.cli run \
   --run-id run-h11-h2s2-2
 ```
 
-After Run 2 completes, assemble the H2.S2 packet in three steps:
+After Run 2 completes, assemble the H2.S2 packet in three steps. Source paths under `$TARGET/.research/` (NOT `$CBM_REPO/.research/`) per the Spatial model note above:
 
-1. **Copy the promoted artifacts into the packet root:**
+1. **Create the packet directory and copy the promoted artifacts into the packet root.** Defer `mkdir -p "$PACKET"` to this step so the executing agent's mental model stays clean — `cbm run` does not write into `$PACKET` and creating it ahead of time would invite the misreading that "the packet dir is the run output dir":
 
 ```bash
-cp "$CBM_REPO/.research/run-h11-h2s2-1/surface-map.json"               "$PACKET/surface-map.json"
-cp "$CBM_REPO/.research/run-h11-h2s2-2/skeptic-review/surface-map.md"  "$PACKET/skeptic-review-surface-map.md"
-cp "$CBM_REPO/.research/run-h11-h2s2-2/handoff.md"                     "$PACKET/handoff.md"
-cp "$CBM_REPO/.research/run-h11-h2s2-2/handoff.json"                   "$PACKET/handoff.json"
-cp "$CBM_REPO/.research/run-h11-h2s2-2/producer-registry.json"         "$PACKET/producer-registry.json"
+mkdir -p "$PACKET"
+
+cp "$TARGET/.research/run-h11-h2s2-1/surface-map.json"               "$PACKET/surface-map.json"
+cp "$TARGET/.research/run-h11-h2s2-2/skeptic-review/surface-map.md"  "$PACKET/skeptic-review-surface-map.md"
+cp "$TARGET/.research/run-h11-h2s2-2/handoff.md"                     "$PACKET/handoff.md"
+cp "$TARGET/.research/run-h11-h2s2-2/handoff.json"                   "$PACKET/handoff.json"
+cp "$TARGET/.research/run-h11-h2s2-2/producer-registry.json"         "$PACKET/producer-registry.json"
 # Promote Run 2's run-manifest as the packet's primary (it carries the Skeptic step
 # whose effort=high satisfies Concern 2 and whose handoff is the promoted one);
 # Run 1's manifest is preserved under .research/run-h11-h2s2-1/.
-cp "$CBM_REPO/.research/run-h11-h2s2-2/run-manifest.json"              "$PACKET/run-manifest.json"
+cp "$TARGET/.research/run-h11-h2s2-2/run-manifest.json"              "$PACKET/run-manifest.json"
 ```
 
-2. **Preserve both `.research/` subtrees** under `$PACKET/.research/` per H2-PREFLIGHT Concern 9:
+2. **Preserve both `.research/` subtrees** under `$PACKET/.research/` per H2-PREFLIGHT Concern 9 — Run 1's subtree gives the original-attribution audit trail for the mixed-run-id ledger documentation:
 
 ```bash
 mkdir -p "$PACKET/.research"
-cp -R "$CBM_REPO/.research/run-h11-h2s2-1" "$PACKET/.research/run-h11-h2s2-1"
-cp -R "$CBM_REPO/.research/run-h11-h2s2-2" "$PACKET/.research/run-h11-h2s2-2"
+cp -R "$TARGET/.research/run-h11-h2s2-1" "$PACKET/.research/run-h11-h2s2-1"
+cp -R "$TARGET/.research/run-h11-h2s2-2" "$PACKET/.research/run-h11-h2s2-2"
 ```
 
-3. **Merge the two per-run evidence-ledgers into the packet's promoted ledger.** Per RUNTIME-CONSTITUTION §2 the ledger is append-only with **chronological** ordering. Concatenate Run 1's ledger first (it carries the Surface step that produced the citations Run 2's Skeptic reads against), then Run 2's:
+3. **Promote Run 2's evidence-ledger as the packet's canonical ledger** (do **not** concatenate Run 1's ledger). `command_import_surface_artifact` (`cli.py:4492-4500`) already re-introduces every Run 1 surface citation into Run 2's ledger with `run_id = run-h11-h2s2-2`. Concatenating the two ledgers would produce duplicate `citation_introduced` entries under different run-ids for the same surface lines and break `cbm check-evidence`'s dedup-via-`ledger_citations` expectation (`cli.py:884-891`). Run 1's ledger is preserved under `.research/run-h11-h2s2-1/` as source-stage audit evidence:
 
 ```bash
-# Merge order is load-bearing: Run 1 (earlier wall-clock) before Run 2.
-# Do NOT shuffle or sort by entry kind — the chronological invariant is
-# load-bearing for `cbm check-evidence` and for any future replay logic.
-cat "$CBM_REPO/.research/run-h11-h2s2-1/evidence-ledger.jsonl" \
-    "$CBM_REPO/.research/run-h11-h2s2-2/evidence-ledger.jsonl" \
-    > "$PACKET/evidence-ledger.jsonl"
+cp "$TARGET/.research/run-h11-h2s2-2/evidence-ledger.jsonl" "$PACKET/evidence-ledger.jsonl"
 
-# Sanity-check: every line should be valid JSONL and the starting timestamps of
-# Run 2's first entry should be >= Run 1's last entry. The exact timestamp field
-# name in the ledger is whatever schemas/evidence-ledger.schema.json declares
-# (check the schema at dispatch time — H2-PREFLIGHT Concern 4 confirms schemas
-# are unchanged since 76db3bc, so the field name from H1's ledger entries holds).
+# Sanity-check: every line is valid JSONL.
 python3 -c "
-import json, sys
+import json
 with open('$PACKET/evidence-ledger.jsonl') as f:
     lines = [json.loads(l) for l in f if l.strip()]
 print(f'{len(lines)} ledger entries')
-# The chronological invariant is what matters; do not enforce a specific field name here.
 "
 ```
 
-Under the future single-`cbm run` shape (post-ADR-006), only Run 1's ledger exists and no merge step is needed — `evidence-ledger.jsonl` is copied directly from `.research/run-h11-h2s2-1/`.
+Under the future single-`cbm run` shape (post-ADR-006), Run 1 and Run 2 collapse into one run with one ledger; the promote step becomes a direct copy from `$TARGET/.research/run-h11-h2s2-1/` and no `.research/run-h11-h2s2-2/` subtree exists.
 
 **Note on `--mode standard`.** Both runs above set `--mode standard`. The argparse default for `--mode` is `lightweight`; `standard` activates the `cbm/cli.py:5330` code branch (`if args.mode in {"standard", "deep"}:`) and is exercised by `tests/test_cli.py:1585`. The combination `mode=standard + backend=codex-cli + --allow-live-codex` is the canonical H2 dispatch shape; `lightweight` would skip Skeptic and surface-mode dispatch entirely and is not appropriate for H2.
 
