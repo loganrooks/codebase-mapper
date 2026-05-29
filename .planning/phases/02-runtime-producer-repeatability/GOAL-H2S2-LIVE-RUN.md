@@ -149,7 +149,7 @@ git ls-remote https://github.com/python-hyper/h11.git | grep 62c5068c971579d61fa
 
 If the SHA is no longer present at HEAD or the LOC count drifts, stop-and-surface to the user. Do **not** silently re-pick.
 
-Clone the target into the probe workspace per H2-PLAN.md probe pattern (use a date-stamped path under `/var/tmp/` for isolation):
+Clone the target into the H2.S2 dispatch workspace, distinct from the H2.S1 re-verification probe workspace. The H2.S1 probe used `/var/tmp/cbm-h2-target-probes-20260522/h11`; **do not reuse that path** — it was a date-stamped read-only re-verification workspace and reusing it risks mixing probe state with live producer dispatch. The H2.S2 dispatch workspace uses a SHA-stamped path so the same path resolves across re-invocations:
 
 ```bash
 PROBE_DIR=/var/tmp/cbm-h2-h11-62c5068
@@ -162,34 +162,95 @@ git -C "$PROBE_DIR/h11" rev-parse HEAD
 
 ### Phase 2 — Live producer dispatch
 
-Single `cbm run` invocation producing both `surface-map.json` and `skeptic-review-surface-map.md` in one packet. Run-id: `run-h11-h2s2-1`.
+**Dispatch shape note (interim, pending issue #23 / ADR-006).** The current `cbm run` CLI (`cbm/cli.py:6387-6401`) exposes a single global `--codex-reasoning-effort` flag that is applied to **both** the Surface Mapper step (`cbm/cli.py:5264-5279`) and the Skeptic step (`cbm/cli.py:5309-5324`). The H2-PREFLIGHT Concern 2 envelope (Surface=`medium`, Skeptic=`high`) therefore **cannot** be satisfied in a single `cbm run` against the CLI as it stands. Issue #23 tracks the architectural work (ADR-006: per-producer reasoning-effort + a backend-agnostic effort-mapping abstraction) that lifts this constraint; until ADR-006 lands, H2.S2 dispatches as **two sequential `cbm run` invocations** under the same packet directory and same target checkout. This re-introduces the H1 LINEAGE caveat 3 pattern (mixed run-id provenance between surface and skeptic ledger entries) which `H2-PLAN.md:172-173` already anticipates ("If H2.S2 dispatch needs to be re-split ..., this caveat re-emerges and H2's `LINEAGE.md` must document the same way H1.S3 did"); the documentation obligation transfers to H2.S2 RESULT.md and to H2.S3 LINEAGE.md.
 
 Codex envelope (from H2-PREFLIGHT Concern 2):
 
-- Backend: `codex-cli`
-- Model: `gpt-5.4-mini`
+- Backend: `codex-cli` (`--backend codex-cli`)
+- Model: `gpt-5.4-mini` (`--codex-model gpt-5.4-mini`)
 - Surface Mapper reasoning effort: `medium`
 - Skeptic reasoning effort: `high`
-- `--codex-timeout`: `600`
+- Timeout: `600` (`--codex-timeout 600`)
+- Live-codex authorization: `--allow-live-codex`
+- Surface mode (Run 1): `skill` (`--codex-surface-mode skill`) — invokes the real `surface-mapper@1.2` skill, not the deterministic baseline.
+- Skeptic mode (Run 1): `none` (`--codex-skeptic-mode none`) — defer Skeptic to Run 2 because Run 2 uses Skeptic-effort=`high`.
+- Surface mode (Run 2): `existing` (`--codex-surface-mode existing --surface-artifact <Run-1 surface-map.json>`) — consumes the Run 1 surface map, does not re-invoke the Surface Mapper.
+- Skeptic mode (Run 2): `skill` (`--codex-skeptic-mode skill`) — invokes the real `skeptic@1.2` skill against the imported surface.
 - Isolation flags (set by `cbm` at the Codex subprocess level, not by the brief): `--ephemeral --ignore-user-config --ignore-rules -s read-only`
 
-The exact `cbm run` invocation (final form is what the agent constructs from `cbm run --help` and the producer-registry contract; this is the shape, not a script):
+Run IDs: `run-h11-h2s2-1` (Surface), `run-h11-h2s2-2` (Skeptic). Both runs write into the same packet directory `.planning/benchmarks/<run-date>-h11-h2s2/` so the H2.A4 diff record and `.research/` preservation operate on the combined packet. The packet's `.research/` subtree therefore preserves both `run-h11-h2s2-1/` and `run-h11-h2s2-2/`.
+
+Run 1 — Surface Mapper at reasoning-effort=`medium`:
 
 ```bash
+# Substitute /Users/<you>/Development/cbm with the absolute CBM repo path on the executing host.
+CBM_REPO=/Users/rookslog/Development/cbm
+PACKET=$CBM_REPO/.planning/benchmarks/<run-date>-h11-h2s2
+TARGET=/var/tmp/cbm-h2-h11-62c5068/h11
+mkdir -p "$PACKET"
+
+cd "$CBM_REPO"
 python3 -m cbm.cli run \
-  --target-repo /var/tmp/cbm-h2-h11-62c5068/h11 \
-  --target-sha 62c5068c971579d61fa1b55373390e12f25fd856 \
-  --target-scope h11/ \
-  --packet-dir .planning/benchmarks/<run-date>-h11-h2s2 \
-  --run-id run-h11-h2s2-1 \
-  --producer surface_map=surface-mapper@1.2 \
-  --producer skeptic_review=skeptic@1.2 \
+  --repo "$TARGET" \
+  --goal "H2.S2 live producer: surface-mapper@1.2 against python-hyper/h11@62c5068c, scope h11/ excl tests" \
+  --mode standard \
   --backend codex-cli \
+  --allow-live-codex \
   --codex-model gpt-5.4-mini \
-  --codex-timeout 600
+  --codex-reasoning-effort medium \
+  --codex-surface-mode skill \
+  --codex-skeptic-mode none \
+  --codex-timeout 600 \
+  --run-id run-h11-h2s2-1
 ```
 
-(If `cbm run` expects different flag names, follow `cbm run --help` and reconcile with the producer-registry shape recorded at `H2-BENCHMARK-PACKET-SKELETON.md` rows for `producer-registry.json` and `run-manifest.json`.)
+Confirm Run 1 produced a non-baseline `surface-map.json` (the `produced_by` field starts with `surface-mapper@1.2`, not `cbm-baseline-*` or `dev-fixture-*`) before launching Run 2. Locate the Run 1 surface artifact path inside `.research/run-h11-h2s2-1/` and pass it explicitly to Run 2 via `--surface-artifact`.
+
+Run 2 — Skeptic at reasoning-effort=`high` against the Run 1 surface:
+
+```bash
+RUN1_SURFACE=$CBM_REPO/.research/run-h11-h2s2-1/surface-map.json   # path varies; confirm from Run 1 output
+
+cd "$CBM_REPO"
+python3 -m cbm.cli run \
+  --repo "$TARGET" \
+  --goal "H2.S2 live producer: skeptic@1.2 over imported surface from run-h11-h2s2-1, target python-hyper/h11@62c5068c" \
+  --mode standard \
+  --backend codex-cli \
+  --allow-live-codex \
+  --codex-model gpt-5.4-mini \
+  --codex-reasoning-effort high \
+  --codex-surface-mode existing \
+  --surface-artifact "$RUN1_SURFACE" \
+  --codex-skeptic-mode skill \
+  --codex-timeout 600 \
+  --run-id run-h11-h2s2-2
+```
+
+After Run 2 completes, copy or move both runs' artifacts (`surface-map.json` from Run 1, `skeptic-review-surface-map.md` from Run 2, both `run-manifest.json`s, both ledger appends merged into a single `evidence-ledger.jsonl` per RUNTIME-CONSTITUTION §2 append-only discipline) into the H2.S2 packet directory. Preserve both `.research/run-h11-h2s2-1/` and `.research/run-h11-h2s2-2/` subtrees inside the packet per H2-PREFLIGHT Concern 9.
+
+When ADR-006 lands (issue #23), H2.S2 should re-converge to a single `cbm run` with per-producer reasoning-effort flags — the split documented here is interim, not the desired steady state.
+
+**Future-form (single-cbm-run, gated on ADR-006 / issue #23 closing).** When the CLI exposes per-producer reasoning-effort flags (working name `--surface-reasoning-effort medium --skeptic-reasoning-effort high`), the single-run invocation will look like:
+
+```bash
+# DO NOT RUN UNTIL ADR-006 LANDS. Listed only so the brief documents the steady state.
+python3 -m cbm.cli run \
+  --repo "$TARGET" \
+  --goal "H2.S2 live producer ..." \
+  --mode standard \
+  --backend codex-cli \
+  --allow-live-codex \
+  --codex-model gpt-5.4-mini \
+  --surface-reasoning-effort medium \
+  --skeptic-reasoning-effort high \
+  --codex-surface-mode skill \
+  --codex-skeptic-mode skill \
+  --codex-timeout 600 \
+  --run-id run-h11-h2s2-1
+```
+
+That single-run shape avoids the mixed-run-id caveat and matches `H2-PLAN.md:144-146` ("Single `cbm run` invocation producing both `surface-map.json` and `skeptic-review-surface-map.md`"). The interim split above is a temporary deviation that must be removed once ADR-006 lands.
 
 Stop-and-surface mid-dispatch if any of the following fires:
 
@@ -201,7 +262,7 @@ Stop-and-surface mid-dispatch if any of the following fires:
 
 ### Phase 3 — Validate the packet at absolute paths
 
-All artifact paths in validation commands MUST be absolute (re H1.S3 VERIFY.md:15 failure mode):
+All artifact paths in validation commands MUST be absolute (re H1.S3 VERIFY.md:15 failure mode). Substitute `/Users/rookslog/Development/cbm` with the absolute CBM-repo path on the executing host:
 
 ```bash
 PACKET=/Users/rookslog/Development/cbm/.planning/benchmarks/<run-date>-h11-h2s2
@@ -218,25 +279,36 @@ python3 -m cbm.cli validate           "$PACKET/handoff.md"                      
 python3 -m cbm.cli verify-citations   "$PACKET/handoff.md"                      --repo "$TARGET"
 ```
 
+Under the interim split shape, the packet may carry two `run-manifest.json` files (one per run). Validate each:
+
+```bash
+python3 -m cbm.cli validate           "$PACKET/.research/run-h11-h2s2-1/run-manifest.json" --repo "$TARGET"
+python3 -m cbm.cli validate           "$PACKET/.research/run-h11-h2s2-2/run-manifest.json" --repo "$TARGET"
+```
+
 Each command must exit 0. Record exit codes, surface counts, and citation counts in `RESULT.md` and `VERIFICATION.md`.
 
 ### Phase 4 — Preserve `.research/` tree
 
-Confirm `$PACKET/.research/run-h11-h2s2-1/` contains `logs/`, `codex_outputs/`, and the per-step ledgers and manifests listed in H2-BENCHMARK-PACKET-SKELETON. If the runtime wrote `.research/` outside the packet, copy it in. The packet is **not complete** until the tree is in place (H2-PREFLIGHT Concern 9).
+Under the interim two-run split, confirm `$PACKET/.research/` contains **both** `run-h11-h2s2-1/` and `run-h11-h2s2-2/` subtrees, each with its own `logs/`, `codex_outputs/`, per-step ledgers, and manifests as listed in H2-BENCHMARK-PACKET-SKELETON. If the runtime wrote `.research/` outside the packet, copy both subtrees in. The packet is **not complete** until both trees are preserved (H2-PREFLIGHT Concern 9).
+
+Under the future single-cbm-run shape (post-ADR-006), only `.research/run-h11-h2s2-1/` would exist; the skeleton's expected-path block at `H2-BENCHMARK-PACKET-SKELETON.md:26` describes that shape and is the steady state.
 
 ### Phase 5 — Write `RESULT.md` and `handoff.md`
 
-`RESULT.md` mirrors the shape of `.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/RESULT.md` and `.planning/benchmarks/2026-05-07-mcp-git-h1s2b-skeptic/RESULT.md` combined (since H2.S2 produces both in one packet). It records:
+`RESULT.md` mirrors the shape of `.planning/benchmarks/2026-05-02-mcp-git-surface-mapper-h1s1/RESULT.md` and `.planning/benchmarks/2026-05-07-mcp-git-h1s2b-skeptic/RESULT.md` combined (since H2.S2 produces both producers' artifacts in one packet, even if the dispatch shape is two `cbm run`s). It records:
 
 - Target (`python-hyper/h11@62c5068c`, scope, LOC, license).
-- Commands and run-id (`run-h11-h2s2-1`).
+- Commands and run-ids (`run-h11-h2s2-1` for Surface, `run-h11-h2s2-2` for Skeptic under the interim split; collapsed to a single id under the post-ADR-006 single-run shape).
+- Dispatch shape declaration: explicitly state whether this run used the **interim split** (issue #23) or the **single-run** form, with a one-line citation of which CLI flags were used. Future H2.S3 reviewers must be able to read this from `RESULT.md` without re-deriving from manifests.
 - Surface summary (authority count, edge count, register mix, unknown-edge count per §10).
 - Skeptic outcome (challenge IDs and titles, or schema-carried no-challenge note).
 - Validation command outputs (exit codes, citation counts).
 - H2.A4 diff fields from H2-PREFLIGHT Concern 8 (skill SHAs, backend version, target shape, surface depth, claim/challenge density, citation success rate, runtime cost).
+- **Mixed-run-id documentation** (when the interim split is used) — record the H1 LINEAGE caveat 3 re-emergence per `H2-PLAN.md:172-173`. State which ledger entries carry which run-id, why the split was used (issue #23), and the expected re-convergence path.
 - Boundary: H2.S2 evidence only; no H2 completion claim; no pass-claim checkpoint requested.
 
-`handoff.md` is the per-run handoff produced by `cbm-handoff@0.1` from the H2.S2 run. It is preserved as a source-stage artifact for H2.S3 (which produces its own `HANDOFF.md` for the pass-claim packet). It validates against `schemas/handoff.schema.json` and declares `recommended_next_action_kind: prepare_pass_claim_review` (the cross-vendor reviewer is dispatched in H2.S3, not H2.S2).
+`handoff.md` is the per-run handoff produced by `cbm-handoff@0.1`. Under the interim split, each run produces its own per-run handoff; the H2.S2 packet's promoted `handoff.md` is the Run 2 (Skeptic) handoff because it consumes the Run 1 surface and carries the final claim contestation state. The Run 1 (Surface) handoff is preserved at `$PACKET/.research/run-h11-h2s2-1/handoff.md` as source-stage evidence. Both handoffs validate against `schemas/handoff.schema.json`. The promoted `handoff.md` declares `recommended_next_action_kind: prepare_pass_claim_review` (the cross-vendor reviewer is dispatched in H2.S3, not H2.S2).
 
 ### Phase 6 — H2.A4 diff record discipline
 
@@ -244,31 +316,39 @@ Record the H2-vs-H1 diff fields in `.planning/STATE.md` per H2-PREFLIGHT Concern
 
 ## Authority-Doc Updates
 
-After the packet is complete and validated:
+After the packet is complete and validated.
+
+**Vocabulary**: the two status words `live evidence produced` and `completed` reference **different things** in this brief, and the authority docs must use them consistently:
+
+- **work-slice status** (used in Phase 02 `PLAN.md`): tracks whether this `/goal`'s deliverables exist. H2.S2's work-slice is **completed** the moment the H2.S2 packet validates and `cbm loop-status --scope broad-goal --work-category runtime-producer` returns `status: ok`.
+- **horizon-stage status** (used in `HORIZONS.md`): tracks whether the horizon's acceptance criteria are met. H2.S2 advances the horizon to `live evidence produced` once this `/goal` completes, but the horizon-stage cannot itself reach `complete` until H2.S3 lands its pass-claim checkpoint (per H2.A5 / ADR-005). The H2 horizon is **not** complete until H2.S3.
+
+The same fact (this `/goal`'s outcome) gets two different status verbs in two different documents because they track different things. Apply the verb that matches each doc's role; do not back-propagate one doc's verb into the other.
 
 ### `.planning/CURRENT-PLAN.md`
 
-- Update Active Recovery Sequence item 27 (the H2.S2 item authored at H2.S1 close) to "completed: H2.S2 packet at `<commit-hash>` and packet path `<absolute path>`".
-- Add item 28: "Author `GOAL-H2S3-HANDOFF-AND-CHECKPOINT.md` against H2.S2 evidence."
+- Update the Active Recovery Sequence item that references H2.S2 (item 27 today per `.planning/CURRENT-PLAN.md:61` — confirm before editing; the item number may have shifted if the brief is dispatched after later /goals reorganize the sequence) to "completed: H2.S2 packet at `<commit-hash>` and packet path `<absolute path>`". This is **work-slice status**.
+- Add a new item for the next /goal: "Author `GOAL-H2S3-HANDOFF-AND-CHECKPOINT.md` against H2.S2 evidence."
 - Update `Next /goal Track` to reference H2.S3 (validated handoff + cross-vendor pass-claim checkpoint).
-- Keep `Current horizon: H2` and `Current stage: H2.S2` until completion; then advance to H2.S3.
+- Keep `Current horizon: H2` and `Current stage: H2.S2` until completion; then advance `Current stage` to H2.S3.
 
 ### `.planning/HORIZONS.md`
 
-- H2.S1 may now be marked `complete` (post-H2.S2 loop-status pass on `broad-goal`).
-- H2.S2 status becomes `current; live evidence produced` (do NOT mark H2.S2 complete until loop-status broad-goal passes on this commit).
-- Do **not** mark H2 complete.
+- H2.S1 may now be marked `complete` (post-H2.S2 loop-status pass on `broad-goal` satisfies the H2.S1 brief's completion condition that was outstanding).
+- H2.S2 horizon-stage status becomes `live evidence produced; horizon-completion pending H2.S3`. Do **not** mark the H2.S2 horizon-stage `complete` until H2.S3 lands the pass-claim checkpoint per H2.A5 / ADR-005.
+- Do **not** mark the H2 horizon complete.
 
 ### `.planning/STATE.md`
 
-- Add Phase 02 Recent Checkpoints entry for the H2.S2 commit hash.
+- Add a Phase 02 Recent Checkpoints entry for the H2.S2 commit hash.
 - Replace the H2.S1 verification footer's "expected status" templated placeholders with the actual H2.S2 post-commit `loop-status` JSON shape per the H2.S1 brief's two-commit pattern.
 - Append the H2.A4 diff fields from H2-PREFLIGHT Concern 8.
 - Update `pending next work` to reference H2.S3.
+- If the interim split shape was used (issue #23), append a short note documenting the dispatch deviation from `H2-PLAN.md:144-146` and the H1 caveat 3 re-emergence.
 
 ### Phase 02 files (`PLAN.md`, `SUMMARY.md`, `VERIFICATION.md`)
 
-- `PLAN.md`: bump `Last updated`. Move H2.S2 track to "completed" with packet pointer.
+- `PLAN.md`: bump `Last updated`. Move the H2.S2 track to **work-slice status** `completed` with the packet pointer. **Do not** add a horizon-completion claim here; that is `HORIZONS.md`'s scope.
 - `SUMMARY.md`: orienting paragraph + factual state list updated to reflect H2.S2 evidence produced. Never overclaim. Bump `Last updated`.
 - `VERIFICATION.md`: append the H2.S2 verification record (commands run, exit codes, test counts, loop-status outcomes). Bump `Last updated`.
 
@@ -371,9 +451,10 @@ Do **not** add tests just to increase test count.
 
 H2.S2 is complete when:
 
-- The H2.S2 packet at `.planning/benchmarks/<run-date>-h11-h2s2/` matches the artifact-contracts table in `H2-BENCHMARK-PACKET-SKELETON.md` exactly.
+- The H2.S2 packet at `.planning/benchmarks/<run-date>-h11-h2s2/` matches the artifact-contracts table in `H2-BENCHMARK-PACKET-SKELETON.md`. Under the interim split shape (issue #23) the packet's `.research/` carries `run-h11-h2s2-1/` and `run-h11-h2s2-2/`; under the future single-cbm-run shape the `.research/` carries `run-h11-h2s2-1/` only.
 - Every artifact validates: `cbm validate`, `cbm verify-citations`, `cbm check-evidence` exit 0 at absolute paths against the h11 target checkout.
-- The `.research/run-h11-h2s2-1/` subtree is preserved in the packet (H2-PREFLIGHT Concern 9 gate).
+- Under the interim split shape, both per-run `run-manifest.json` files validate; under the single-cbm-run shape, the one `run-manifest.json` validates.
+- The `.research/` subtree(s) for the run(s) used are preserved in the packet (H2-PREFLIGHT Concern 9 gate).
 - `surface-map.json` is non-baseline (`produced_by: surface-mapper@1.2`).
 - `skeptic-review-surface-map.md` is the promoted final Skeptic markdown (not a smoke-anchor exploratory version).
 - The H2.A4 diff fields per H2-PREFLIGHT Concern 8 are captured in `.planning/STATE.md` from the H2.S2 `run-manifest.json`.
@@ -398,6 +479,7 @@ Stop and surface to the user if:
 - The agent is tempted to request a cross-vendor pass-claim checkpoint in this `/goal` (that is H2.S3).
 - The agent is tempted to mark H2 complete, claim repeatability proven, or claim Phase B+.
 - The agent is tempted to bypass `--codex-timeout 600` by raising it without root-causing the abort.
+- The agent is tempted to "fix" the interim two-cbm-run split inline by adding per-producer reasoning-effort flags to `cbm/cli.py` directly without an ADR. That code change is tracked at issue #23 / ADR-006 and is **out of H2.S2 scope**; landing it inside this `/goal` would conflate H2.S2 with architectural redesign and break the per-slice horizon discipline.
 - `cbm loop-status --scope broad-goal` fails post-commit.
 - The full test suite fails outside the H2.S2 blast radius.
 - The agent thinks `VISION.md` or `RUNTIME-CONSTITUTION.md` should be rewritten.
