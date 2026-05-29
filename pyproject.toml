@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,10 @@ name = "cbm-kit"
 version = "0.1.0"
 description = "Codebase Mapping and Intervention Planning MVP kernel"
 readme = "README.md"
-license = { text = "Apache-2.0" }
+# PEP 639 SPDX form. setuptools 77.0.3+ resolves this; the `License :: OSI Approved :: ...`
+# classifier is intentionally omitted to avoid the SPDX-vs-classifier conflict twine warns about.
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [
   { name = "Logan Rooks" },
@@ -16,7 +19,6 @@ keywords = ["codebase-mapping", "agentic", "code-analysis", "hermeneutics", "cod
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",

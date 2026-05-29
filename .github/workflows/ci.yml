@@ -5,10 +5,12 @@ on:
   push:
     branches: [main]
 
-# Cancel in-progress runs of this workflow for the same ref when a newer commit lands.
+# Cancel in-progress PR runs when a newer commit lands; preserve main-push runs
+# so the green check on a real merge SHA survives (matters once required status
+# checks are wired into branch protection).
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -17,6 +19,7 @@ jobs:
   test:
     name: test (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -44,6 +47,7 @@ jobs:
   lint:
     name: lint (ruff)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,6 +71,7 @@ jobs:
   build:
     name: build + import smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,8 +83,8 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
-      - name: Install build
-        run: pip install "build>=1.0"
+      - name: Install build + twine
+        run: pip install "build>=1.0" "twine>=4"
 
       - name: Build sdist + wheel
         run: python -m build
@@ -87,17 +92,45 @@ jobs:
       - name: List artifacts
         run: ls -la dist/
 
+      - name: Twine metadata check
+        run: twine check dist/*
+
       - name: Install wheel into a clean venv
         run: |
           python -m venv /tmp/smoke-venv
           /tmp/smoke-venv/bin/pip install --upgrade pip
           /tmp/smoke-venv/bin/pip install dist/*.whl
 
-      - name: Smoke-test installed CLI
+      - name: Smoke-test installed CLI + package-data globs
+        # Verifies the wheel ships every declared package-data root (not just
+        # loop_status_config.json). A typo in pyproject.toml's [tool.setuptools.package-data]
+        # would otherwise produce a wheel that goes green here but fails in
+        # production at the first `cbm validate` / `cbm consult` / skill-load call.
+        # Deliberately does NOT run `cbm loop-status --scope broad-goal` — that
+        # is a planning-state discipline gate, not an installability proof, and
+        # would couple build-job pass/fail to in-flight review session state.
         run: |
           /tmp/smoke-venv/bin/python -m cbm --help
           /tmp/smoke-venv/bin/cbm --help
-          /tmp/smoke-venv/bin/cbm loop-status --scope broad-goal
+          /tmp/smoke-venv/bin/python -c "
+          from importlib.resources import files
+          root = files('cbm')
+          assert (root / 'loop_status_config.json').is_file(), 'loop_status_config.json missing from wheel'
+          assert any(p.suffix == '.md' for p in (root / 'runtime_skills').iterdir()), 'runtime_skills/*.md missing from wheel'
+          assert any(p.name.endswith('.schema.json') for p in (root / 'schemas').iterdir()), 'schemas/*.schema.json missing from wheel'
+          assert any(p.suffix == '.json' for p in (root / 'goal_packs').iterdir()), 'goal_packs/*.json missing from wheel'
+          assert any(p.suffix == '.json' for p in (root / 'project_packs').iterdir()), 'project_packs/*.json missing from wheel'
+          print('package-data globs all resolve in installed wheel')
+          "
+
+      - name: Install sdist into a separate clean venv
+        # Sdist install path is independent of the wheel path and can break on
+        # MANIFEST.in / package-data issues that the wheel path masks.
+        run: |
+          python -m venv /tmp/sdist-venv
+          /tmp/sdist-venv/bin/pip install --upgrade pip
+          /tmp/sdist-venv/bin/pip install dist/*.tar.gz
+          /tmp/sdist-venv/bin/cbm --help
 
       - name: Upload built artifacts
         uses: actions/upload-artifact@v4
