@@ -99,14 +99,21 @@ H2.A5: A non-current-model cross-vendor checkpoint accepts the H2 pass claim
        .planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/, so
        the selector returns it and the gate is green. The moment H2.S3
        writes its own CHECKPOINT.md with scope: pass-claim (which
-       `cbm checkpoint --scope pass-claim` does as part of packet
-       creation), the selector immediately switches to the H2.S3 file
-       because it has a newer mtime — the H1 fallback is no longer
-       reachable via the selector. The gate then fails with
-       missing_reviewer_model_id (cli.py:5795-5801) and
+       `cbm checkpoint --scope pass-claim --reviewer <id>` does as
+       part of packet creation — the --reviewer flag is required at
+       arg-validation time per cli.py:5700-5706 and writes
+       reviewer_model_id into CHECKPOINT.md per cli.py:5766; the
+       no-reviewer form returns 1 before creating any files), the
+       selector immediately switches to the H2.S3 file because it
+       has a newer mtime — the H1 fallback is no longer reachable
+       via the selector. The gate then fails with
        checkpoint_disposition_not_accepted (cli.py:5828-5848) UNTIL
-       the non-current-model reviewer writes reviewer_model_id +
-       disposition: accept (via the cross-vendor-review runner).
+       the non-current-model reviewer writes disposition: accept
+       (via the cross-vendor-review runner). The
+       missing_reviewer_model_id branch at cli.py:5795-5801 is
+       unreachable in this flow because reviewer_model_id is
+       populated at packet-creation time; the only pre-acceptance
+       issue code emitted is checkpoint_disposition_not_accepted.
 
        The H2.S3 author MUST expect `loop-status --scope pass-claim`
        to be RED between H2.S3 packet commit and reviewer acceptance.
@@ -133,6 +140,11 @@ Artifact arguments MUST be ABSOLUTE paths to the CBM-repo packet path (e.g. `/Us
 ```bash
 PROBE_DIR=/var/tmp/cbm-h2-h11-62c5068
 mkdir -p "$PROBE_DIR"
+# Retry-safe: remove any prior partial/full checkout left by an interrupted
+# dispatch (timeout, manual kill, OOM). git clone fails if the destination
+# directory exists and is non-empty; fresh clone-from-scratch matches H1
+# dispatch hygiene and avoids mixing prior-run state with the new dispatch.
+rm -rf "$PROBE_DIR/h11"
 git clone --filter=blob:none --no-checkout https://github.com/python-hyper/h11.git "$PROBE_DIR/h11"
 git -C "$PROBE_DIR/h11" checkout 62c5068c971579d61fa1b55373390e12f25fd856
 git -C "$PROBE_DIR/h11" rev-parse HEAD
