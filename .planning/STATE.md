@@ -1,7 +1,7 @@
 # CBM Build State
 
 Status: current operational state
-Last updated: 2026-05-17
+Last updated: 2026-05-22
 Supersedes: none
 Superseded by: none
 
@@ -36,7 +36,7 @@ Current product state:
 - one real isolated `skeptic@1.2` pass has run over the H1.S1 Surface Mapper artifact, and the resulting `auth-001` challenge has been accepted as an alternative reading;
 - a non-current-model checkpoint accepted the H1 minimum-useful pass claim; repeatability and full orchestration are not proven;
 - PR #1 (the H1 minimum-useful close merge-vehicle) is merged to `main` as `76db3bc` on 2026-05-16, after extensive review-discovery iterations across Codex, Claude survey, Claude gates at Opus/MAX, Claude opus at Opus/MAX, verify-gates, and final-opus passes; the merged branch contains 14 fix commits addressing F3/F1/S2/W2/W-NEW-1/S-NEW-1/W-OP-1/W-OP-2/S-OP-1/F2/F4/W3/W4 (gates)/W1/W2 (gates)/S-OP-2/S2/S4/S6 (gates)/S3 (gates)/C1/C2/W4/W8/W7/W10/S12/S15/W-OPUS-1/W-OPUS-2/W-OPUS-3/W-OPUS-4 plus the workflow uplift caller-stub + ADR-010 effort_level dial (agentic-ops PR #21 merged and v1 fast-forwarded; CBM caller stub reverted to `agentic-ops@v1` in PR #12 as `bf277dc`); post-H1 P3 cleanup PR #13 merged as `6b5e502` draining gates S1/S5 + verify-gates W5/W6/S11/S13/S14 + opus S-OPUS-1/2/3/4;
-- H2.S1 `/goal` brief drafted at `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` on 2026-05-16; the brief specifies H2.S1 as planning-only with stop-and-surface for user target pick; H2.S2 live producer run and H2.S3 validated handoff are downstream slices, each with their own `/goal`; only H2.S3 carries the ADR-005 cross-model pass-claim checkpoint (H2.S1 and H2.S2 do not make a pass claim, so they use per-slice cross-vendor reviews under the standing review practice rather than the ADR-005 `pass-claim`/`main-merge`/`broad-goal-restart` gate);
+- H2.S1 `/goal` brief drafted at `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` on 2026-05-16; pre-built H2-TARGET-SELECTION.md candidates landed on 2026-05-22 in `0819bcd`; H2.S1 `/goal` executed on 2026-05-22 against the brief, locking H2 target as `python-hyper/h11@62c5068c971579d61fa1b55373390e12f25fd856` (scope `h11/` package excluding `h11/tests/`; 2,568 LOC across 11 source files; MIT) and producing `H2-PLAN.md` (binding plan with concrete A1–A5 and absolute-path verification commands), `H2-BENCHMARK-PACKET-SKELETON.md` (H2.S2 + H2.S3 packet contracts), `H2-PREFLIGHT.md` (concerns 1–9), the locked-pick recording in `H2-TARGET-SELECTION.md`, and expansion of the phase 02 PLAN/SUMMARY/VERIFICATION stubs; H2.S2 live producer run and H2.S3 validated handoff remain downstream slices, each with their own `/goal`; only H2.S3 carries the ADR-005 cross-model pass-claim checkpoint (H2.S1 and H2.S2 do not make a pass claim, so they use per-slice cross-vendor reviews under the standing review practice rather than the ADR-005 `pass-claim`/`main-merge`/`broad-goal-restart` gate);
 - ADR-005 cross-model gate enforcement is now load-bearing on the `pass-claim`, `main-merge`, and `broad-goal-restart` scopes via `SCOPES_REQUIRING_CROSS_MODEL`, with scope-label match enforced both at the selector and at the gate, and ledger writes deferred until BOTH surface AND card validation pass; verified by 14 new regression tests added across the session;
 - current deterministic artifacts must not be treated as proof of nuanced codebase understanding.
 
@@ -53,9 +53,10 @@ Current product state:
 
 ## Phase Status
 
-Phase A is partially implemented as a deterministic foundation.
+Original `docs/roadmap.md` Phase A–F taxonomy:
 
-Phases B-F are not passed. Some deterministic substitutes and later-phase scaffolding exist, but the roadmap acceptance criteria name agentic deliverables and benchmark behavior that have not yet been demonstrated.
+- Phase A is partially implemented as a deterministic foundation.
+- Phases B-F are not passed. Some deterministic substitutes and later-phase scaffolding exist, but the roadmap acceptance criteria name agentic deliverables and benchmark behavior that have not yet been demonstrated.
 
 Important examples:
 
@@ -64,6 +65,11 @@ Important examples:
 - project-type packs exist as scaffolding, not mature Phase E evidence;
 - Claude Code portability is not verified;
 - no external benchmark run proves mapping adequacy.
+
+Implementation phase bundles (`.planning/phases/<NN-slug>/`):
+
+- Phase 01 (`01-first-runtime-producer-evidence/`) — closed. Real runtime Surface Mapper, isolated Skeptic, validated handoff, and accepted non-current-model pass-claim checkpoint exist for MCP `src/git` at `4503e2d12b79`. Phase 01 evidence is preserved as accepted-evidence history; do not edit it for H2 work.
+- Phase 02 (`02-runtime-producer-repeatability/`) — active. H2.S1 deliverables produced on 2026-05-22 with H2 target locked as `python-hyper/h11@62c5068c971579d61fa1b55373390e12f25fd856` (scope `h11/` package excl. tests). H2.S2 (live producer run) and H2.S3 (validated handoff + cross-vendor pass-claim checkpoint) remain pending their own `/goal`s. No H2 live producer evidence yet; no H2 pass-claim acceptance yet.
 
 ## Recent Checkpoints
 
@@ -105,7 +111,9 @@ Important examples:
 - `b66d5d5` `fix: second-order cleanup of verify-gates remediation (W4 floor + W8 deadcode + docs)`
 - `a571ac9` `fix: complete F4 ledger staging + loud config errors + stage anchor` (W-OPUS-1/2/3/4)
 - `76db3bc` `Merge pull request #1 from loganrooks/intervention-goal-recovery` (H1 minimum-useful close, 2026-05-16)
-- pending next work: execute the H2.S1 `/goal` against the brief at `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` to produce H2-TARGET-SELECTION.md (with stop-and-surface for user target pick), H2-PLAN.md, H2-BENCHMARK-PACKET-SKELETON.md, H2-PREFLIGHT.md, and to expand the phase 02 PLAN/SUMMARY/VERIFICATION stubs (which exist as of PR #14) with concrete H2.S1 content. Do NOT start the H2.S2 live Surface Mapper or Skeptic run against the new target until the H2 target is user-confirmed and H2-PLAN.md is filled. Per-slice `/goal` invocation: H2.S1 then H2.S2 then H2.S3, each with its own `token_budget`; the ADR-005 cross-model pass-claim checkpoint applies at H2.S3 only. The CBM caller-stub revert to `agentic-ops@v1` landed in PR #12 as `bf277dc`; the P3 cleanup landed in PR #13 as `6b5e502`.
+- `0819bcd` `docs(h2): pre-build H2 target-selection candidates for H2.S1 /goal` (2026-05-22; H2-TARGET-SELECTION.md pre-built with three pinned-SHA candidates and h11 recommended)
+- H2.S1 plan commit (this commit) — H2.S1 `/goal` executed against the brief at `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md`; H2 target user-confirmed as `python-hyper/h11@62c5068c971579d61fa1b55373390e12f25fd856` (scope `h11/` package excl. tests; 2,568 LOC; MIT); deliverables produced: `H2-PLAN.md`, `H2-BENCHMARK-PACKET-SKELETON.md`, `H2-PREFLIGHT.md`, locked-pick recording in `H2-TARGET-SELECTION.md`, expanded `PLAN.md` / `SUMMARY.md` / `VERIFICATION.md`; authority docs (`CURRENT-PLAN.md`, `HORIZONS.md`, this `STATE.md`, `BUILD-LOG.md`) updated.
+- pending next work: open the H2.S2 `/goal` against a new `GOAL-H2S2-LIVE-RUN.md` authored from the locked target. H2.S2 runs the single-`cbm run` Surface Mapper + Skeptic against `python-hyper/h11@62c5068c971579d61fa1b55373390e12f25fd856` and produces the H2.S2 packet at `.planning/benchmarks/<run-date>-h11-h2s2/`. H2.S3 runs the validated-handoff + cross-vendor pass-claim checkpoint slice in a separate `/goal`. Per-slice `/goal` invocation: H2.S2 then H2.S3, each with its own `token_budget`; the ADR-005 cross-model pass-claim checkpoint applies at H2.S3 only. The CBM caller-stub revert to `agentic-ops@v1` landed in PR #12 as `bf277dc`; the post-H1 P3 cleanup landed in PR #13 as `6b5e502`.
 
 ## Active Architecture Decision
 
@@ -271,6 +279,14 @@ Last known PR #14 third-round review response (no code change; planning-doc only
 Last known PR #14 round-4 CR response (no code change; planning-doc only): CR flagged a contradiction in the round-3 BUILD-LOG entry — line 2092 recorded a direct `loop-status` CLI invocation while line 2094 said "no loop-status run for the iteration". Fix: relabeled the verification section into three explicit categories — "Premise verification (one-shot CLI)" for the loop-status invocation testing Codex's CX-R3-5 claim, "Premise verification (code read)" for the `cbm/cli.py:2391-2404` read testing CX-R3-4, and "Iteration verification suite: not run" with explicit justification and pointer to PR #13's preserved test-suite footer. CR auto-confirmed the fix "cleanly disambiguates premise verification vs iteration verification; nothing else from me on this thread". Single instance, no siblings (`grep -nE 'no (pytest|loop-status) run' BUILD-LOG.md` returned the one CR-flagged line; manual cross-check for similar contradictions returned no other instances).
 
 Last known PR #14 round-5 Codex response (no code change; planning-doc only): Codex caught a sibling instance of CX-R3-5 (stale "pass-claim expected to fail" prediction) in `.planning/phases/02-runtime-producer-repeatability/VERIFICATION.md:18` — my round-3 sweep grep'd over the GOAL doc + CURRENT-PLAN + STATE + HORIZONS but not over the phase 02 stubs I authored in 70fc56a. Sweep-coverage gap. Fix: reworded VERIFICATION.md:18 to mirror the round-3 GOAL-doc:400 wording with `checkpoint_for_loop_scope` cite (`cbm/cli.py:5430-5452`) and the H1 checkpoint path that currently satisfies the gate. Bumped VERIFICATION.md `Last updated:` to 2026-05-17. Broadened sweep covered PLAN.md / SUMMARY.md / VERIFICATION.md as well — only VERIFICATION.md had a sibling instance; PLAN.md and SUMMARY.md were clean. Pre-edit grep counts for the broadened sweep: 1 sibling in phase 02 stubs; post-edit operational counts: 0.
+
+Last known H2.S1 plan production (no code change; planning docs only): H2.S1 `/goal` executed against `.planning/phases/02-runtime-producer-repeatability/GOAL-H2S1-REPEATABILITY-PLAN.md` on 2026-05-22. User confirmed H2 target as `python-hyper/h11@62c5068c971579d61fa1b55373390e12f25fd856` (scope `h11/` package excluding `h11/tests/`; 2,568 LOC across 11 source files; MIT) via the H2.S1 `/goal` stop-and-surface gate. Re-verification probe at `/var/tmp/cbm-h2-target-probes-20260522/h11` ran read-only commands (`git ls-remote`, `git clone --filter=blob:none --no-checkout`, `git checkout`, `git rev-parse`, `git ls-files | grep | xargs wc -l`, `head LICENSE.txt`) and confirmed the SHA is current `HEAD` and `refs/heads/master` of `https://github.com/python-hyper/h11.git`, LOC count `2568 total` matches the pre-built probe at `0819bcd`, and license is MIT. No Surface Mapper, Skeptic, or live producer was invoked against h11. Deliverables produced under `.planning/phases/02-runtime-producer-repeatability/`: new `H2-PLAN.md` (binding plan with concrete A1–A5 and absolute-path verification commands), new `H2-BENCHMARK-PACKET-SKELETON.md` (H2.S2 + H2.S3 packet contracts), new `H2-PREFLIGHT.md` (concerns 1–9), updated `H2-TARGET-SELECTION.md` (locked-pick recording with re-verification probe ledger), and expanded `PLAN.md` / `SUMMARY.md` / `VERIFICATION.md` stubs (metadata preserved). Schemas confirmed unchanged since H1 merge `76db3bc` via `git log 76db3bc..HEAD --oneline -- schemas cbm/schemas` and `git diff --stat 76db3bc..HEAD -- schemas cbm/schemas` (both empty output) — Concern 4 (Schema And Validator Drift) satisfied without migration. H1 budget actuals read from preserved `run-manifest.json`s for Concern 2 (Backend Budget And Cost): H1.S1 surface mapper wall clock 3m50s (gpt-5.4-mini, medium reasoning, --codex-timeout 600); H1.S2b isolated Skeptic wall clock 3m34s (high reasoning, same isolation flags); both used ~36–38% of the 10-minute timeout envelope. Pre-commit verification (this slice): see BUILD-LOG.md H2.S1 slice entry for `TMPDIR=/var/tmp pytest -q` and `git diff --check -- .planning BUILD-LOG.md` outcomes. Post-commit loop-status outputs are recorded with templated placeholders pending audit. The audit-only Commit 2 fills the actuals if they diverge from the placeholder; if they match, Commit 1 stands alone.
+
+Templated placeholder for post-commit `python3 -m cbm.cli loop-status --repo . --scope broad-goal --work-category runtime-producer --json`: expected `status: ok`, no issues, no warnings (matching the H1.S3 broad-goal verification footer).
+
+Templated placeholder for post-commit `python3 -m cbm.cli loop-status --repo . --scope recovery-slice --work-category runtime-producer --json`: expected `status: ok`, no issues, no warnings.
+
+`pass-claim` loop-status is intentionally NOT part of this footer per H2.S1 verification scope (the GOAL doc explicitly removes `--scope pass-claim` from the H2.S1 verification command list). The gate is currently green on the accepted H1 minimum-useful checkpoint at `.planning/reviews/2026-05-07-h1-minimum-useful-checkpoint/` per `checkpoint_for_loop_scope` (`cbm/cli.py:5430-5452`) and carries no H2 progress information until H2.S3 lands its own accepted non-current-model pass-claim checkpoint.
 
 Last known skill package verification: a temp wheel built under `/var/tmp` contained 7 `cbm/runtime_skills/*.md` package entries.
 
