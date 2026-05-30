@@ -104,10 +104,20 @@ Produce a complete H2.S2 benchmark packet matching `H2-BENCHMARK-PACKET-SKELETON
   run-manifest.json
   producer-registry.json
   handoff.md
-  .research/run-h11-h2s2-1/
+  .research/run-h11-h2s2-1/   # Surface run; --codex-skeptic-mode none, so no skeptic-review/
     logs/
     codex_outputs/
     surface-map.json
+    evidence-ledger.jsonl
+    evidence-ledger.jsonl.integrity.json
+    producer-registry.json
+    run-manifest.json
+    handoff.md
+    handoff.json
+  .research/run-h11-h2s2-2/   # Skeptic run; --codex-surface-mode existing imports Run 1 surface
+    logs/
+    codex_outputs/
+    surface-map.json          # byte-for-byte import of Run 1's surface-map.json
     skeptic-review/surface-map.md
     evidence-ledger.jsonl
     evidence-ledger.jsonl.integrity.json
@@ -116,6 +126,8 @@ Produce a complete H2.S2 benchmark packet matching `H2-BENCHMARK-PACKET-SKELETON
     handoff.md
     handoff.json
 ```
+
+The `.research/run-h11-h2s2-1/` subtree above omits `skeptic-review/` because Run 1 launches with `--codex-skeptic-mode none` (see Phase 2 envelope below). Skeptic output lands only under `.research/run-h11-h2s2-2/skeptic-review/surface-map.md`, which is the artifact the post-Run-2 assembly step promotes to the packet root as `skeptic-review-surface-map.md`. Under the future single-`cbm run` form (post-ADR-006), the structure collapses to a single `.research/run-h11-h2s2-1/` subtree carrying both artifacts; the two-subtree shape here is interim.
 
 `<run-date>` is the actual date the packet directory is created (the date of this `/goal` invocation, not 2026-05-29 from this brief's "Date" header).
 
@@ -147,13 +159,19 @@ git ls-remote https://github.com/python-hyper/h11.git | grep 62c5068c971579d61fa
 # expect: 62c5068c971579d61fa1b55373390e12f25fd856	refs/heads/master
 ```
 
-If the SHA is no longer present at HEAD or the LOC count drifts, stop-and-surface to the user. Do **not** silently re-pick.
+If the SHA is no longer present at HEAD or the LOC count drifts, stop-and-surface to the user. Do **not** silently re-pick. The HEAD-pinning here is a **policy gate**, not a technical reachability test: if upstream `master` advances past the pinned SHA, the SHA remains technically reachable via `git fetch origin <sha>` + checkout (git stores commit objects, not just refs), but the brief's no-silent-re-pick rule requires the dispatcher to pause for explicit user re-affirmation before proceeding against a target whose upstream head has moved. The probe encodes that pause; replacing it with a bare reachability check would invert the policy.
 
 Clone the target into the H2.S2 dispatch workspace, distinct from the H2.S1 re-verification probe workspace. The H2.S1 probe used `/var/tmp/cbm-h2-target-probes-20260522/h11`; **do not reuse that path** — it was a date-stamped read-only re-verification workspace and reusing it risks mixing probe state with live producer dispatch. The H2.S2 dispatch workspace uses a SHA-stamped path so the same path resolves across re-invocations:
 
 ```bash
 PROBE_DIR=/var/tmp/cbm-h2-h11-62c5068
 mkdir -p "$PROBE_DIR"
+# Retry-safe: remove any prior partial/full checkout left by an interrupted
+# dispatch (timeout, manual kill, OOM). git clone fails if the destination
+# directory exists and is non-empty; fresh clone-from-scratch matches H1
+# dispatch hygiene and the SHA-stamped workspace policy ("same path resolves
+# across re-invocations" means the WORKSPACE survives, not the checkout).
+rm -rf "$PROBE_DIR/h11"
 git clone --filter=blob:none --no-checkout https://github.com/python-hyper/h11.git "$PROBE_DIR/h11"
 git -C "$PROBE_DIR/h11" checkout 62c5068c971579d61fa1b55373390e12f25fd856
 git -C "$PROBE_DIR/h11" rev-parse HEAD
@@ -164,9 +182,15 @@ git -C "$PROBE_DIR/h11" rev-parse HEAD
 
 **Dispatch shape — two `cbm run` invocations (matches H1 precedent).** H1 acceptance was produced by **two** separate `cbm run` invocations: H1.S1 (`run-mcp-git-surface-mapper-h1s1-6`, Surface at `medium`, no Skeptic) and H1.S2b (`run-mcp-git-h1s2b-skeptic-1`, Skeptic at `high` against an imported surface). H2.S2 mirrors that shape under a single `/goal` because the H2-PREFLIGHT Concern 2 envelope (Surface=`medium`, Skeptic=`high`) cannot be satisfied in a single `cbm run` against the current CLI (`cbm/cli.py:6395`'s single global `--codex-reasoning-effort` is applied to both the Surface step at `cli.py:5264-5279` and the Skeptic step at `cli.py:5309-5324`). The two-run shape is therefore the **precedent-matching** shape, not a deviation. Issue #23 tracks ADR-006 (per-producer reasoning-effort + backend-agnostic effort-mapping abstraction) as a steady-state improvement that would unlock a future single-`cbm run` form. That single-run form is documented at the bottom of this Phase 2 as the post-ADR-006 target, not as a constraint H2.S2 must match today.
 
-**Planning-doc tension to surface.** `H2-PLAN.md:144-145` reads "Single `cbm run` invocation producing both `surface-map.json` and `skeptic-review-surface-map.md` in one packet." That language was authored assuming a CLI that could carry the medium/high envelope in one run; given the current CLI, it is internally inconsistent with the H2-PREFLIGHT Concern 2 envelope at `H2-PREFLIGHT.md:43-44`. H1 never had that single-run shape either. The H2.S2 dispatcher should flag this `H2-PLAN.md ⇄ H2-PREFLIGHT.md` tension to the user as a one-line correction on `H2-PLAN.md` before or during dispatch (e.g., revise L144-145 to "Two-run dispatch matching H1.S1 + H1.S2b until ADR-006 lands; see `GOAL-H2S2-LIVE-RUN.md` Phase 2 for the canonical invocation").
+**Planning-doc tension to surface (do NOT edit H2-PLAN.md inline).** `H2-PLAN.md:144-145` reads "Single `cbm run` invocation producing both `surface-map.json` and `skeptic-review-surface-map.md` in one packet." That language was authored assuming a CLI that could carry the medium/high envelope in one run; given the current CLI, it is internally inconsistent with the H2-PREFLIGHT Concern 2 envelope at `H2-PREFLIGHT.md:43-44`. H1 never had that single-run shape either. The H2.S2 dispatcher MUST flag this `H2-PLAN.md ⇄ H2-PREFLIGHT.md` tension by **(a)** recording the inconsistency in H2.S2 RESULT.md's "Planning-doc tension" section with the suggested correction (revise L144-145 to "Two-run dispatch matching H1.S1 + H1.S2b until ADR-006 lands; see `GOAL-H2S2-LIVE-RUN.md` Phase 2 for the canonical invocation") and **(b)** opening or updating a GitHub issue tracking the H2-PLAN.md L144-145 correction so it lands in a separate post-merge commit. The dispatcher MUST NOT edit `H2-PLAN.md` inline — the non-negotiable scope at the top of this brief forbids modifying locked H2.S1 deliverables, and that prohibition takes precedence over the planning-doc inconsistency. The correction belongs in a follow-up PR after H2.S2 lands.
 
-**Ledger and run-id provenance under the two-run shape.** Run 2's `--codex-surface-mode existing` invokes `command_import_surface_artifact` (`cli.py:4492-4500`), which calls `append_citation_entries` with `run_id = run-h11-h2s2-2`. Run 2's `evidence-ledger.jsonl` therefore already carries every Run 1 surface citation **re-attributed** to Run 2's run-id (alongside the new `claim_challenged` entries from Skeptic). This is the H1 LINEAGE caveat 3 pattern by construction. The H2.S2 packet's promoted `evidence-ledger.jsonl` is Run 2's ledger directly (not a concatenation — concatenating Run 1's ledger with Run 2's would duplicate the same surface citations under two run-ids and break `cbm check-evidence`'s dedup expectations). Run 1's ledger is preserved under `.research/run-h11-h2s2-1/` as source-stage audit evidence so the original-attribution-history is recoverable. The mixed-run-id-by-import-construction story replaces the prior "merged into a single ledger" instruction and is documented in H2.S2 RESULT.md and inherited by H2.S3 LINEAGE.md per the H2-PLAN.md:172-173 expectation.
+**Ledger and run-id provenance under the two-run shape (asymmetric mixed-run-id).** Run 2's `--codex-surface-mode existing` invokes `command_import_surface_artifact` (`cli.py:4492-4500`), which calls `append_citation_entries` with `run_id = paths.run_id = run-h11-h2s2-2`. Run 2's `evidence-ledger.jsonl` therefore carries every Run 1 surface citation **re-attributed** to Run 2's run-id as `citation_introduced` entries.
+
+The Skeptic's `claim_challenged` entries are NOT symmetric to that re-attribution. `apply_runtime_skeptic_challenges` (`cli.py:2604-2660`) writes each `claim_challenged` row with `run_id = data["run_id"]` (`cli.py:2654`), where `data` is the **imported surface payload** — which still carries its original `run_id` field (the Run 1 id `run-h11-h2s2-1`) inside the JSON because `command_import_surface_artifact` writes the imported file byte-for-byte (`cli.py:4490`). So `claim_challenged` rows in Run 2's promoted ledger **retain Run 1's run-id**, not Run 2's.
+
+The promoted ledger is therefore mixed-run-id **by construction**: `citation_introduced` rows carry `run-h11-h2s2-2` (re-attributed by import), `claim_challenged` rows carry `run-h11-h2s2-1` (inherited from imported surface data). This is the H1 LINEAGE caveat 3 pattern in its specific H2-split form, and the H2.S2 RESULT.md "Mixed-run-id documentation" section MUST spell out both halves (citation re-attribution AND challenge inheritance) so the H2.S3 reviewer reading the ledger does not misattribute challenge chronology to Run 2.
+
+The H2.S2 packet's promoted `evidence-ledger.jsonl` is Run 2's ledger directly (not a concatenation — concatenating Run 1's ledger with Run 2's would duplicate the same surface citations under two run-ids and break `cbm check-evidence`'s dedup expectations). Run 1's ledger is preserved under `.research/run-h11-h2s2-1/` as source-stage audit evidence so the original-attribution-history is recoverable. The mixed-run-id-by-import-construction story replaces the prior "merged into a single ledger" instruction and is documented in H2.S2 RESULT.md and inherited by H2.S3 LINEAGE.md per the H2-PLAN.md:172-173 expectation.
 
 Codex envelope (from H2-PREFLIGHT Concern 2):
 
@@ -191,7 +215,14 @@ Run 1 — Surface Mapper at reasoning-effort=`medium`:
 ```bash
 # Substitute /Users/<you>/Development/cbm with the absolute CBM repo path on the executing host.
 CBM_REPO=/Users/rookslog/Development/cbm
-PACKET=$CBM_REPO/.planning/benchmarks/<run-date>-h11-h2s2
+# RUN_DATE = the date the H2.S2 packet directory is created (the date of this
+# /goal invocation). Computed at dispatch time; do NOT leave the literal `<run-date>`
+# placeholder inside this shell block — bash parses `<run-date>` as
+# `< run-date >` (stdin-redirect from `run-date`, stdout-redirect to the next
+# token), which silently corrupts PACKET if the dispatcher copy-pastes
+# without substituting.
+RUN_DATE=$(date -u +%Y-%m-%d)
+PACKET=$CBM_REPO/.planning/benchmarks/${RUN_DATE}-h11-h2s2
 TARGET=/var/tmp/cbm-h2-h11-62c5068/h11
 
 cd "$CBM_REPO"
@@ -337,7 +368,9 @@ Stop-and-surface mid-dispatch if any of the following fires:
 All artifact paths in validation commands MUST be absolute (re H1.S3 VERIFY.md:15 failure mode). Substitute `/Users/rookslog/Development/cbm` with the absolute CBM-repo path on the executing host:
 
 ```bash
-PACKET=/Users/rookslog/Development/cbm/.planning/benchmarks/<run-date>-h11-h2s2
+# RUN_DATE — see Phase 2 note on why `<run-date>` is unsafe inside bash blocks.
+RUN_DATE=$(date -u +%Y-%m-%d)
+PACKET=/Users/rookslog/Development/cbm/.planning/benchmarks/${RUN_DATE}-h11-h2s2
 TARGET=/var/tmp/cbm-h2-h11-62c5068/h11
 
 python3 -m cbm.cli validate           "$PACKET/surface-map.json"                --repo "$TARGET"
@@ -384,7 +417,15 @@ Under the future single-cbm-run shape (post-ADR-006), only `.research/run-h11-h2
 
 ### Phase 6 — H2.A4 diff record discipline
 
-Record the H2-vs-H1 diff fields in `.planning/STATE.md` per H2-PREFLIGHT Concern 8 (skill SHAs vs H1 `356cda1f...` and `1d676f7d...`, backend, target shape, surface depth, claim/challenge density, citation success rate, runtime cost). Read these from the H2.S2 `run-manifest.json` directly — do not rely on H2.S3 to re-derive them.
+Record the H2-vs-H1 diff fields in `.planning/STATE.md` per H2-PREFLIGHT Concern 8 (skill SHAs vs H1 `356cda1f...` and `1d676f7d...`, backend, target shape, surface depth, claim/challenge density, citation success rate, runtime cost).
+
+Under the interim split, these fields are spread across BOTH run-manifests. The packet-root `run-manifest.json` is Run 2's — it carries only `import-surface-artifact` for the surface step (no live Surface Mapper skill manifest, no medium-effort entry, no Run 1 runtime), and the live `skeptic@1.2` skill manifest + `high` effort + Run 2 runtime for the skeptic step. The Surface-side fields live in `$PACKET/.research/run-h11-h2s2-1/run-manifest.json`. Read from BOTH manifests when constructing the H2.A4 record:
+
+- Skeptic skill manifest (path + sha256) + Skeptic effort + Skeptic runtime + per-run backend version → `$PACKET/run-manifest.json` (Run 2)
+- Surface Mapper skill manifest (path + sha256) + Surface effort + Surface runtime → `$PACKET/.research/run-h11-h2s2-1/run-manifest.json` (Run 1)
+- Target shape (LOC, file count) and per-run start/completion timestamps come from each manifest separately
+
+Do not rely on H2.S3 to re-derive them. Under the future single-`cbm run` shape (post-ADR-006), all fields collapse back into a single `run-manifest.json` and the dual-read step is dropped.
 
 ## Authority-Doc Updates
 
@@ -446,7 +487,9 @@ Pre-dispatch loop-status outputs are recorded into `RESULT.md` and the H2.S1 ver
 Post-dispatch (after the packet is written and authority docs are staged):
 
 ```bash
-PACKET=/Users/rookslog/Development/cbm/.planning/benchmarks/<run-date>-h11-h2s2
+# RUN_DATE — see Phase 2 note on why `<run-date>` is unsafe inside bash blocks.
+RUN_DATE=$(date -u +%Y-%m-%d)
+PACKET=/Users/rookslog/Development/cbm/.planning/benchmarks/${RUN_DATE}-h11-h2s2
 TARGET=/var/tmp/cbm-h2-h11-62c5068/h11
 
 python3 -m cbm.cli validate           "$PACKET/surface-map.json"                --repo "$TARGET"
